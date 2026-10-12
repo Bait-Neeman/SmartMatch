@@ -38,7 +38,7 @@ const styleOptions = [
 
 const appearanceOptions = [
   { value: "slim", label: "רזה" },
-  { value: "classic", label: "קלאסי" },
+  { value: "average", label: "ממוצע" },
   { value: "full", label: "מלא" },
   { value: "chubby", label: "שמן" },
 ];

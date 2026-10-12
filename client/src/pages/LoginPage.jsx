@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
   Container,
+  Divider,
   FormControl,
   FormHelperText,
   IconButton,
@@ -415,6 +416,66 @@ export default function LoginPage() {
               }}
             >
               {isSubmitting ? "ממשיכים..." : "התחברות"}
+            </Button>
+          </Box>
+
+          {/* Register option */}
+          <Box sx={{ mt: 4 }}>
+            <Divider
+              sx={{
+                mb: 3,
+                color: "#9CA3AF",
+                fontSize: "0.9rem",
+
+                "&::before, &::after": {
+                  borderColor: "rgba(63, 113, 213, 0.15)",
+                },
+              }}
+            >
+              או
+            </Divider>
+
+            <Typography
+              dir="rtl"
+              sx={{
+                mb: 2,
+                textAlign: "center",
+                color: "#6B7280",
+                fontSize: "1rem",
+              }}
+            >
+              אין לך עדיין חשבון?
+            </Typography>
+
+            <Button
+              component={RouterLink}
+              to="/register"
+              variant="outlined"
+              size="large"
+              fullWidth
+              sx={{
+                py: 1.5,
+                borderRadius: "18px",
+                borderWidth: "2px",
+                borderColor: "rgba(63, 113, 213, 0.3)",
+                backgroundColor: "rgba(255,255,255,0.7)",
+                color: "#3f71d5",
+                fontWeight: 800,
+                fontSize: "1rem",
+                textTransform: "none",
+                transition: "0.35s",
+
+                "&:hover": {
+                  borderWidth: "2px",
+                  borderColor: "#c4a24f",
+                  backgroundColor: "rgba(196, 162, 79, 0.08)",
+                  color: "#315bb0",
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 15px 30px rgba(63, 113, 213, 0.12)",
+                },
+              }}
+            >
+              יצירת חשבון חדש
             </Button>
           </Box>
         </Paper>
