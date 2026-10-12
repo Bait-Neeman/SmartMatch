@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: smartmatch-server
+    runtime: node
+    plan: free
+    branch: main
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/test
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
