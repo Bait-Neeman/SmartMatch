@@ -110,16 +110,6 @@ export default function DashboardPage() {
             <Stack spacing={2}>
               <Typography
                 sx={{
-                  color: "#555",
-                  fontSize: "1.05rem",
-                  lineHeight: 1.7,
-                  fontWeight: 500,
-                }}
-              >
-                {/* במשכרת "השדכן" המיוחדת שלנו, מציאת בן/בת זוג נעשית פשוטה וטבעית. */}
-              </Typography>
-              <Typography
-                sx={{
             color: "#3f71d5",
            fontSize: "1.05rem",
            fontWeight: 500,

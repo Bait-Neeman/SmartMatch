@@ -1,4 +1,5 @@
 ﻿import axios from "axios";
+import { clearSession } from "../utils/session.js";
 
 // Build a robust baseURL:
 // - If VITE_API_URL is provided, ensure it ends with '/api' so requests map to server routes.
@@ -44,10 +45,14 @@ api.interceptors.response.use(
 
     error.message = message;
 
-    if (error?.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
+    // The saved login is no longer valid (expired, or the user was removed): sign out
+    const sentToken = Boolean(error?.config?.headers?.Authorization);
+    if (error?.response?.status === 401 && sentToken) {
+      clearSession();
+
+      if (!["/login", "/register"].includes(window.location.pathname)) {
+        window.location.assign("/login");
+      }
     }
 
     return Promise.reject(error);

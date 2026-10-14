@@ -1,32 +1,27 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import {
+  Alert,
   Box,
   Button,
+  Chip,
   Container,
   FormControl,
-  FormHelperText,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
+  Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { createPreferences } from "../services/preference.service.js";
+import { appearanceOptions, styleOptions } from "../constants/profileOptions.js";
 
-const styleOptions = [
-  { value: "conservative", label: "שמור" },
-  { value: "classic", label: "קלאסי" },
-  { value: "open", label: "פתוח" },
-];
+const numberRule = (message) => ({ pattern: { value: /^[0-9]*$/, message } });
 
-const appearanceOptions = [
-  { value: "slim", label: "רזה" },
-  { value: "average", label: "ממוצע" },
-  { value: "full", label: "מלא" },
-  { value: "chubby", label: "שמן" },
-];
+const fullRow = { gridColumn: "1 / -1" };
 
 export default function PreferencesPage() {
   const navigate = useNavigate();
@@ -55,13 +50,6 @@ export default function PreferencesPage() {
     setApiError("");
     setIsSubmitting(true);
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setApiError("נדרש אימות לפני שמירת העדפות");
-      setIsSubmitting(false);
-      return;
-    }
-
     const payload = {
       ageMin: values.ageMin === "" ? undefined : Number(values.ageMin),
       ageMax: values.ageMax === "" ? undefined : Number(values.ageMax),
@@ -74,14 +62,10 @@ export default function PreferencesPage() {
       financialMax: values.financialMax === "" ? undefined : Number(values.financialMax),
     };
 
-    console.log("Preferences payload:", payload);
-
     try {
-      const response = await createPreferences(payload, token);
-      console.log("Preferences response:", response);
+      await createPreferences(payload);
       navigate("/personal-area");
     } catch (error) {
-      console.error("Preferences error:", error);
       const message = error?.response?.data?.message || error.message || "שגיאה בשמירת העדפות";
       setApiError(message);
     } finally {
@@ -89,181 +73,107 @@ export default function PreferencesPage() {
     }
   };
 
+  const numberField = (name, label, message) => (
+    <Controller
+      name={name}
+      control={control}
+      rules={numberRule(message)}
+      render={({ field }) => (
+        <TextField
+          {...field}
+          label={label}
+          type="number"
+          error={Boolean(errors[name])}
+          helperText={errors[name] ? errors[name].message : ""}
+          fullWidth
+        />
+      )}
+    />
+  );
+
+  const selectField = (name, label, options) => (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <FormControl fullWidth>
+          <InputLabel id={`${name}-label`}>{label}</InputLabel>
+          <Select labelId={`${name}-label`} label={label} {...field}>
+            <MenuItem value="">לא משנה</MenuItem>
+            {options.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      )}
+    />
+  );
+
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        העדפות
-      </Typography>
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "grid", gap: 2 }}>
-        <Controller
-          name="ageMin"
-          control={control}
-          rules={{
-            pattern: { value: /^[0-9]*$/, message: "הזן גיל מינימום תקין" },
-          }}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="גיל מינימום"
-              type="number"
-              error={Boolean(errors.ageMin)}
-              helperText={errors.ageMin ? errors.ageMin.message : ""}
-              fullWidth
-            />
-          )}
-        />
-
-        <Controller
-          name="ageMax"
-          control={control}
-          rules={{
-            pattern: { value: /^[0-9]*$/, message: "הזן גיל מקסימום תקין" },
-          }}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="גיל מקסימום"
-              type="number"
-              error={Boolean(errors.ageMax)}
-              helperText={errors.ageMax ? errors.ageMax.message : ""}
-              fullWidth
-            />
-          )}
-        />
-
-        <Controller
-          name="city"
-          control={control}
-          rules={{ required: "עיר היא שדה חובה" }}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="עיר"
-              error={Boolean(errors.city)}
-              helperText={errors.city ? errors.city.message : ""}
-              fullWidth
-            />
-          )}
-        />
-
-        <Controller
-          name="heightMin"
-          control={control}
-          rules={{
-            pattern: { value: /^[0-9]*$/, message: "הזן גובה מינימום תקין" },
-          }}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="גובה מינימום"
-              type="number"
-              error={Boolean(errors.heightMin)}
-              helperText={errors.heightMin ? errors.heightMin.message : ""}
-              fullWidth
-            />
-          )}
-        />
-
-        <Controller
-          name="heightMax"
-          control={control}
-          rules={{
-            pattern: { value: /^[0-9]*$/, message: "הזן גובה מקסימום תקין" },
-          }}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="גובה מקסימום"
-              type="number"
-              error={Boolean(errors.heightMax)}
-              helperText={errors.heightMax ? errors.heightMax.message : ""}
-              fullWidth
-            />
-          )}
-        />
-
-        <Controller
-          name="style"
-          control={control}
-          render={({ field }) => (
-            <FormControl fullWidth>
-              <InputLabel id="style-label">סגנון</InputLabel>
-              <Select labelId="style-label" label="סגנון" {...field}>
-                <MenuItem value="">לא נבחר</MenuItem>
-                {styleOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-        />
-
-        <Controller
-          name="preferredAppearance"
-          control={control}
-          render={({ field }) => (
-            <FormControl fullWidth>
-              <InputLabel id="appearance-label">מראה חיצוני מועדף</InputLabel>
-              <Select labelId="appearance-label" label="מראה חיצוני מועדף" {...field}>
-                <MenuItem value="">לא נבחר</MenuItem>
-                {appearanceOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-        />
-
-        <Controller
-          name="financialMin"
-          control={control}
-          rules={{
-            pattern: { value: /^[0-9]*$/, message: "הזן סכום כלכלי מינימלי תקין" },
-          }}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="מצב כלכלי מינימום"
-              type="number"
-              error={Boolean(errors.financialMin)}
-              helperText={errors.financialMin ? errors.financialMin.message : ""}
-              fullWidth
-            />
-          )}
-        />
-
-        <Controller
-          name="financialMax"
-          control={control}
-          rules={{
-            pattern: { value: /^[0-9]*$/, message: "הזן סכום כלכלי מקסימלי תקין" },
-          }}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="מצב כלכלי מקסימום"
-              type="number"
-              error={Boolean(errors.financialMax)}
-              helperText={errors.financialMax ? errors.financialMax.message : ""}
-              fullWidth
-            />
-          )}
-        />
-
-        {apiError && (
-          <Typography color="error.main" sx={{ mt: 1 }}>
-            {apiError}
-          </Typography>
-        )}
-
-        <Button type="submit" variant="contained" color="primary" disabled={isSubmitting}>
-          {isSubmitting ? "שולח..." : "שמירת העדפות"}
-        </Button>
+    <Container maxWidth="sm" sx={{ py: { xs: 3, sm: 5 } }}>
+      <Box sx={{ textAlign: "center", mb: 3 }}>
+        <Chip label="שלב 2 מתוך 2" color="primary" variant="outlined" sx={{ fontWeight: 700, mb: 1.5 }} />
+        <Typography variant="h4" component="h1" sx={{ color: "#1f3f95", fontWeight: 800 }}>
+          מה חשוב לך?
+        </Typography>
+        <Typography sx={{ color: "text.secondary", mt: 1 }}>
+          ההעדפות עוזרות לנו להציג לך התאמות מדויקות. כל השדות רשות – שדה שנשאר ריק לא מגביל את החיפוש.
+        </Typography>
       </Box>
+
+      <Paper
+        sx={{
+          p: { xs: 2.5, sm: 4 },
+          borderRadius: "24px",
+          border: "1px solid rgba(63, 113, 213, 0.12)",
+          boxShadow: "0 16px 38px rgba(15, 23, 42, 0.06)",
+        }}
+      >
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}
+        >
+          {numberField("ageMin", "גיל מינימום", "הזן גיל מינימום תקין")}
+          {numberField("ageMax", "גיל מקסימום", "הזן גיל מקסימום תקין")}
+          {numberField("heightMin", 'גובה מינימום (ס"מ)', "הזן גובה מינימום תקין")}
+          {numberField("heightMax", 'גובה מקסימום (ס"מ)', "הזן גובה מקסימום תקין")}
+
+          <Controller
+            name="city"
+            control={control}
+            render={({ field }) => <TextField {...field} label="עיר" fullWidth sx={fullRow} />}
+          />
+
+          {selectField("style", "סגנון", styleOptions)}
+          {selectField("preferredAppearance", "מראה חיצוני מועדף", appearanceOptions)}
+          {numberField("financialMin", "מצב כלכלי מינימום", "הזן סכום כלכלי מינימלי תקין")}
+          {numberField("financialMax", "מצב כלכלי מקסימום", "הזן סכום כלכלי מקסימלי תקין")}
+
+          {apiError && (
+            <Alert severity="error" sx={fullRow}>
+              {apiError}
+            </Alert>
+          )}
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ ...fullRow, mt: 1 }}>
+            <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ flexGrow: 1 }}>
+              {isSubmitting ? "שומר..." : "שמירת העדפות"}
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={isSubmitting}
+              onClick={() => navigate("/personal-area")}
+              sx={{ boxShadow: "none" }}
+            >
+              דילוג – אמלא אחר כך
+            </Button>
+          </Stack>
+        </Box>
+      </Paper>
     </Container>
   );
 }

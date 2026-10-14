@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Controller, useForm } from "react-hook-form";
 import {
   Alert,
@@ -7,7 +7,9 @@ import {
   Button,
   CircularProgress,
   Container,
+  Divider,
   FormControl,
+  FormHelperText,
   InputLabel,
   MenuItem,
   Paper,
@@ -18,6 +20,16 @@ import {
   Typography,
 } from "@mui/material";
 import {
+  Edit,
+  Favorite,
+  Forum,
+  Image as ImageIcon,
+  PersonAdd,
+  PictureAsPdf,
+  Tune,
+  UploadFile,
+} from "@mui/icons-material";
+import {
   createProfile,
   getMyProfile,
   updateProfile,
@@ -27,11 +39,20 @@ import {
   getMyPreferences,
   updatePreferences,
 } from "../services/preference.service.js";
-
-const getServerBaseUrl = () => {
-  const base = import.meta.env.VITE_API_URL || "http://localhost:3000";
-  return base.replace(/\/api\/?$/, "");
-};
+import {
+  getImageFileError,
+  getPdfFileError,
+  IMAGE_ACCEPT,
+  toSafeFileUrl,
+} from "../utils/files.js";
+import {
+  appearanceOptions,
+  ethnicityOptions,
+  genderOptions,
+  labelOf,
+  styleOptions,
+} from "../constants/profileOptions.js";
+import { getSession } from "../utils/session.js";
 
 const toText = (value) => {
   if (value === undefined || value === null) return "";
@@ -49,90 +70,103 @@ const appendIfNotEmpty = (formData, key, value) => {
   }
 };
 
-const normalizeFileUrl = (path) => {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-
-  const baseUrl = getServerBaseUrl();
-
-  if (path.startsWith("/")) {
-    return `${baseUrl}${path}`;
-  }
-
-  if (path.startsWith("uploads/")) {
-    return `${baseUrl}/${path}`;
-  }
-
-  return `${baseUrl}/uploads/${path}`;
+// "20 עד 28", "מ-20", "עד 28" or "" when no limit was set
+// (words, not a dash: a dash between numbers is displayed reversed in right-to-left text)
+const formatRange = (min, max, unit = "") => {
+  const hasMin = min !== undefined && min !== null && min !== "";
+  const hasMax = max !== undefined && max !== null && max !== "";
+  if (hasMin && hasMax) return `${min} עד ${max}${unit}`;
+  if (hasMin) return `מ-${min}${unit}`;
+  if (hasMax) return `עד ${max}${unit}`;
+  return "";
 };
 
-const genderOptions = [
-  { value: "male", label: "זכר" },
-  { value: "female", label: "נקבה" },
-];
+const FORM_SECTIONS = ["profile", "preferences"];
 
-const ethnicityOptions = [
-  { value: "ashkenazi", label: "אשכנזי" },
-  { value: "sephardic", label: "ספרדי" },
-  { value: "yemenite", label: "תימני" },
-  { value: "other", label: "אחר" },
-];
+const cardSx = {
+  p: { xs: 2.5, sm: 3.5 },
+  borderRadius: "24px",
+  border: "1px solid rgba(63, 113, 213, 0.12)",
+  boxShadow: "0 16px 38px rgba(15, 23, 42, 0.06)",
+  bgcolor: "#ffffff",
+};
 
-const styleOptions = [
-  { value: "conservative", label: "שמור" },
-  { value: "classic", label: "קלאסי" },
-  { value: "modern", label: "מודרני" },
-  { value: "open", label: "פתוח" },
-];
+const fullRow = { gridColumn: "1 / -1" };
 
-const appearanceOptions = [
-  { value: "slim", label: "רזה" },
-  { value: "average", label: "ממוצע" },
-  { value: "full", label: "מלא" },
-  { value: "chubby", label: "רחב" },
-];
+function InfoRow({ label, value }) {
+  return (
+    <Box sx={{ display: "flex", gap: 1, py: 0.75, borderBottom: "1px dashed rgba(63, 113, 213, 0.12)" }}>
+      <Typography sx={{ fontWeight: 700, color: "#1f3f95", minWidth: 110 }}>{label}</Typography>
+      <Typography sx={{ color: value ? "text.primary" : "text.disabled", wordBreak: "break-word" }}>
+        {value || "לא צוין"}
+      </Typography>
+    </Box>
+  );
+}
+
+function SectionCard({ title, icon, action, children }) {
+  return (
+    <Paper sx={cardSx}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+        <Box sx={{ color: "primary.main", display: "flex" }}>{icon}</Box>
+        <Typography variant="h6" component="h2" sx={{ fontWeight: 800, color: "#1f3f95", flexGrow: 1 }}>
+          {title}
+        </Typography>
+        {action}
+      </Box>
+      {children}
+    </Paper>
+  );
+}
+
+function SelectField({ field, label, options, error, required = false }) {
+  const id = `${field.name}-label`;
+  return (
+    <FormControl fullWidth required={required} error={Boolean(error)}>
+      <InputLabel id={id}>{label}</InputLabel>
+      <Select labelId={id} label={label} {...field}>
+        {!required && <MenuItem value="">לא נבחר</MenuItem>}
+        {options.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+      {error && <FormHelperText>{error.message}</FormHelperText>}
+    </FormControl>
+  );
+}
 
 export default function PersonalAreaPage() {
   const navigate = useNavigate();
-  const role = localStorage.getItem("role");
-  const token = localStorage.getItem("token");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { token, user, isAdmin } = getSession();
+  const canLoadData = !isAdmin && Boolean(token);
 
   const [profileExists, setProfileExists] = useState(false);
   const [preferencesExists, setPreferencesExists] = useState(false);
   const [profileData, setProfileData] = useState(null);
+  const [preferencesData, setPreferencesData] = useState(null);
 
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isEditingPreferences, setIsEditingPreferences] = useState(false);
+  // The open edit form ("profile" / "preferences"); ?edit=... in the address opens one directly
+  const [openForm, setOpenForm] = useState(() => {
+    const requested = searchParams.get("edit");
+    return FORM_SECTIONS.includes(requested) ? requested : null;
+  });
 
   const [imageFile, setImageFile] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
 
-  const [loadingData, setLoadingData] = useState(true);
-  const [profileSubmitting, setProfileSubmitting] = useState(false);
-  const [preferencesSubmitting, setPreferencesSubmitting] = useState(false);
+  const [loadingData, setLoadingData] = useState(canLoadData);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successOpen, setSuccessOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(!isAdmin && !token ? "יש להתחבר כדי לצפות באזור האישי" : "");
+  const [formError, setFormError] = useState("");
+  const [fileError, setFileError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const storedUserName = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("user"))?.name || "";
-    } catch {
-      return "";
-    }
-  })();
-
-  const displayName = storedUserName || profileData?.name || profileData?.user?.name || "לא צוין";
-
-  const previewButtonSx = {
-    borderColor: '#1f4aac',
-    color: '#1f4aac',
-    '&:hover': { bgcolor: 'rgba(31,63,149,0.05)' },
-    width: 170,
-    minWidth: 170,
-    py: 1,
-    textTransform: 'none',
-  };
+  const profileFormRef = useRef(null);
+  const preferencesFormRef = useRef(null);
 
   const {
     control: profileControl,
@@ -201,6 +235,8 @@ export default function PersonalAreaPage() {
 
   const fillPreferencesForm = useCallback(
     (preferences) => {
+      setPreferencesData(preferences || null);
+
       resetPreferences({
         ageMin: toText(preferences?.ageMin),
         ageMax: toText(preferences?.ageMax),
@@ -216,34 +252,18 @@ export default function PersonalAreaPage() {
     [resetPreferences]
   );
 
-  const loadData = useCallback(async () => {
-    if (role === "admin") {
-      setLoadingData(false);
-      return;
-    }
-
-    if (!token) {
-      setErrorMessage("יש להתחבר כדי לצפות באזור האישי");
-      setLoadingData(false);
-      return;
-    }
-
-    try {
-      setLoadingData(true);
-      setErrorMessage("");
-
-      const [profileResult, preferencesResult] = await Promise.allSettled([
-        getMyProfile(),
-        getMyPreferences(),
-      ]);
-
+  // A 404 means the user hasn't created a profile/preferences yet; any other error is thrown
+  const applyLoadedData = useCallback(
+    ([profileResult, preferencesResult]) => {
       if (profileResult.status === "fulfilled") {
         const profile = profileResult.value?.profile || profileResult.value;
         setProfileExists(true);
         fillProfileForm(profile);
-      } else {
+      } else if (profileResult.reason?.response?.status === 404) {
         setProfileExists(false);
         fillProfileForm(null);
+      } else {
+        throw profileResult.reason;
       }
 
       if (preferencesResult.status === "fulfilled") {
@@ -251,38 +271,87 @@ export default function PersonalAreaPage() {
           preferencesResult.value?.preferences || preferencesResult.value;
         setPreferencesExists(true);
         fillPreferencesForm(preferences);
-      } else {
+      } else if (preferencesResult.reason?.response?.status === 404) {
         setPreferencesExists(false);
         fillPreferencesForm(null);
+      } else {
+        throw preferencesResult.reason;
       }
-    } catch (error) {
-      setErrorMessage(error.message || "אירעה שגיאה בטעינת הנתונים");
-    } finally {
-      setLoadingData(false);
-    }
-  }, [fillPreferencesForm, fillProfileForm, role, token]);
+    },
+    [fillPreferencesForm, fillProfileForm]
+  );
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (!canLoadData) {
+      return undefined;
+    }
+
+    // Ignore the response if the page was closed before it arrived
+    let cancelled = false;
+
+    Promise.allSettled([getMyProfile(), getMyPreferences()])
+      .then((results) => {
+        if (!cancelled) applyLoadedData(results);
+      })
+      .catch((error) => {
+        if (!cancelled) setErrorMessage(error.message || "אירעה שגיאה בטעינת הנתונים");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingData(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyLoadedData, canLoadData]);
+
+  // Bring the form that was just opened into view
+  useEffect(() => {
+    if (loadingData) return;
+    const formRef = openForm === "profile" ? profileFormRef : openForm === "preferences" ? preferencesFormRef : null;
+    formRef?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [openForm, loadingData]);
+
+  const toggleForm = (name) => {
+    setFormError("");
+    setFileError("");
+    setOpenForm((current) => (current === name ? null : name));
+  };
+
+  // Close the form and go back to the top of the page
+  const closeForm = () => {
+    setOpenForm(null);
+    setFormError("");
+    setFileError("");
+    setImageFile(null);
+    setPdfFile(null);
+    if (searchParams.has("edit")) {
+      setSearchParams({}, { replace: true });
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const buildProfileFormData = (data) => {
     const formData = new FormData();
+    // When updating, empty fields are sent too - that is how a value is removed
+    const append = profileExists
+      ? (form, key, value) => form.append(key, value ?? "")
+      : appendIfNotEmpty;
 
-    appendIfNotEmpty(formData, "gender", data.gender);
-    appendIfNotEmpty(formData, "ethnicity", data.ethnicity);
-    appendIfNotEmpty(formData, "age", toNumberOrEmpty(data.age));
-    appendIfNotEmpty(formData, "city", data.city);
-    appendIfNotEmpty(formData, "height", toNumberOrEmpty(data.height));
-    appendIfNotEmpty(formData, "style", data.style);
-    appendIfNotEmpty(formData, "appearance", data.appearance);
-    appendIfNotEmpty(formData, "financialRequirement", data.financialRequirement);
-    appendIfNotEmpty(formData, "financialCapabilities", data.financialCapabilities);
-    appendIfNotEmpty(formData, "financialStatus", toNumberOrEmpty(data.financialStatus));
-    appendIfNotEmpty(formData, "yeshiva", data.yeshiva);
-    appendIfNotEmpty(formData, "seminar", data.seminar);
-    appendIfNotEmpty(formData, "occupation", data.occupation);
-    appendIfNotEmpty(formData, "description", data.description);
+    append(formData, "gender", data.gender);
+    append(formData, "ethnicity", data.ethnicity);
+    append(formData, "age", toNumberOrEmpty(data.age));
+    append(formData, "city", data.city);
+    append(formData, "height", toNumberOrEmpty(data.height));
+    append(formData, "style", data.style);
+    append(formData, "appearance", data.appearance);
+    append(formData, "financialRequirement", data.financialRequirement);
+    append(formData, "financialCapabilities", data.financialCapabilities);
+    append(formData, "financialStatus", toNumberOrEmpty(data.financialStatus));
+    append(formData, "yeshiva", data.yeshiva);
+    append(formData, "seminar", data.seminar);
+    append(formData, "occupation", data.occupation);
+    append(formData, "description", data.description);
 
     if (imageFile) {
       formData.append("image", imageFile);
@@ -295,29 +364,22 @@ export default function PersonalAreaPage() {
     return formData;
   };
 
-  const onUpdateProfile = async (data) => {
+  const onSaveProfile = async (data) => {
     try {
-      setProfileSubmitting(true);
-      setErrorMessage("");
+      setSubmitting(true);
+      setFormError("");
 
       const formData = buildProfileFormData(data);
-
-      const response = profileExists
-        ? await updateProfile(formData)
-        : await createProfile(formData);
-
-      const profile = response?.profile || response;
+      const response = profileExists ? await updateProfile(formData) : await createProfile(formData);
 
       setProfileExists(true);
-      setImageFile(null);
-      setPdfFile(null);
-      fillProfileForm(profile);
-      setIsEditingProfile(false);
-      setSuccessOpen(true);
+      fillProfileForm(response?.profile || response);
+      closeForm();
+      setSuccessMessage("הפרופיל נשמר בהצלחה");
     } catch (error) {
-      setErrorMessage(error.message || "לא הצלחנו לשמור את הפרופיל");
+      setFormError(error.message || "לא הצלחנו לשמור את הפרופיל");
     } finally {
-      setProfileSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -333,339 +395,265 @@ export default function PersonalAreaPage() {
     financialMax: toNumberOrEmpty(data.financialMax),
   });
 
-  const onUpdatePreferences = async (data) => {
+  const onSavePreferences = async (data) => {
     try {
-      setPreferencesSubmitting(true);
-      setErrorMessage("");
+      setSubmitting(true);
+      setFormError("");
 
       const payload = buildPreferencesPayload(data);
-
-      const response = preferencesExists
-        ? await updatePreferences(payload)
-        : await createPreferences(payload);
-
-      const preferences = response?.preferences || response;
+      const response = preferencesExists ? await updatePreferences(payload) : await createPreferences(payload);
 
       setPreferencesExists(true);
-      fillPreferencesForm(preferences);
-      setIsEditingPreferences(false);
-      setSuccessOpen(true);
+      fillPreferencesForm(response?.preferences || response);
+      closeForm();
+      setSuccessMessage("ההעדפות נשמרו בהצלחה");
     } catch (error) {
-      setErrorMessage(error.message || "לא הצלחנו לשמור את ההעדפות");
+      setFormError(error.message || "לא הצלחנו לשמור את ההעדפות");
     } finally {
-      setPreferencesSubmitting(false);
+      setSubmitting(false);
     }
   };
 
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
+
   if (loadingData) {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
         <CircularProgress />
-      </Container>
+      </Box>
     );
   }
 
-  if (role === "admin") {
-    return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          אזור מנהל
-        </Typography>
+  const imageUrl = toSafeFileUrl(profileData?.image);
+  const resumeUrl = toSafeFileUrl(profileData?.resumePdf);
 
-          <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
-          <Button variant="contained" onClick={() => navigate("/admin")}>
-            אזור מנהל
-          </Button>
-
-          <Button variant="contained" onClick={() => navigate("/admin/users")}>
-            כל המשתמשים
-          </Button>
-
-          <Button
-            variant="contained"
-            onClick={() => navigate("/admin/pending-matches")}
-          >
-            הצעות שממתינות לטיפול
-          </Button>
-        </Stack>
-      </Container>
-    );
-  }
+  const formActions = (saveLabel) => (
+    <Box sx={fullRow}>
+      {formError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {formError}
+        </Alert>
+      )}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+        <Button variant="contained" type="submit" disabled={submitting} sx={{ minWidth: 160 }}>
+          {submitting ? "שומר..." : saveLabel}
+        </Button>
+        <Button variant="outlined" onClick={closeForm} disabled={submitting} sx={{ minWidth: 120, boxShadow: "none" }}>
+          ביטול
+        </Button>
+      </Stack>
+    </Box>
+  );
 
   return (
-    <Container
-      maxWidth="md"
-      sx={{
-        py: 4,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-      }}
-    >
-      <Typography
-        variant="h4"
-        component="h1"
-        gutterBottom
-        sx={{ color: "#1f3f95", textAlign: "center", fontWeight: 700 }}
-      >
-        האזור האישי
-      </Typography>
+    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 5 } }}>
+      <Box sx={{ textAlign: "center", mb: 4 }}>
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{ fontWeight: 800, color: "#1f3f95", fontSize: { xs: "1.8rem", sm: "2.2rem" } }}
+        >
+          האזור האישי
+        </Typography>
+        {user?.name && (
+          <Typography sx={{ mt: 1, color: "text.secondary", fontSize: "1.05rem" }}>שלום, {user.name}</Typography>
+        )}
+      </Box>
 
       {errorMessage && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {errorMessage}
         </Alert>
       )}
 
-      <Stack
-        direction="row"
-        spacing={2}
-        sx={{ mb: 3, flexWrap: "wrap", justifyContent: "center", width: "100%" }}
+      <Box
+        sx={{
+          display: "grid",
+          gap: 1.5,
+          mb: 4,
+          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" },
+        }}
       >
         <Button
-          variant="contained"
-          onClick={() => setIsEditingProfile((prev) => !prev)}
-          sx={{
-            bgcolor: "#1f4aac",
-            color: "#f8d25d",
-            '&:hover': { bgcolor: '#163e86' },
-          }}
+          variant={openForm === "profile" ? "outlined" : "contained"}
+          startIcon={profileExists ? <Edit /> : <PersonAdd />}
+          onClick={() => toggleForm("profile")}
         >
           {profileExists ? "עדכון פרופיל" : "יצירת פרופיל"}
         </Button>
-
         <Button
-          variant="contained"
-          onClick={() => setIsEditingPreferences((prev) => !prev)}
-          sx={{
-            bgcolor: "#1f4aac",
-            color: "#f8d25d",
-            '&:hover': { bgcolor: '#163e86' },
-          }}
+          variant={openForm === "preferences" ? "outlined" : "contained"}
+          startIcon={<Tune />}
+          onClick={() => toggleForm("preferences")}
         >
           {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
         </Button>
-
-<Button
-          variant="contained"
-          onClick={() => navigate("/matches")}
-          sx={{
-            bgcolor: "#1f4aac",
-            color: "#f8d25d",
-            '&:hover': { bgcolor: '#163e86' },
-          }}
-        >
+        <Button variant="contained" color="secondary" startIcon={<Favorite />} onClick={() => navigate("/matches")}>
           התאמות
         </Button>
-
-        <Button
-          variant="contained"
-          onClick={() => navigate("/interests")}
-          sx={{
-            bgcolor: "#1f4aac",
-            color: "#f8d25d",
-            '&:hover': { bgcolor: '#163e86' },
-          }}
-        >
+        <Button variant="contained" color="secondary" startIcon={<Forum />} onClick={() => navigate("/interests")}>
           התעניינויות
         </Button>
-      </Stack>
+      </Box>
 
-      <Paper
-        sx={{
-          p: 3,
-          mb: 3,
-          textAlign: "center",
-          bgcolor: "#f8fbff",
-          border: "1px solid rgba(31,63,149,0.12)",
-        }}
-        elevation={2}
-      >
-        <Typography variant="h5" gutterBottom sx={{ textAlign: "center", color: '#1f3f95' }}>
-          הפרופיל שלי
-        </Typography>
+      <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, mb: 4 }}>
+        <SectionCard title="הפרופיל שלי" icon={<Edit />}>
+          {profileExists ? (
+            <>
+              <InfoRow label="מגדר" value={labelOf(genderOptions, profileData?.gender)} />
+              <InfoRow label="גיל" value={toText(profileData?.age)} />
+              <InfoRow label="עיר" value={profileData?.city} />
+              <InfoRow label="גובה" value={profileData?.height ? `${profileData.height} ס"מ` : ""} />
+              <InfoRow label="עדה" value={labelOf(ethnicityOptions, profileData?.ethnicity)} />
+              <InfoRow label="סגנון" value={labelOf(styleOptions, profileData?.style)} />
+              <InfoRow label="מראה" value={labelOf(appearanceOptions, profileData?.appearance)} />
+              {profileData?.yeshiva && <InfoRow label="ישיבה" value={profileData.yeshiva} />}
+              {profileData?.seminar && <InfoRow label="סמינר" value={profileData.seminar} />}
+              {profileData?.occupation && <InfoRow label="עיסוק" value={profileData.occupation} />}
+              {profileData?.description && (
+                <Typography sx={{ mt: 2, color: "text.secondary", wordBreak: "break-word" }}>
+                  {profileData.description}
+                </Typography>
+              )}
+            </>
+          ) : (
+            <Box sx={{ textAlign: "center", py: 2 }}>
+              <Typography sx={{ color: "text.secondary", mb: 2 }}>
+                עדיין לא יצרת פרופיל. בלי פרופיל לא נוכל להציע לך התאמות.
+              </Typography>
+              <Button variant="contained" startIcon={<PersonAdd />} onClick={() => toggleForm("profile")}>
+                יצירת פרופיל
+              </Button>
+            </Box>
+          )}
+        </SectionCard>
 
-        {profileExists ? (
-          <Stack spacing={1} alignItems="center" sx={{ width: '100%', textAlign: 'center', wordBreak: 'break-word' }}>
-            <Typography sx={{ wordBreak: 'break-word' }}>שם: {displayName}</Typography>
-            <Typography>גיל: {profileData?.age || "לא צוין"}</Typography>
-            <Typography>גובה: {profileData?.height || "לא צוין"}</Typography>
-            <Typography>סגנון: {profileData?.style || "לא צוין"}</Typography>
-            <Typography>תיאור: {profileData?.description || "לא צוין"}</Typography>
-          </Stack>
-        ) : (
-          <Typography>עדיין לא נוצר פרופיל.</Typography>
-        )}
-      </Paper>
+        <SectionCard title="ההעדפות שלי" icon={<Tune />}>
+          {preferencesExists ? (
+            <>
+              <InfoRow label="גיל" value={formatRange(preferencesData?.ageMin, preferencesData?.ageMax)} />
+              <InfoRow label="גובה" value={formatRange(preferencesData?.heightMin, preferencesData?.heightMax, ' ס"מ')} />
+              <InfoRow label="עיר" value={preferencesData?.city} />
+              <InfoRow label="סגנון" value={labelOf(styleOptions, preferencesData?.style)} />
+              <InfoRow label="מראה" value={labelOf(appearanceOptions, preferencesData?.preferredAppearance)} />
+              <InfoRow label="מצב כלכלי" value={formatRange(preferencesData?.financialMin, preferencesData?.financialMax)} />
+              <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
+                שדה שלא צוין אינו מגביל את ההתאמות.
+              </Typography>
+            </>
+          ) : (
+            <Box sx={{ textAlign: "center", py: 2 }}>
+              <Typography sx={{ color: "text.secondary", mb: 2 }}>
+                עדיין לא הגדרת העדפות, ולכן יוצגו לך כל ההתאמות האפשריות.
+              </Typography>
+              <Button variant="outlined" startIcon={<Tune />} onClick={() => toggleForm("preferences")}>
+                הגדרת העדפות
+              </Button>
+            </Box>
+          )}
+        </SectionCard>
+      </Box>
 
       {profileExists && (
-        <Paper
-          sx={{
-            p: 3,
-            mb: 3,
-            textAlign: "center",
-            bgcolor: "#f8fbff",
-            border: "1px solid rgba(31,63,149,0.12)",
-          }}
-          elevation={2}
-        >
-          <Typography variant="h5" gutterBottom sx={{ textAlign: "center", color: '#1f3f95' }}>
-            קבצים
-          </Typography>
-
-          <Stack spacing={2} alignItems="center">
-            {profileData?.image ? (
-              <Button
-                variant="outlined"
-                href={normalizeFileUrl(profileData.image)}
-                target="_blank"
-                rel="noreferrer"
-                sx={previewButtonSx}
-              >
-                צפייה בתמונה
-              </Button>
-            ) : (
-              <Typography sx={{ color: '#999' }}>לא הוערה תמונה</Typography>
-            )}
-
-            {profileData?.resumePdf ? (
-              <Button
-                variant="outlined"
-                href={normalizeFileUrl(profileData.resumePdf)}
-                target="_blank"
-                rel="noreferrer"
-                sx={previewButtonSx}
-              >
-                צפייה בקובץ PDF
-              </Button>
-            ) : (
-              <Typography sx={{ color: '#999' }}>לא הועלה קובץ PDF</Typography>
-            )}
-          </Stack>
-        </Paper>
+        <Box sx={{ mb: 4 }}>
+          <SectionCard title="קבצים" icon={<UploadFile />}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              {imageUrl ? (
+                <Button variant="outlined" startIcon={<ImageIcon />} href={imageUrl} target="_blank" rel="noreferrer">
+                  צפייה בתמונה
+                </Button>
+              ) : (
+                <Typography sx={{ color: "text.disabled", display: "flex", alignItems: "center", gap: 1 }}>
+                  <ImageIcon fontSize="small" /> לא הועלתה תמונה
+                </Typography>
+              )}
+              {resumeUrl ? (
+                <Button variant="outlined" startIcon={<PictureAsPdf />} href={resumeUrl} target="_blank" rel="noreferrer">
+                  צפייה בקובץ PDF
+                </Button>
+              ) : (
+                <Typography sx={{ color: "text.disabled", display: "flex", alignItems: "center", gap: 1 }}>
+                  <PictureAsPdf fontSize="small" /> לא הועלה קובץ PDF
+                </Typography>
+              )}
+            </Stack>
+            <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
+              התמונה וקורות החיים גלויים רק לך, למנהל ולמי שיש לך איתו התאמה הדדית.
+            </Typography>
+          </SectionCard>
+        </Box>
       )}
 
-      {isEditingProfile && (
-        <Paper sx={{ p: 3, mb: 4 }} elevation={2}>
-          <Typography variant="h5" gutterBottom>
+      {openForm === "profile" && (
+        <Paper ref={profileFormRef} sx={{ ...cardSx, mb: 4, scrollMarginTop: 88 }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 800, color: "#1f3f95", mb: 3 }}>
             {profileExists ? "עדכון פרופיל" : "יצירת פרופיל"}
           </Typography>
 
           <Box
             component="form"
-            onSubmit={handleProfileSubmit(onUpdateProfile)}
+            onSubmit={handleProfileSubmit(onSaveProfile)}
             noValidate
-            sx={{ display: "grid", gap: 2 }}
+            sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}
           >
             <Controller
               name="gender"
               control={profileControl}
-              render={({ field }) => (
-                <FormControl fullWidth required>
-                  <InputLabel>מין</InputLabel>
-                  <Select label="מין" {...field}>
-                    {genderOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-            />
-
-            <Controller
-              name="ethnicity"
-              control={profileControl}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>עדה</InputLabel>
-                  <Select label="עדה" {...field}>
-                    <MenuItem value="">לא נבחר</MenuItem>
-                    {ethnicityOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+              rules={{ required: "מין הוא שדה חובה" }}
+              render={({ field, fieldState }) => (
+                <SelectField field={field} label="מין" options={genderOptions} error={fieldState.error} required />
               )}
             />
 
             <Controller
               name="age"
               control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label="גיל" type="number" fullWidth />
+              rules={{ required: "גיל הוא שדה חובה" }}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="גיל"
+                  type="number"
+                  required
+                  error={Boolean(fieldState.error)}
+                  helperText={fieldState.error?.message}
+                  fullWidth
+                />
               )}
             />
 
             <Controller
               name="city"
               control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label="עיר" fullWidth />
-              )}
+              render={({ field }) => <TextField {...field} label="עיר" fullWidth />}
             />
 
             <Controller
               name="height"
               control={profileControl}
               render={({ field }) => (
-                <TextField {...field} label="גובה" type="number" fullWidth />
+                <TextField {...field} label='גובה (בס"מ)' type="number" placeholder="לדוגמה 175" fullWidth />
               )}
+            />
+
+            <Controller
+              name="ethnicity"
+              control={profileControl}
+              render={({ field }) => <SelectField field={field} label="עדה" options={ethnicityOptions} />}
             />
 
             <Controller
               name="style"
               control={profileControl}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>סגנון</InputLabel>
-                  <Select label="סגנון" {...field}>
-                    <MenuItem value="">לא נבחר</MenuItem>
-                    {styleOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
+              render={({ field }) => <SelectField field={field} label="סגנון" options={styleOptions} />}
             />
 
             <Controller
               name="appearance"
               control={profileControl}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>מראה</InputLabel>
-                  <Select label="מראה" {...field}>
-                    <MenuItem value="">לא נבחר</MenuItem>
-                    {appearanceOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-            />
-
-            <Controller
-              name="financialRequirement"
-              control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label="דרישה כספית" fullWidth />
-              )}
-            />
-
-            <Controller
-              name="financialCapabilities"
-              control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label="יכולת כספית" fullWidth />
-              )}
+              render={({ field }) => <SelectField field={field} label="מראה" options={appearanceOptions} />}
             />
 
             <Controller
@@ -676,263 +664,184 @@ export default function PersonalAreaPage() {
                   {...field}
                   label="מדד כספי להתאמה"
                   type="number"
+                  helperText="מספר שמשמש להתאמה לפי מצב כלכלי"
                   fullWidth
                 />
               )}
+            />
+
+            <Controller
+              name="financialRequirement"
+              control={profileControl}
+              render={({ field }) => <TextField {...field} label="דרישה כספית" fullWidth />}
+            />
+
+            <Controller
+              name="financialCapabilities"
+              control={profileControl}
+              render={({ field }) => <TextField {...field} label="יכולת כספית" fullWidth />}
             />
 
             <Controller
               name="yeshiva"
               control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label="ישיבה" fullWidth />
-              )}
+              render={({ field }) => <TextField {...field} label="ישיבה" fullWidth />}
             />
 
             <Controller
               name="seminar"
               control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label="סמינר" fullWidth />
-              )}
+              render={({ field }) => <TextField {...field} label="סמינר" fullWidth />}
             />
 
             <Controller
               name="occupation"
               control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label="עיסוק" fullWidth />
-              )}
+              render={({ field }) => <TextField {...field} label="עיסוק" fullWidth />}
             />
 
             <Controller
               name="description"
               control={profileControl}
-              render={({ field }) => (
+              rules={{ maxLength: { value: 1000, message: "התיאור יכול להכיל עד 1000 תווים" } }}
+              render={({ field, fieldState }) => (
                 <TextField
                   {...field}
                   label="תיאור"
                   multiline
                   minRows={3}
+                  error={Boolean(fieldState.error)}
+                  helperText={fieldState.error?.message}
                   fullWidth
+                  sx={fullRow}
                 />
               )}
             />
 
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-              <Button variant="outlined" component="label">
-                העלאת תמונה
+            <Divider sx={fullRow} />
+
+            <Box sx={{ ...fullRow, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+              <Button variant="outlined" component="label" startIcon={<ImageIcon />} sx={{ boxShadow: "none" }}>
+                {imageUrl ? "החלפת תמונה" : "העלאת תמונה"}
                 <input
                   hidden
                   type="file"
-                  accept="image/*"
-                  onChange={(event) =>
-                    setImageFile(event.target.files?.[0] || null)
-                  }
+                  accept={IMAGE_ACCEPT}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    const error = file ? getImageFileError(file) : "";
+                    setFileError(error);
+                    setImageFile(error ? null : file);
+                  }}
                 />
               </Button>
-
-              {imageFile && <Typography>{imageFile.name}</Typography>}
-
-              {profileData?.image && !imageFile && (
-                <Button
-                  variant="outlined"
-                  href={normalizeFileUrl(profileData.image)}
-                  target="_blank"
-                  rel="noreferrer"
-                  sx={previewButtonSx}
-                >
-                  צפייה בתמונה הנוכחית
-                </Button>
-              )}
+              {imageFile && <Typography sx={{ color: "text.secondary" }}>נבחר: {imageFile.name}</Typography>}
             </Box>
 
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-              <Button variant="outlined" component="label">
-                העלאת PDF
+            <Box sx={{ ...fullRow, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+              <Button variant="outlined" component="label" startIcon={<PictureAsPdf />} sx={{ boxShadow: "none" }}>
+                {resumeUrl ? "החלפת קורות חיים" : "העלאת קורות חיים (PDF)"}
                 <input
                   hidden
                   type="file"
                   accept="application/pdf"
-                  onChange={(event) =>
-                    setPdfFile(event.target.files?.[0] || null)
-                  }
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] || null;
+                    const error = file ? getPdfFileError(file) : "";
+                    setFileError(error);
+                    setPdfFile(error ? null : file);
+                  }}
                 />
               </Button>
-
-              {pdfFile && <Typography>{pdfFile.name}</Typography>}
-
-              {profileData?.resumePdf && !pdfFile && (
-                <Button
-                  variant="outlined"
-                  href={normalizeFileUrl(profileData.resumePdf)}
-                  target="_blank"
-                  rel="noreferrer"
-                  sx={previewButtonSx}
-                >
-                  צפייה בקובץ PDF הנוכחי
-                </Button>
-              )}
+              {pdfFile && <Typography sx={{ color: "text.secondary" }}>נבחר: {pdfFile.name}</Typography>}
             </Box>
 
-            <Button
-              variant="contained"
-              type="submit"
-              disabled={profileSubmitting}
-            >
-              {profileSubmitting ? "שומר..." : "שמירת פרופיל"}
-            </Button>
+            {fileError && (
+              <Alert severity="error" sx={fullRow}>
+                {fileError}
+              </Alert>
+            )}
+
+            {formActions("שמירת פרופיל")}
           </Box>
         </Paper>
       )}
 
-      {isEditingPreferences && (
-        <Paper sx={{ p: 3, mb: 4 }} elevation={2}>
-          <Typography variant="h5" gutterBottom>
+      {openForm === "preferences" && (
+        <Paper ref={preferencesFormRef} sx={{ ...cardSx, mb: 4, scrollMarginTop: 88 }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 800, color: "#1f3f95", mb: 1 }}>
             {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
+          </Typography>
+          <Typography sx={{ color: "text.secondary", mb: 3 }}>
+            כל השדות רשות. שדה שנשאר ריק לא מגביל את ההתאמות.
           </Typography>
 
           <Box
             component="form"
-            onSubmit={handlePreferencesSubmit(onUpdatePreferences)}
+            onSubmit={handlePreferencesSubmit(onSavePreferences)}
             noValidate
-            sx={{ display: "grid", gap: 2 }}
+            sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}
           >
             <Controller
               name="ageMin"
               control={preferencesControl}
-              render={({ field }) => (
-                <TextField {...field} label="גיל מינימום" type="number" fullWidth />
-              )}
+              render={({ field }) => <TextField {...field} label="גיל מינימום" type="number" fullWidth />}
             />
-
             <Controller
               name="ageMax"
               control={preferencesControl}
-              render={({ field }) => (
-                <TextField {...field} label="גיל מקסימום" type="number" fullWidth />
-              )}
+              render={({ field }) => <TextField {...field} label="גיל מקסימום" type="number" fullWidth />}
             />
-
-            <Controller
-              name="city"
-              control={preferencesControl}
-              render={({ field }) => (
-                <TextField {...field} label="עיר" fullWidth />
-              )}
-            />
-
             <Controller
               name="heightMin"
               control={preferencesControl}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="גובה מינימום"
-                  type="number"
-                  fullWidth
-                />
-              )}
+              render={({ field }) => <TextField {...field} label='גובה מינימום (ס"מ)' type="number" fullWidth />}
             />
-
             <Controller
               name="heightMax"
               control={preferencesControl}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="גובה מקסימום"
-                  type="number"
-                  fullWidth
-                />
-              )}
+              render={({ field }) => <TextField {...field} label='גובה מקסימום (ס"מ)' type="number" fullWidth />}
             />
-
+            <Controller
+              name="city"
+              control={preferencesControl}
+              render={({ field }) => <TextField {...field} label="עיר" fullWidth />}
+            />
             <Controller
               name="style"
               control={preferencesControl}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>סגנון</InputLabel>
-                  <Select label="סגנון" {...field}>
-                    <MenuItem value="">לא נבחר</MenuItem>
-                    {styleOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
+              render={({ field }) => <SelectField field={field} label="סגנון" options={styleOptions} />}
             />
-
             <Controller
               name="preferredAppearance"
               control={preferencesControl}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>מראה מועדף</InputLabel>
-                  <Select label="מראה מועדף" {...field}>
-                    <MenuItem value="">לא נבחר</MenuItem>
-                    {appearanceOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
+              render={({ field }) => <SelectField field={field} label="מראה מועדף" options={appearanceOptions} />}
             />
-
+            <Box sx={{ display: { xs: "none", sm: "block" } }} />
             <Controller
               name="financialMin"
               control={preferencesControl}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="מדד כספי מינימום"
-                  type="number"
-                  fullWidth
-                />
-              )}
+              render={({ field }) => <TextField {...field} label="מדד כספי מינימום" type="number" fullWidth />}
             />
-
             <Controller
               name="financialMax"
               control={preferencesControl}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="מדד כספי מקסימום"
-                  type="number"
-                  fullWidth
-                />
-              )}
+              render={({ field }) => <TextField {...field} label="מדד כספי מקסימום" type="number" fullWidth />}
             />
 
-            <Button
-              variant="contained"
-              type="submit"
-              disabled={preferencesSubmitting}
-            >
-              {preferencesSubmitting ? "שומר..." : "שמירת העדפות"}
-            </Button>
+            {formActions("שמירת העדפות")}
           </Box>
         </Paper>
       )}
 
       <Snackbar
-        open={successOpen}
+        open={Boolean(successMessage)}
         autoHideDuration={4000}
-        onClose={() => setSuccessOpen(false)}
+        onClose={() => setSuccessMessage("")}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert
-          onClose={() => setSuccessOpen(false)}
-          severity="success"
-          sx={{ width: "100%" }}
-        >
-          נשמר בהצלחה
+        <Alert onClose={() => setSuccessMessage("")} severity="success" sx={{ width: "100%" }}>
+          {successMessage}
         </Alert>
       </Snackbar>
     </Container>

@@ -11,8 +11,7 @@ const AdminPage = () => {
         py: 6,
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        minHeight: "100vh",
+        alignItems: "center",
       }}
     >
       <Paper
@@ -58,7 +57,8 @@ const AdminPage = () => {
               borderRadius: 3,
               fontWeight: 600,
               textTransform: "none",
-              minWidth: 350,
+              width: "100%",
+              maxWidth: 350,
               boxShadow: "0 4px 12px rgba(31,63,149,0.25)",
               transition: "all 0.3s ease",
               "&:hover": {
@@ -83,7 +83,8 @@ const AdminPage = () => {
               borderRadius: 3,
               fontWeight: 600,
               textTransform: "none",
-              minWidth: 350,
+              width: "100%",
+              maxWidth: 350,
               boxShadow: "0 4px 12px rgba(31,63,149,0.25)",
               transition: "all 0.3s ease",
               "&:hover": {

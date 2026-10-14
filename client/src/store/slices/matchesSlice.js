@@ -20,7 +20,11 @@ export const fetchMatches = createAsyncThunk(
       const data = await getMatches();
       return normalizeCandidates(data);
     } catch (error) {
-      return rejectWithValue(error?.message || "לא הצלחנו לטעון התאמות");
+      return rejectWithValue({
+        message: error?.message || "לא הצלחנו לטעון התאמות",
+        // The server answers 404 when the user hasn't created a profile yet
+        needsProfile: error?.response?.status === 404,
+      });
     }
   }
 );
@@ -41,6 +45,7 @@ const initialState = {
   items: [],
   loading: false,
   error: null,
+  needsProfile: false,
 };
 
 const matchesSlice = createSlice({
@@ -52,6 +57,7 @@ const matchesSlice = createSlice({
       .addCase(fetchMatches.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.needsProfile = false;
       })
       .addCase(fetchMatches.fulfilled, (state, action) => {
         state.items = action.payload;
@@ -59,7 +65,9 @@ const matchesSlice = createSlice({
       })
       .addCase(fetchMatches.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || action.error.message;
+        state.items = [];
+        state.error = action.payload?.message || action.error.message;
+        state.needsProfile = Boolean(action.payload?.needsProfile);
       })
       .addCase(sendInterest.fulfilled, (state, action) => {
         const receiverId = normalizeId(action.payload);
@@ -67,15 +75,14 @@ const matchesSlice = createSlice({
           const id = normalizeId(match?._id || match?.id || match?.user?._id || match?.user);
           return id !== receiverId;
         });
-      })
-      .addCase(sendInterest.rejected, (state, action) => {
-        state.error = action.payload || action.error.message;
       });
+    // A failed send is shown on the card itself (MatchCard), not as a page error
   },
 });
 
 export const selectMatches = (state) => state.matches.items;
 export const selectMatchesLoading = (state) => state.matches.loading;
 export const selectMatchesError = (state) => state.matches.error;
+export const selectMatchesNeedsProfile = (state) => state.matches.needsProfile;
 
 export default matchesSlice.reducer;

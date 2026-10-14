@@ -1,14 +1,10 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  Alert,
-  Box,
-  CircularProgress,
-  Tab,
-  Tabs,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, CircularProgress, Container, Tab, Tabs } from "@mui/material";
+import { ArrowForward, Favorite, Inbox, Send } from "@mui/icons-material";
 import InterestCard from "../components/interest/InterestCard.jsx";
+import EmptyState from "../components/common/EmptyState.jsx";
+import PageHeader from "../components/common/PageHeader.jsx";
 import {
   fetchInterests,
   selectIncomingInterests,
@@ -16,6 +12,11 @@ import {
   selectInterestsLoading,
   selectInterestsError,
 } from "../store/slices/interestsSlice.js";
+
+const emptyActions = [
+  { label: "מעבר להתאמות", to: "/matches", icon: <Favorite /> },
+  { label: "חזרה לאזור האישי", to: "/personal-area", variant: "outlined", icon: <ArrowForward /> },
+];
 
 const InterestsPage = () => {
   const [tab, setTab] = useState(0);
@@ -29,59 +30,62 @@ const InterestsPage = () => {
     dispatch(fetchInterests());
   }, [dispatch]);
 
-  if (loading) {
+  const type = tab === 0 ? "incoming" : "outgoing";
+  const interests = tab === 0 ? incoming : outgoing;
+
+  const renderList = () => {
+    if (loading) {
+      return (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (interests.length === 0) {
+      return tab === 0 ? (
+        <EmptyState
+          icon={<Inbox />}
+          title="עדיין לא קיבלת פניות"
+          description="כשמישהו ישלח לך התעניינות, היא תופיע כאן."
+          actions={emptyActions}
+        />
+      ) : (
+        <EmptyState
+          icon={<Send />}
+          title="עדיין לא שלחת פניות"
+          description="אפשר לשלוח התעניינות מתוך דף ההתאמות."
+          actions={emptyActions}
+        />
+      );
+    }
+
     return (
-      <Box sx={{ p: 3 }}>
-        <CircularProgress />
+      <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" } }}>
+        {interests.map((interest) => (
+          <InterestCard key={interest._id || interest.id} interest={interest} type={type} />
+        ))}
       </Box>
     );
-  }
+  };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        התעניינויות
-      </Typography>
+    <Container maxWidth="lg" sx={{ py: { xs: 3, sm: 5 } }}>
+      <PageHeader title="התעניינויות" subtitle="פניות שקיבלת ופניות ששלחת" />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3, maxWidth: 560, mx: "auto" }}>
           {error}
         </Alert>
       )}
 
-      <Tabs value={tab} onChange={(event, newValue) => setTab(newValue)}>
-        <Tab label="פניות שקיבלתי" />
-        <Tab label="פניות ששלחתי" />
+      <Tabs value={tab} onChange={(event, newValue) => setTab(newValue)} centered sx={{ mb: 4 }}>
+        <Tab label={`פניות שקיבלתי (${incoming.length})`} />
+        <Tab label={`פניות ששלחתי (${outgoing.length})`} />
       </Tabs>
 
-      <Box sx={{ mt: 3 }}>
-        {tab === 0 &&
-          (incoming.length === 0 ? (
-            <Typography>אין פניות נכנסות כרגע</Typography>
-          ) : (
-            incoming.map((interest) => (
-              <InterestCard
-                key={interest._id || interest.id}
-                interest={interest}
-                type="incoming"
-              />
-            ))
-          ))}
-
-        {tab === 1 &&
-          (outgoing.length === 0 ? (
-            <Typography>אין פניות יוצאות כרגע</Typography>
-          ) : (
-            outgoing.map((interest) => (
-              <InterestCard
-                key={interest._id || interest.id}
-                interest={interest}
-                type="outgoing"
-              />
-            ))
-          ))}
-      </Box>
-    </Box>
+      {renderList()}
+    </Container>
   );
 };
 

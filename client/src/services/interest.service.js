@@ -34,10 +34,6 @@ export const rejectInterest = async (senderId) => {
 };
 
 export const sendToManager = async (otherUserId) => {
-  const payload = { otherUserId };
-  console.log("interest.service: sendToManager ->", api.defaults.baseURL + "/interest/send-to-manager", payload);
-  const response = await api.post("/interest/send-to-manager", payload);
-  console.log("interest.service: sendToManager response status", response.status);
-
+  const response = await api.post("/interest/send-to-manager", { otherUserId });
   return response.data;
 };
