@@ -1,24 +1,30 @@
 const mongoose = require("mongoose");
+const { hashPassword } = require("../utils/hash");
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, trim: true, maxlength: 100 },
 
     idNumber: {
       type: String,
       unique: true,
       sparse: true,
+      trim: true,
     },
 
     email: {
       type: String,
       unique: true,
       sparse: true,
+      trim: true,
+      lowercase: true,
     },
 
+    // Never returned by queries unless explicitly requested with .select("+password")
     password: {
       type: String,
       required: true,
+      select: false,
     },
 
     role: {
@@ -32,8 +38,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre("save", async function () {
   if (this.isModified("password")) {
-    const bcrypt = require("bcrypt");
-    this.password = await bcrypt.hash(this.password, 12);
+    this.password = await hashPassword(this.password);
   }
 });
 

@@ -108,6 +108,7 @@ The platform was built with a strong focus on:
 ## File Upload
 
 * Multer
+* Cloudinary (images and resumes are stored only in Cloudinary, as private files)
 
 ---
 
@@ -331,10 +332,13 @@ VITE_API_URL=http://localhost:3000
 
 ## Server `.env`
 
+See `server/.env.example` and `server/README.md` for all variables.
+
 ```env
 PORT=3000
 MONGO_URI=your_mongodb_connection
 JWT_SECRET=your_secret_key
+CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
 ```
 
 ---

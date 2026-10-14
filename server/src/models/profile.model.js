@@ -1,32 +1,41 @@
 const mongoose = require("mongoose");
+const { GENDERS, STYLES, APPEARANCES, ETHNICITIES, textField, choiceField } = require("./options");
+
+const heightMessage = "יש להזין גובה בסנטימטרים (100-250)";
 
 const profileSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
 
-    gender: { type: String, enum: ["male", "female"], required: true },
-    age: { type: Number },
-    city: { type: String },
-    height: { type: Number },
+    gender: { ...choiceField(GENDERS, "מגדר"), required: [true, "מגדר הוא שדה חובה"] },
+    age: {
+      type: Number,
+      required: [true, "גיל הוא שדה חובה"],
+      min: [16, "הגיל המינימלי הוא 16"],
+      max: [120, "הגיל שהוזן אינו תקין"],
+    },
+    city: textField(100, "עיר"),
+    height: { type: Number, min: [100, heightMessage], max: [250, heightMessage] },
 
-    style: { type: String, enum: ["conservative", "modern", "open", "classic"] },
-    appearance: { type: String, enum: ["slim", "average", "full", "chubby"] },
-    ethnicity: { type: String, enum: ["ashkenazi", "sephardic", "yemenite", "other"] },
+    style: choiceField(STYLES, "סגנון"),
+    appearance: choiceField(APPEARANCES, "מראה חיצוני"),
+    ethnicity: choiceField(ETHNICITIES, "עדה"),
 
-    description: { type: String },
+    description: textField(1000, "תיאור"),
 
     // Male fields
-    yeshiva: { type: String },
-    financialRequirement: { type: String },
+    yeshiva: textField(100, "ישיבה"),
+    financialRequirement: textField(100, "דרישה כספית"),
 
     // Female fields
-    seminar: { type: String },
-    occupation: { type: String },
-    financialCapabilities: { type: String },
+    seminar: textField(100, "סמינר"),
+    occupation: textField(100, "עיסוק"),
+    financialCapabilities: textField(100, "יכולת כספית"),
 
     // Financial status for matching (numeric scale)
-    financialStatus: { type: Number },
+    financialStatus: { type: Number, min: [0, "המדד הכספי לא יכול להיות שלילי"] },
 
+    // Cloudinary public IDs - the API returns them as signed URLs (see storage.service)
     resumePdf: { type: String },
     image: { type: String },
   },

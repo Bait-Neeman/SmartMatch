@@ -1,13 +1,9 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('MongoDB connected successfully');
-  } catch (error) {
-    console.error('MongoDB connection failed:', error.message);
-    process.exit(1);
-  }
+// Rejects if the database can't be reached, so the server never runs without it.
+const connectDB = async (uri) => {
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+  console.log("MongoDB connected");
 };
 
 module.exports = connectDB;
