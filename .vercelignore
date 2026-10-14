@@ -1,3 +1,6 @@
-# Vercel deploys only the client (project Root Directory: client)
-server
+# Vercel builds only the client (project Root Directory: client), so nothing else is uploaded -
+# not the server, local backups or secrets.
+/*
+!/client
+/client/dist
 .env
