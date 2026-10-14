@@ -10,11 +10,9 @@ export default function ProtectedRoute({ children }) {
 
   // If no token exists, redirect to login
   if (!token) {
-    console.log("No token found. Redirecting to login.");
     return <Navigate to="/login" replace />;
   }
 
   // Token exists, render the protected component
-  console.log("Token found. Rendering protected component.");
   return children;
 }

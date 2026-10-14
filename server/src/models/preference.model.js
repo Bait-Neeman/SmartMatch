@@ -1,23 +1,26 @@
 const mongoose = require("mongoose");
+const { STYLES, APPEARANCES, textField, choiceField } = require("./options");
+
+const rangeField = (label) => ({ type: Number, min: [0, `ערך לא תקין בשדה ${label}`] });
 
 const preferenceSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
 
-    ageMin: { type: Number },
-    ageMax: { type: Number },
+    ageMin: rangeField("גיל מינימלי"),
+    ageMax: rangeField("גיל מקסימלי"),
 
-    city: { type: String },
+    city: textField(100, "עיר"),
 
-    heightMin: { type: Number },
-    heightMax: { type: Number },
+    heightMin: rangeField("גובה מינימלי"),
+    heightMax: rangeField("גובה מקסימלי"),
 
-    style: { type: String, enum: ["conservative", "modern", "open", "classic"] },
+    style: choiceField(STYLES, "סגנון"),
 
-    preferredAppearance: { type: String, enum: ["slim", "average", "full", "chubby"] },
+    preferredAppearance: choiceField(APPEARANCES, "מראה חיצוני"),
 
-    financialMin: { type: Number },
-    financialMax: { type: Number },
+    financialMin: rangeField("מצב כלכלי מינימלי"),
+    financialMax: rangeField("מצב כלכלי מקסימלי"),
   },
   { timestamps: true }
 );

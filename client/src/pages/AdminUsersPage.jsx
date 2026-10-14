@@ -24,28 +24,8 @@ import {
   selectAdminProfileError,
   selectAdminUserProfile,
 } from "../store/slices/adminSlice.js";
-
-const getServerBaseUrl = () => {
-  const base = import.meta.env.VITE_API_URL || "http://localhost:3000";
-  return base.replace(/\/api\/?$/, "");
-};
-
-const normalizeFileUrl = (path) => {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-
-  const baseUrl = getServerBaseUrl();
-
-  if (path.startsWith("/")) {
-    return `${baseUrl}${path}`;
-  }
-
-  if (path.startsWith("uploads/")) {
-    return `${baseUrl}/${path}`;
-  }
-
-  return `${baseUrl}/uploads/${path}`;
-};
+import { toSafeFileUrl } from "../utils/files.js";
+import { appearanceOptions, labelOf, roleLabel, styleOptions } from "../constants/profileOptions.js";
 
 const AdminUsersPage = () => {
   const [open, setOpen] = useState(false);
@@ -140,7 +120,7 @@ const AdminUsersPage = () => {
               }}
               elevation={0}
             >
-              <Stack spacing={2} alignItems="center" sx={{ textAlign: "center" }}>
+              <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
                 <Button
                   variant="text"
                   onClick={() => handleOpenProfile(userItem._id || userItem.id)}
@@ -166,7 +146,7 @@ const AdminUsersPage = () => {
                     <span style={{ fontWeight: 600, color: "#1f3f95" }}>מספר מזהה:</span> {userItem.idNumber || "לא צוין"}
                   </Typography>
                   <Typography sx={{ color: "#666", fontSize: "0.95rem" }}>
-                    <span style={{ fontWeight: 600, color: "#1f3f95" }}>תפקיד:</span> {userItem.role || "לא צוין"}
+                    <span style={{ fontWeight: 600, color: "#1f3f95" }}>תפקיד:</span> {roleLabel(userItem.role) || "לא צוין"}
                   </Typography>
                 </Stack>
               </Stack>
@@ -217,7 +197,7 @@ const AdminUsersPage = () => {
                 <span style={{ fontWeight: 600, color: "#1f3f95" }}>מספר מזהה:</span> {user?.idNumber || "לא צוין"}
               </Typography>
               <Typography sx={{ color: "#666", fontSize: "0.9rem" }}>
-                <span style={{ fontWeight: 600, color: "#1f3f95" }}>תפקיד:</span> {user?.role || "לא צוין"}
+                <span style={{ fontWeight: 600, color: "#1f3f95" }}>תפקיד:</span> {roleLabel(user?.role) || "לא צוין"}
               </Typography>
             </Box>
 
@@ -236,10 +216,10 @@ const AdminUsersPage = () => {
                   <span style={{ fontWeight: 600, color: "#1f3f95" }}>גובה:</span> {profile?.height || "לא צוין"}
                 </Typography>
                 <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>סגנון:</span> {profile?.style || "לא צוין"}
+                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>סגנון:</span> {labelOf(styleOptions, profile?.style) || "לא צוין"}
                 </Typography>
                 <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>מראה:</span> {profile?.appearance || "לא צוין"}
+                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>מראה:</span> {labelOf(appearanceOptions, profile?.appearance) || "לא צוין"}
                 </Typography>
                 <Typography sx={{ color: "#666" }}>
                   <span style={{ fontWeight: 600, color: "#1f3f95" }}>תיאור:</span> {profile?.description || "לא צוין"}
@@ -254,7 +234,7 @@ const AdminUsersPage = () => {
                     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
                       <Box
                         component="img"
-                        src={normalizeFileUrl(profile.image)}
+                        src={toSafeFileUrl(profile.image)}
                         alt="תמונת פרופיל"
                         sx={{
                           width: "100%",
@@ -266,7 +246,7 @@ const AdminUsersPage = () => {
                       />
                       <Button
                         variant="outlined"
-                        href={normalizeFileUrl(profile.image)}
+                        href={toSafeFileUrl(profile.image)}
                         target="_blank"
                         rel="noreferrer"
                         sx={{
@@ -288,7 +268,7 @@ const AdminUsersPage = () => {
                   {profile?.resumePdf && (
                     <Button
                       variant="outlined"
-                      href={normalizeFileUrl(profile.resumePdf)}
+                      href={toSafeFileUrl(profile.resumePdf)}
                       target="_blank"
                       rel="noreferrer"
                       sx={{

@@ -23,28 +23,8 @@ import {
   selectAdminPendingMatchesError,
   selectAdminUserProfile,
 } from "../store/slices/adminSlice.js";
-
-const getServerBaseUrl = () => {
-  const base = import.meta.env.VITE_API_URL || "http://localhost:3000";
-  return base.replace(/\/api\/?$/, "");
-};
-
-const normalizeFileUrl = (path) => {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-
-  const baseUrl = getServerBaseUrl();
-
-  if (path.startsWith("/")) {
-    return `${baseUrl}${path}`;
-  }
-
-  if (path.startsWith("uploads/")) {
-    return `${baseUrl}/${path}`;
-  }
-
-  return `${baseUrl}/uploads/${path}`;
-};
+import { toSafeFileUrl } from "../utils/files.js";
+import { appearanceOptions, labelOf, roleLabel, styleOptions } from "../constants/profileOptions.js";
 
 const AdminPendingMatchesPage = () => {
   const [open, setOpen] = useState(false);
@@ -107,9 +87,15 @@ const AdminPendingMatchesPage = () => {
         </Alert>
       )}
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       {profileLoading && <CircularProgress sx={{ mb: 2 }} />}
 
-      {matches.length === 0 ? (
+      {error ? null : matches.length === 0 ? (
         <Typography>אין הצעות שממתינות לטיפול</Typography>
       ) : (
         matches.map((match) => {
@@ -121,14 +107,14 @@ const AdminPendingMatchesPage = () => {
               <Stack spacing={1}>
                 <Typography variant="h6">הצעה לטיפול</Typography>
 
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Typography>שולח:</Typography>
                   <Button variant="text" onClick={() => handleOpenProfile(senderId)}>
                     {match.sender?.name || "לא צוין"}
                   </Button>
                 </Stack>
 
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Typography>מקבל:</Typography>
                   <Button variant="text" onClick={() => handleOpenProfile(receiverId)}>
                     {match.receiver?.name || "לא צוין"}
@@ -155,20 +141,20 @@ const AdminPendingMatchesPage = () => {
           <Stack spacing={1.5}>
             <Typography variant="h6">{user?.name || "משתמש"}</Typography>
             <Typography>מספר מזהה: {user?.idNumber || "לא צוין"}</Typography>
-            <Typography>תפקיד: {user?.role || "לא צוין"}</Typography>
+            <Typography>תפקיד: {roleLabel(user?.role) || "לא צוין"}</Typography>
 
             <Typography sx={{ mt: 2 }}>גיל: {profile?.age || "לא צוין"}</Typography>
             <Typography>עיר: {profile?.city || "לא צוין"}</Typography>
             <Typography>גובה: {profile?.height || "לא צוין"}</Typography>
-            <Typography>סגנון: {profile?.style || "לא צוין"}</Typography>
-            <Typography>מראה: {profile?.appearance || "לא צוין"}</Typography>
+            <Typography>סגנון: {labelOf(styleOptions, profile?.style) || "לא צוין"}</Typography>
+            <Typography>מראה: {labelOf(appearanceOptions, profile?.appearance) || "לא צוין"}</Typography>
             <Typography>תיאור: {profile?.description || "לא צוין"}</Typography>
 
             {profile?.image && (
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
                 <Box
                   component="img"
-                  src={normalizeFileUrl(profile.image)}
+                  src={toSafeFileUrl(profile.image)}
                   alt="תמונת פרופיל"
                   sx={{
                     width: "100%",
@@ -180,7 +166,7 @@ const AdminPendingMatchesPage = () => {
                 />
                 <Button
                   variant="outlined"
-                  href={normalizeFileUrl(profile.image)}
+                  href={toSafeFileUrl(profile.image)}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -192,7 +178,7 @@ const AdminPendingMatchesPage = () => {
             {profile?.resumePdf && (
               <Button
                 variant="outlined"
-                href={normalizeFileUrl(profile.resumePdf)}
+                href={toSafeFileUrl(profile.resumePdf)}
                 target="_blank"
                 rel="noreferrer"
               >

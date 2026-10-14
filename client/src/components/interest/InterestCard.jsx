@@ -1,175 +1,139 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import {
-  Alert,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Stack,
-  Typography,
-  Snackbar,
-} from "@mui/material";
+import { Alert, Avatar, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
+import { Check, Close, SupervisorAccount } from "@mui/icons-material";
 import {
   acceptInterest,
   rejectInterest,
   sendToManager,
 } from "../../store/slices/interestsSlice.js";
 
-const getStatusLabel = (status) => {
-  if (status === "pending") return "ממתין";
-  if (status === "accepted") return "אושר";
-  if (status === "rejected") return "נדחה";
-  return "לא ידוע";
+// unwrap() rejects with the thunk's rejectWithValue payload - the server's message
+const getErrorMessage = (err) =>
+  (typeof err === "string" && err) || err?.message || "לא הצלחנו לבצע את הפעולה";
+
+const STATUSES = {
+  pending: { label: "ממתין לתשובה", color: "warning" },
+  accepted: { label: "אושר", color: "success" },
+  rejected: { label: "נדחה", color: "error" },
 };
 
 const InterestCard = ({ interest, type }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [snackOpen, setSnackOpen] = useState(false);
-  const [alreadySentOpen, setAlreadySentOpen] = useState(false);
+  const [message, setMessage] = useState({ severity: "success", text: "" });
 
   const otherUser = type === "incoming" ? interest?.sender : interest?.receiver;
   const otherUserId = otherUser?._id || otherUser?.id;
+  const status = STATUSES[interest?.status] || { label: "לא ידוע", color: "default" };
 
-  const handleAccept = async () => {
+  // Each side approves separately; the match reaches the manager once both have approved
+  const iApproved = type === "incoming" ? interest?.receiverApprovedToManager : interest?.senderApprovedToManager;
+  const otherApproved = type === "incoming" ? interest?.senderApprovedToManager : interest?.receiverApprovedToManager;
+
+  // successText is optional: the card's own status often says it already
+  const run = async (action, successText = "") => {
     try {
       setLoading(true);
-      setMessage("");
-
-      await dispatch(acceptInterest(otherUserId)).unwrap();
-      setMessage("הפעולה בוצעה בהצלחה");
+      setMessage({ severity: "success", text: "" });
+      await dispatch(action).unwrap();
+      setMessage({ severity: "success", text: successText });
     } catch (err) {
-      console.error("Interest action failed:", err);
-      setMessage(err?.message || "לא הצלחנו לבצע את הפעולה");
+      setMessage({ severity: "error", text: getErrorMessage(err) });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleReject = async () => {
-    try {
-      setLoading(true);
-      setMessage("");
-
-      await dispatch(rejectInterest(otherUserId)).unwrap();
-      setMessage("הפעולה בוצעה בהצלחה");
-    } catch (err) {
-      console.error("Interest action failed:", err);
-      setMessage(err?.message || "לא הצלחנו לבצע את הפעולה");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendToManager = async () => {
-    try {
-      setLoading(true);
-      setMessage("");
-
-      const alreadySent = !!(
-        interest?.senderApprovedToManager || interest?.receiverApprovedToManager
+  const renderManagerStep = () => {
+    if (iApproved && otherApproved) {
+      return (
+        <Alert severity="success" icon={<SupervisorAccount />} sx={{ width: "100%" }}>
+          שני הצדדים אישרו – ההצעה הועברה לטיפול המנהל
+        </Alert>
       );
-
-      if (alreadySent) {
-        setAlreadySentOpen(true);
-        return;
-      }
-
-      await dispatch(sendToManager(otherUserId)).unwrap();
-      setMessage("הפעולה בוצעה בהצלחה");
-      setSnackOpen(true);
-    } catch (err) {
-      console.error("Interest action failed:", err);
-      setMessage(err?.message || "לא הצלחנו לבצע את הפעולה");
-    } finally {
-      setLoading(false);
     }
+
+    if (iApproved) {
+      return (
+        <Typography sx={{ color: "text.secondary" }}>
+          אישרת העברה לטיפול המנהל. ממתינים לאישור הצד השני.
+        </Typography>
+      );
+    }
+
+    return (
+      <>
+        {otherApproved && (
+          <Typography sx={{ color: "text.secondary" }}>הצד השני כבר אישר העברה לטיפול המנהל</Typography>
+        )}
+        <Button
+          variant="contained"
+          startIcon={<SupervisorAccount />}
+          disabled={loading || !otherUserId}
+          onClick={() => run(sendToManager(otherUserId))}
+        >
+          העברה לטיפול מנהל
+        </Button>
+      </>
+    );
   };
 
   return (
     <Card
       sx={{
-        mb: 2,
-        borderRadius: 20,
-        boxShadow: "0 16px 38px rgba(15, 23, 42, 0.08)",
+        height: "100%",
+        borderRadius: "24px",
         border: "1px solid rgba(63, 113, 213, 0.12)",
+        boxShadow: "0 16px 38px rgba(15, 23, 42, 0.08)",
       }}
     >
-      <CardContent sx={{ px: 3, py: 2 }}>
-        <Stack spacing={1.5} alignItems="center" sx={{ width: '100%', textAlign: 'center', wordBreak: 'break-word' }}>
-          <Typography variant="h6" sx={{ wordBreak: 'break-word' }}>
-            {otherUser?.name || "משתמש"}
-          </Typography>
+      <CardContent
+        sx={{ p: 3, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
+      >
+        <Avatar sx={{ width: 56, height: 56, fontSize: "1.4rem", fontWeight: 800, bgcolor: "rgba(63, 113, 213, 0.12)", color: "primary.main" }}>
+          {otherUser?.name?.trim()?.[0] || "?"}
+        </Avatar>
 
-          <Typography sx={{ wordBreak: 'break-word' }}>
-            מזהה: {otherUser?.idNumber || "לא צוין"}
-          </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
+          {otherUser?.name || "משתמש"}
+        </Typography>
 
-          <Chip
-            label={getStatusLabel(interest?.status)}
-            size="small"
-            sx={{ width: "fit-content" }}
-          />
+        <Chip label={status.label} color={status.color} size="small" variant="outlined" sx={{ fontWeight: 700 }} />
 
-          {type === "incoming" && interest?.status === "pending" && (
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="contained"
-                disabled={loading || !otherUserId}
-                onClick={handleAccept}
-              >
-                אישור
-              </Button>
-
-              <Button
-                variant="outlined"
-                color="error"
-                disabled={loading || !otherUserId}
-                onClick={handleReject}
-              >
-                דחייה
-              </Button>
-            </Stack>
-          )}
-
-          {interest?.status === "accepted" && (
+        {type === "incoming" && interest?.status === "pending" && (
+          <Stack direction="row" spacing={1}>
             <Button
               variant="contained"
+              startIcon={<Check />}
               disabled={loading || !otherUserId}
-              onClick={handleSendToManager}
+              onClick={() => run(acceptInterest(otherUserId), "הפנייה אושרה")}
             >
-              העבר לטיפול מנהל
+              אישור
             </Button>
-          )}
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Close />}
+              disabled={loading || !otherUserId}
+              onClick={() => run(rejectInterest(otherUserId), "הפנייה נדחתה")}
+            >
+              דחייה
+            </Button>
+          </Stack>
+        )}
 
-          {message && (
-            <Alert severity={message.includes("בהצלחה") ? "success" : "error"} sx={{ width: '100%' }}>
-              {message}
-            </Alert>
-          )}
-          <Snackbar
-            open={snackOpen}
-            autoHideDuration={3000}
-            onClose={() => setSnackOpen(false)}
-            anchorOrigin={{ vertical: "top", horizontal: "center" }}
-          >
-            <Alert onClose={() => setSnackOpen(false)} severity="success" sx={{ width: "100%" }}>
-              הועבר לטיפול המנהל
-            </Alert>
-          </Snackbar>
-          <Snackbar
-            open={alreadySentOpen}
-            autoHideDuration={3000}
-            onClose={() => setAlreadySentOpen(false)}
-            anchorOrigin={{ vertical: "top", horizontal: "center" }}
-          >
-            <Alert onClose={() => setAlreadySentOpen(false)} severity="warning" sx={{ width: "100%" }}>
-              הפניה כבר נשלחה למנהל
-            </Alert>
-          </Snackbar>
-        </Stack>
+        {type === "outgoing" && interest?.status === "pending" && (
+          <Typography sx={{ color: "text.secondary" }}>הפנייה נשלחה וממתינה לתשובה</Typography>
+        )}
+
+        {interest?.status === "accepted" && renderManagerStep()}
+
+        {message.text && (
+          <Alert severity={message.severity} sx={{ width: "100%" }}>
+            {message.text}
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

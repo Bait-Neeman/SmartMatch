@@ -12,11 +12,19 @@ const normalizeArray = (data) => {
   return data?.interests || data?.data || [];
 };
 
-const normalizeId = (item) => {
-  if (!item && item !== 0) return item;
-  if (typeof item === "object") return item._id || item.id || item.user?._id || item.user || undefined;
-  return item;
-};
+// The server returns the updated interest without the other user's details,
+// so only its state is copied into the list
+const applyInterestUpdate = (list, updated) =>
+  list.map((interest) =>
+    updated && String(interest._id) === String(updated._id)
+      ? {
+          ...interest,
+          status: updated.status,
+          senderApprovedToManager: updated.senderApprovedToManager,
+          receiverApprovedToManager: updated.receiverApprovedToManager,
+        }
+      : interest
+  );
 
 export const fetchInterests = createAsyncThunk(
   "interests/fetchInterests",
@@ -41,8 +49,8 @@ export const acceptInterest = createAsyncThunk(
   "interests/acceptInterest",
   async (senderId, { rejectWithValue }) => {
     try {
-      await acceptInterestApi(senderId);
-      return { senderId, status: "accepted" };
+      const data = await acceptInterestApi(senderId);
+      return data?.interest;
     } catch (error) {
       return rejectWithValue(error?.message || "לא הצלחנו לאשר את הפניה");
     }
@@ -53,8 +61,8 @@ export const rejectInterest = createAsyncThunk(
   "interests/rejectInterest",
   async (senderId, { rejectWithValue }) => {
     try {
-      await rejectInterestApi(senderId);
-      return { senderId, status: "rejected" };
+      const data = await rejectInterestApi(senderId);
+      return data?.interest;
     } catch (error) {
       return rejectWithValue(error?.message || "לא הצלחנו לדחות את הפניה");
     }
@@ -65,8 +73,8 @@ export const sendToManager = createAsyncThunk(
   "interests/sendToManager",
   async (otherUserId, { rejectWithValue }) => {
     try {
-      await sendToManagerApi(otherUserId);
-      return otherUserId;
+      const data = await sendToManagerApi(otherUserId);
+      return data?.interest;
     } catch (error) {
       return rejectWithValue(error?.message || "לא הצלחנו להעביר לטיפול מנהל");
     }
@@ -100,28 +108,16 @@ const interestsSlice = createSlice({
         state.error = action.payload || action.error.message;
       })
       .addCase(acceptInterest.fulfilled, (state, action) => {
-        const senderId = normalizeId(action.payload.senderId);
-        state.incoming = state.incoming.map((interest) => {
-          const id = normalizeId(interest?.sender?._id || interest?.sender?.id);
-          if (id === senderId) {
-            return { ...interest, status: action.payload.status };
-          }
-          return interest;
-        });
+        state.incoming = applyInterestUpdate(state.incoming, action.payload);
       })
       .addCase(rejectInterest.fulfilled, (state, action) => {
-        const senderId = normalizeId(action.payload.senderId);
-        state.incoming = state.incoming.map((interest) => {
-          const id = normalizeId(interest?.sender?._id || interest?.sender?.id);
-          if (id === senderId) {
-            return { ...interest, status: action.payload.status };
-          }
-          return interest;
-        });
+        state.incoming = applyInterestUpdate(state.incoming, action.payload);
       })
-      .addCase(sendToManager.rejected, (state, action) => {
-        state.error = action.payload || action.error.message;
+      .addCase(sendToManager.fulfilled, (state, action) => {
+        state.incoming = applyInterestUpdate(state.incoming, action.payload);
+        state.outgoing = applyInterestUpdate(state.outgoing, action.payload);
       });
+    // Failed actions are shown on the card itself (InterestCard), not as a page error
   },
 });
 

@@ -1,10 +1,10 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import {
+  Alert,
   Box,
   Button,
-  Container,
   FormControl,
   FormHelperText,
   IconButton,
@@ -12,10 +12,13 @@ import {
   InputLabel,
   OutlinedInput,
   TextField,
-  Typography,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { registerUser } from "../services/auth.service.js";
+import AuthLayout, { AuthSwitch } from "../components/layout/AuthLayout.jsx";
+import { authFieldSx, authSubmitSx } from "../components/layout/authStyles.js";
+
+const PASSWORD_HINT = "8-16 תווים, לפחות אות אחת באנגלית";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -52,15 +55,11 @@ export default function RegisterPage() {
       password: data.password,
     };
 
-    console.log("Register payload:", payload);
-
     try {
-      const response = await registerUser(payload);
-      console.log("Register response:", response);
+      await registerUser(payload);
       localStorage.setItem("onboarding", "true");
       navigate("/login", { state: { onboarding: true } });
     } catch (error) {
-      console.error("Register error:", error);
       const message = error?.response?.data?.message || error.message || "שגיאה בהרשמה";
       setApiError(message);
     } finally {
@@ -69,23 +68,26 @@ export default function RegisterPage() {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        הרשמה
-      </Typography>
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "grid", gap: 2 }}>
+    <AuthLayout title="הרשמה" subtitle="פתיחת חשבון חדש לוקחת פחות מדקה">
+      <Box
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        sx={{ display: "flex", flexDirection: "column", gap: 3 }}
+      >
         <TextField
           label="שם מלא"
-          placeholder="הכנס שם מלא"
+          autoComplete="name"
           {...register("name", { required: "שם מלא הוא שדה חובה" })}
           error={Boolean(errors.name)}
           helperText={errors.name ? errors.name.message : ""}
           fullWidth
+          sx={authFieldSx}
         />
 
         <TextField
           label="תעודת זהות"
-          placeholder="הכנס תעודת זהות בעלת 9 ספרות"
+          placeholder="9 ספרות"
           {...register("idNumber", {
             required: "תעודת זהות היא שדה חובה",
             pattern: {
@@ -97,11 +99,13 @@ export default function RegisterPage() {
           helperText={errors.idNumber ? errors.idNumber.message : ""}
           fullWidth
           type="tel"
+          sx={authFieldSx}
         />
 
         <TextField
           label="אימייל"
-          placeholder="הכנס כתובת אימייל"
+          type="email"
+          autoComplete="email"
           {...register("email", {
             required: "אימייל הוא שדה חובה",
             pattern: {
@@ -112,6 +116,7 @@ export default function RegisterPage() {
           error={Boolean(errors.email)}
           helperText={errors.email ? errors.email.message : ""}
           fullWidth
+          sx={authFieldSx}
         />
 
         <Controller
@@ -124,30 +129,39 @@ export default function RegisterPage() {
             pattern: { value: /[A-Za-z]/, message: "הסיסמה חייבת לכלול אות אנגלית אחת לפחות" },
           }}
           render={({ field }) => (
-            <FormControl fullWidth error={Boolean(errors.password)}>
+            <FormControl fullWidth error={Boolean(errors.password)} sx={authFieldSx}>
               <InputLabel htmlFor="register-password">סיסמה</InputLabel>
               <OutlinedInput
                 {...field}
                 id="register-password"
                 type={showPassword ? "text" : "password"}
                 label="סיסמה"
+                autoComplete="new-password"
                 endAdornment={
                   <InputAdornment position="end">
-                    <IconButton onClick={handleTogglePassword} edge="end" aria-label="Toggle password visibility">
+                    <IconButton
+                      onClick={handleTogglePassword}
+                      edge="end"
+                      aria-label={showPassword ? "הסתרת הסיסמה" : "הצגת הסיסמה"}
+                    >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
                   </InputAdornment>
                 }
               />
-                  {errors.password && <FormHelperText>{errors.password.message}</FormHelperText>}
+              <FormHelperText>{errors.password ? errors.password.message : PASSWORD_HINT}</FormHelperText>
             </FormControl>
           )}
         />
 
-        <Button type="submit" variant="contained" disabled={isSubmitting} size="large">
-          {isSubmitting ? "שולח..." : "הרשמה"}
+        {apiError && <Alert severity="error">{apiError}</Alert>}
+
+        <Button type="submit" variant="contained" size="large" disabled={isSubmitting} sx={authSubmitSx}>
+          {isSubmitting ? "נרשמים..." : "הרשמה"}
         </Button>
       </Box>
-    </Container>
+
+      <AuthSwitch question="כבר יש לך חשבון?" label="התחברות" to="/login" />
+    </AuthLayout>
   );
 }

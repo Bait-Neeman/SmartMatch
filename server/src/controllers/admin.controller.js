@@ -5,77 +5,27 @@ const {
   getUserProfileForAdmin,
 } = require("../services/admin.service");
 
-const checkAdminRole = (user) => {
-  if (user.role !== "admin") {
-    const error = new Error("Admin access required");
-    error.statusCode = 403;
-    throw error;
-  }
-};
+// Admin access is checked by the requireAdmin middleware on every admin route.
 
 const getPending = async (req, res) => {
-  try {
-    checkAdminRole(req.user);
-
-    const matches = await getPendingMatches();
-
-    res.status(200).json({ matches });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ message: error.message });
-  }
+  const matches = await getPendingMatches();
+  res.status(200).json({ matches });
 };
 
 const removePending = async (req, res) => {
-  try {
-    checkAdminRole(req.user);
-
-    const { senderId, receiverId } = req.body;
-
-    if (!senderId || !receiverId) {
-      return res
-        .status(400)
-        .json({ message: "senderId and receiverId are required" });
-    }
-
-    const result = await removePendingMatch(senderId, receiverId);
-
-    res.status(200).json({
-      message: "Match removed from pending",
-      result,
-    });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ message: error.message });
-  }
+  const { senderId, receiverId } = req.body || {};
+  const result = await removePendingMatch(senderId, receiverId);
+  res.status(200).json({ message: "ההתאמה הוסרה מהרשימה", result });
 };
 
 const getUsers = async (req, res) => {
-  try {
-    checkAdminRole(req.user);
-
-    const users = await getAllUsers();
-
-    res.status(200).json({ users });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ message: error.message });
-  }
+  const users = await getAllUsers();
+  res.status(200).json({ users });
 };
 
 const getUserProfile = async (req, res) => {
-  try {
-    checkAdminRole(req.user);
-
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({ message: "userId is required" });
-    }
-
-    const data = await getUserProfileForAdmin(userId);
-
-    res.status(200).json(data);
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ message: error.message });
-  }
+  const data = await getUserProfileForAdmin(req.params.userId);
+  res.status(200).json(data);
 };
 
 module.exports = {

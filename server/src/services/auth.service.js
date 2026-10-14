@@ -1,8 +1,14 @@
+const crypto = require("crypto");
 const User = require("../models/user.model");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+const HttpError = require("../utils/httpError");
+const { hashPassword, comparePassword } = require("../utils/hash");
+const { generateToken } = require("../config/jwt");
+const {
+  validateEmail,
+  validateIdNumber,
+  validateName,
+  validatePassword,
+} = require("../utils/validators");
 
 const buildUserResponse = (user) => ({
   _id: user._id,
@@ -12,90 +18,90 @@ const buildUserResponse = (user) => ({
   role: user.role,
 });
 
+const asTrimmedString = (value) => (typeof value === "string" ? value.trim() : "");
+
+// Compared against when the ID number doesn't exist, so a login takes the same time
+// whether or not the account exists (otherwise the timing reveals registered ID numbers).
+let dummyHash;
+const getDummyHash = () => {
+  dummyHash ??= hashPassword(crypto.randomUUID());
+  return dummyHash;
+};
+
 const registerUser = async ({ name, idNumber, email, password }) => {
-  const normalizedEmail = email?.trim().toLowerCase();
-  const normalizedIdNumber = idNumber?.trim();
+  const cleanName = asTrimmedString(name);
+  const cleanIdNumber = asTrimmedString(idNumber);
+  const cleanEmail = asTrimmedString(email).toLowerCase();
 
-  if (!name || !normalizedIdNumber || !password) {
-    const error = new Error("All fields are required");
-    error.statusCode = 400;
-    throw error;
+  if (!validateName(cleanName)) {
+    throw new HttpError(400, "יש להזין שם מלא");
+  }
+  if (!validateIdNumber(cleanIdNumber)) {
+    throw new HttpError(400, "תעודת זהות חייבת להכיל 9 ספרות");
+  }
+  if (cleanEmail && !validateEmail(cleanEmail)) {
+    throw new HttpError(400, "כתובת האימייל אינה תקינה");
+  }
+  if (!validatePassword(password)) {
+    throw new HttpError(400, "הסיסמה חייבת להכיל לפחות 8 תווים ולפחות אות אחת באנגלית");
   }
 
-  const existingUserById = await User.findOne({ idNumber: normalizedIdNumber });
-  if (existingUserById) {
-    const isSameUserRetry = await bcrypt.compare(password, existingUserById.password);
+  const existingUser = await User.findOne({
+    $or: [{ idNumber: cleanIdNumber }, ...(cleanEmail ? [{ email: cleanEmail }] : [])],
+  }).select("+password");
 
+  if (existingUser) {
+    // Submitting the same registration twice (e.g. after a network error) is not an error
+    const isSameUserRetry =
+      existingUser.idNumber === cleanIdNumber && (await comparePassword(password, existingUser.password));
     if (isSameUserRetry) {
-      return buildUserResponse(existingUserById);
+      return buildUserResponse(existingUser);
     }
 
-    const error = new Error("A user with this ID number already exists.");
-    error.statusCode = 400;
-    throw error;
-  }
-
-  if (normalizedEmail) {
-    const existingUserByEmail = await User.findOne({ email: normalizedEmail });
-    if (existingUserByEmail) {
-      const error = new Error("A user with this email already exists.");
-      error.statusCode = 400;
-      throw error;
-    }
+    // One message for both cases, so the form doesn't reveal which detail is registered
+    throw new HttpError(409, "לא ניתן להירשם עם הפרטים האלה. אם כבר יש לך חשבון, יש להתחבר.");
   }
 
   const user = await User.create({
-    name: name.trim(),
-    idNumber: normalizedIdNumber,
-    email: normalizedEmail || undefined,
+    name: cleanName,
+    idNumber: cleanIdNumber,
+    email: cleanEmail || undefined,
     password,
   });
 
   return buildUserResponse(user);
 };
 
-const loginUser = async ({ idNumber, identifier, password }) => {
-  const loginValue = (identifier || idNumber)?.trim();
-  const normalizedIdNumber = loginValue;
+const loginUser = async ({ idNumber, password }) => {
+  const cleanIdNumber = asTrimmedString(idNumber);
 
-  if (!normalizedIdNumber || !password) {
-    const error = new Error("ID number and password are required");
-    error.statusCode = 400;
-    throw error;
+  if (!cleanIdNumber || typeof password !== "string" || !password) {
+    throw new HttpError(400, "יש להזין תעודת זהות וסיסמה");
   }
 
-  const user = await User.findOne({ idNumber: normalizedIdNumber });
+  const user = await User.findOne({ idNumber: cleanIdNumber }).select("+password");
+  const isMatch = await comparePassword(password, user ? user.password : await getDummyHash());
 
-  if (!user) {
-    const error = new Error("Invalid credentials");
-    error.statusCode = 401;
-    throw error;
+  if (!user || !isMatch) {
+    throw new HttpError(401, "תעודת זהות או סיסמה שגויים");
   }
-
-  const isMatch = await bcrypt.compare(password, user.password);
-
-  if (!isMatch) {
-    const error = new Error("Invalid credentials");
-    error.statusCode = 401;
-    throw error;
-  }
-
-  const token = jwt.sign(
-    {
-      userId: user._id,
-      role: user.role,
-    },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
 
   return {
-    token,
+    token: generateToken(user._id, user.role),
     user: buildUserResponse(user),
   };
+};
+
+const getUserById = async (userId) => {
+  const user = await User.findById(userId).lean();
+  if (!user) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+  return buildUserResponse(user);
 };
 
 module.exports = {
   registerUser,
   loginUser,
+  getUserById,
 };

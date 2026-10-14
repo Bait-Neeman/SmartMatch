@@ -1,18 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
-
-const app = express();
-
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-// Request logging middleware (no body - it can contain passwords and ID numbers)
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
-  next();
-});
+const helmet = require("helmet");
 
 const authRoutes = require("./src/routes/auth.routes");
 const profileRoutes = require("./src/routes/profile.routes");
@@ -20,8 +8,52 @@ const preferenceRoutes = require("./src/routes/preference.routes");
 const interestRoutes = require("./src/routes/interest.routes");
 const matchRoutes = require("./src/routes/match.routes");
 const adminRoutes = require("./src/routes/admin.routes");
-const { errorHandler } = require("./src/middleware/error.middleware");
+const { apiLimiter } = require("./src/middleware/rateLimit.middleware");
+const { notFound, errorHandler } = require("./src/middleware/error.middleware");
 
+const app = express();
+
+// Number of proxies in front of the server. Render passes requests through several, and
+// rate limiting needs the visitor's real IP address. Override with TRUST_PROXY if needed.
+const trustProxy = Number.parseInt(process.env.TRUST_PROXY ?? "3", 10);
+app.set("trust proxy", Number.isInteger(trustProxy) ? trustProxy : 3);
+
+// Sites allowed to call the API from a browser. CORS_ORIGINS (comma-separated) replaces the list.
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean)
+  : ["http://localhost:5173", "http://127.0.0.1:5173", "https://smart-matchmaking-system.vercel.app"];
+// Preview deployments of the project's Vercel site
+const vercelPreviewOrigin = /^https:\/\/smart-matchmaking-system-[a-z0-9-]+-r0583252581-1797s-projects\.vercel\.app$/;
+
+app.use(helmet());
+app.use(
+  cors({
+    origin: (origin, callback) =>
+      callback(null, !origin || allowedOrigins.includes(origin) || vercelPreviewOrigin.test(origin)),
+  })
+);
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: false, limit: "100kb" }));
+
+// Logs method, path, status and duration - never request bodies, which hold passwords and ID numbers
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    console.log(`${req.method} ${req.path} ${res.statusCode} ${Date.now() - startedAt}ms`);
+  });
+  next();
+});
+
+app.get("/", (req, res) => {
+  res.send("SmartMatch server is running 🚀");
+});
+
+// Health check (used by Render)
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API is working" });
+});
+
+app.use("/api", apiLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/preference", preferenceRoutes);
@@ -29,19 +61,7 @@ app.use("/api/interest", interestRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/admin", adminRoutes);
 
-// Global error handler
+app.use(notFound);
 app.use(errorHandler);
-
-// Serve uploaded files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// Test route
-app.get("/api/test", (req, res) => {
-  res.json({ message: "API is working" });
-});
-
-app.get("/", (req, res) => {
-  res.send("SmartMatch server is running 🚀");
-});
 
 module.exports = app;

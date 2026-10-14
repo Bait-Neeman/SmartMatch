@@ -1,29 +1,42 @@
-const jwt = require("jsonwebtoken");
+const User = require("../models/user.model");
+const HttpError = require("../utils/httpError");
+const { verifyToken } = require("../config/jwt");
+const { isObjectId } = require("../utils/validators");
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+const SESSION_EXPIRED = "פג תוקף ההתחברות, יש להתחבר מחדש";
 
-const protect = (req, res, next) => {
-  console.log('=== AUTH MIDDLEWARE ===');
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    token = req.headers.authorization.split(" ")[1];
+// Verifies the token and loads the user from the database, so a deleted user
+// or a changed role takes effect immediately instead of when the token expires.
+const protect = async (req, res, next) => {
+  const [scheme, token] = (req.headers.authorization || "").split(" ");
+  if (scheme !== "Bearer" || !token) {
+    throw new HttpError(401, "נדרשת התחברות");
   }
 
-  if (!token) {
-    console.log('No token provided');
-    return res.status(401).json({ message: "No token provided" });
-  }
-
+  let payload;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Token verified for user:', decoded.userId);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.error('Token verification failed:', error.message);
-    return res.status(401).json({ message: "Token not valid" });
+    payload = verifyToken(token);
+  } catch {
+    throw new HttpError(401, SESSION_EXPIRED);
   }
+
+  const user = isObjectId(payload.userId)
+    ? await User.findById(payload.userId).select("role").lean()
+    : null;
+
+  if (!user) {
+    throw new HttpError(401, SESSION_EXPIRED);
+  }
+
+  req.user = { userId: String(user._id), role: user.role };
+  next();
 };
 
-module.exports = { protect };
+const requireAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    throw new HttpError(403, "הפעולה מותרת למנהל בלבד");
+  }
+  next();
+};
+
+module.exports = { protect, requireAdmin };

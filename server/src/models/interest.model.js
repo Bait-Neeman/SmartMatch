@@ -15,4 +15,7 @@ const interestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// One interest per sender/receiver pair, even when two requests arrive at the same time
+interestSchema.index({ sender: 1, receiver: 1 }, { unique: true });
+
 module.exports = mongoose.model('Interest', interestSchema);

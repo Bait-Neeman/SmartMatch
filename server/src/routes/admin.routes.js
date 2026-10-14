@@ -8,12 +8,14 @@ const {
   getUserProfile,
 } = require("../controllers/admin.controller");
 
-const { protect } = require("../middleware/auth.middleware");
+const { protect, requireAdmin } = require("../middleware/auth.middleware");
 
-router.get("/pending-matches", protect, getPending);
-router.delete("/pending-match", protect, removePending);
+router.use(protect, requireAdmin);
 
-router.get("/users", protect, getUsers);
-router.get("/users/:userId/profile", protect, getUserProfile);
+router.get("/pending-matches", getPending);
+router.delete("/pending-match", removePending);
+
+router.get("/users", getUsers);
+router.get("/users/:userId/profile", getUserProfile);
 
 module.exports = router;

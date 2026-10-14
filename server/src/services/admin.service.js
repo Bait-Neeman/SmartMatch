@@ -1,9 +1,12 @@
 const Interest = require("../models/interest.model");
 const User = require("../models/user.model");
 const Profile = require("../models/profile.model");
+const HttpError = require("../utils/httpError");
+const { assertObjectId } = require("../utils/validators");
+const { toProfileResponse } = require("./profile.service");
 
-const getPendingMatches = async () => {
-  return await Interest.find({
+const getPendingMatches = () =>
+  Interest.find({
     status: "accepted",
     senderApprovedToManager: true,
     receiverApprovedToManager: true,
@@ -12,44 +15,38 @@ const getPendingMatches = async () => {
     .populate("receiver", "name idNumber role")
     .sort({ updatedAt: -1 })
     .lean();
-};
 
 const removePendingMatch = async (senderId, receiverId) => {
-  const interest = await Interest.findOne({ sender: senderId, receiver: receiverId });
+  assertObjectId(senderId);
+  assertObjectId(receiverId);
 
+  const interest = await Interest.findOne({ sender: senderId, receiver: receiverId });
   if (!interest) {
-    const error = new Error("Interest not found");
-    error.statusCode = 404;
-    throw error;
+    throw new HttpError(404, "הפנייה לא נמצאה");
   }
 
   interest.senderApprovedToManager = false;
   interest.receiverApprovedToManager = false;
 
-  return await interest.save();
+  return interest.save();
 };
 
-const getAllUsers = async () => {
-  return await User.find({ role: "user" })
-    .select("-password")
-    .sort({ createdAt: -1 })
-    .lean();
-};
+// The password is never selected (see the user model)
+const getAllUsers = () => User.find({ role: "user" }).sort({ createdAt: -1 }).lean();
 
 const getUserProfileForAdmin = async (userId) => {
-  const user = await User.findById(userId).select("-password").lean();
+  assertObjectId(userId);
 
+  const user = await User.findById(userId).lean();
   if (!user) {
-    const error = new Error("User not found");
-    error.statusCode = 404;
-    throw error;
+    throw new HttpError(404, "המשתמש לא נמצא");
   }
 
-  const profile = await Profile.findOne({ user: userId }).lean();
+  const profile = await Profile.findOne({ user: userId });
 
   return {
     user,
-    profile,
+    profile: profile ? toProfileResponse(profile) : null,
   };
 };
 

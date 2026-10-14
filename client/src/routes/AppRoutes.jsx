@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import RegisterPage from "../pages/RegisterPage";
 import LoginPage from "../pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
@@ -10,91 +10,49 @@ import InterestsPage from "../pages/InterestsPage";
 import AdminPage from "../pages/AdminPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminRoute from "../components/AdminRoute.jsx";
+import AppLayout from "../components/layout/AppLayout.jsx";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminPendingMatchesPage from "../pages/AdminPendingMatchesPage";
+import { getSession, homePathFor } from "../utils/session.js";
+
+// Visitors see the landing page; logged-in users go straight to their area
+function HomeRoute() {
+  const session = getSession();
+  return session.isLoggedIn ? <Navigate to={homePathFor(session)} replace /> : <DashboardPage />;
+}
+
+// Login and registration are for visitors only
+function PublicOnlyRoute({ children }) {
+  const session = getSession();
+  return session.isLoggedIn ? <Navigate to={homePathFor(session)} replace /> : children;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<HomeRoute />} />
+      <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
+      <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
 
-      {/* User Routes */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/preferences"
-        element={
-          <ProtectedRoute>
-            <PreferencesPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/personal-area"
-        element={
-          <ProtectedRoute>
-            <PersonalAreaPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/matches"
-        element={
-          <ProtectedRoute>
-            <MatchesPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/interests"
-        element={
-          <ProtectedRoute>
-            <InterestsPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* User Routes (with the site header) */}
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/personal-area" element={<PersonalAreaPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/preferences" element={<PreferencesPage />} />
+        <Route path="/matches" element={<MatchesPage />} />
+        <Route path="/interests" element={<InterestsPage />} />
+      </Route>
 
-      {/* Admin Routes */}
-      <Route
-        path="/admin"
-        element={
-          <AdminRoute>
-            <AdminPage />
-          </AdminRoute>
-        }
-      />
-      <Route
-        path="/admin/users"
-        element={
-          <AdminRoute>
-            <AdminUsersPage />
-          </AdminRoute>
-        }
-      />
-      <Route
-        path="/admin/pending-matches"
-        element={
-          <AdminRoute>
-            <AdminPendingMatchesPage />
-          </AdminRoute>
-        }
-      />
+      {/* Admin Routes (with the site header) */}
+      <Route element={<AdminRoute><AppLayout /></AdminRoute>}>
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/pending-matches" element={<AdminPendingMatchesPage />} />
+      </Route>
+
+      {/* Unknown addresses go to the right home page */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-    
   );
 }

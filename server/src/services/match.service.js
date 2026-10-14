@@ -1,188 +1,117 @@
 const Interest = require("../models/interest.model");
 const Profile = require("../models/profile.model");
 const Preference = require("../models/preference.model");
+const HttpError = require("../utils/httpError");
 
-const getIdString = (value) => {
-  if (!value) return null;
-  if (value._id) return value._id.toString();
-  return value.toString();
-};
-
+// Mutual (accepted) matches of the user. Other users are shown by name - never by ID number.
 const getMatchesForUser = async (userId) => {
-  const allAccepted = await Interest.find({
-    $or: [
-      { sender: userId, status: "accepted" },
-      { receiver: userId, status: "accepted" },
-    ],
+  const accepted = await Interest.find({
+    $or: [{ sender: userId }, { receiver: userId }],
+    status: "accepted",
   })
-    .populate("sender", "name idNumber role")
-    .populate("receiver", "name idNumber role")
+    .populate("sender", "name role")
+    .populate("receiver", "name role")
     .lean();
 
-  return allAccepted
+  return accepted
+    .filter((item) => item.sender && item.receiver)
     .map((item) => {
-      if (!item.sender || !item.receiver) return null;
-
-      const senderId = getIdString(item.sender);
-      const otherUser = senderId === userId.toString() ? item.receiver : item.sender;
-
-      if (!otherUser) return null;
-
+      const otherUser = String(item.sender._id) === userId ? item.receiver : item.sender;
       return {
         _id: otherUser._id,
         name: otherUser.name,
-        idNumber: otherUser.idNumber,
         role: otherUser.role,
         matchedAt: item.updatedAt || item.createdAt,
       };
-    })
-    .filter(Boolean);
+    });
 };
 
-const checkProfileMatch = (
-  userProfile,
-  candidateProfile,
-  userPreference,
-  candidatePreference
-) => {
-  if (!userProfile || !candidateProfile) return false;
+// True when the value is outside [min, max]. A value the profile doesn't have
+// can't satisfy a stated requirement, so it counts as outside.
+const isOutOfRange = (value, min, max) => {
+  if (min == null && max == null) return false;
+  if (value == null) return true;
+  return (min != null && value < min) || (max != null && value > max);
+};
 
-  if (userProfile.gender === candidateProfile.gender) {
+// Does the profile satisfy what the preference asks for?
+const meetsPreference = (profile, preference) => {
+  if (!preference) return true;
+
+  if (isOutOfRange(profile.age, preference.ageMin, preference.ageMax)) return false;
+  if (isOutOfRange(profile.height, preference.heightMin, preference.heightMax)) return false;
+  if (preference.style && profile.style !== preference.style) return false;
+  if (preference.preferredAppearance && profile.appearance !== preference.preferredAppearance) return false;
+  if (preference.city && profile.city !== preference.city) return false;
+
+  // Financial status is optional and older profiles never collected it,
+  // so a profile without it is not excluded by a financial range
+  if (
+    profile.financialStatus != null &&
+    isOutOfRange(profile.financialStatus, preference.financialMin, preference.financialMax)
+  ) {
     return false;
-  }
-
-  if (userPreference) {
-    if (userPreference.ageMin && candidateProfile.age < userPreference.ageMin) return false;
-    if (userPreference.ageMax && candidateProfile.age > userPreference.ageMax) return false;
-    if (userPreference.heightMin && candidateProfile.height < userPreference.heightMin) return false;
-    if (userPreference.heightMax && candidateProfile.height > userPreference.heightMax) return false;
-    if (userPreference.style && candidateProfile.style !== userPreference.style) return false;
-    if (
-      userPreference.preferredAppearance &&
-      candidateProfile.appearance !== userPreference.preferredAppearance
-    ) {
-      return false;
-    }
-    if (userPreference.city && candidateProfile.city !== userPreference.city) return false;
-    if (
-      userPreference.financialMin &&
-      candidateProfile.financialStatus &&
-      candidateProfile.financialStatus < userPreference.financialMin
-    ) {
-      return false;
-    }
-    if (
-      userPreference.financialMax &&
-      candidateProfile.financialStatus &&
-      candidateProfile.financialStatus > userPreference.financialMax
-    ) {
-      return false;
-    }
-  }
-
-  if (candidatePreference) {
-    if (candidatePreference.ageMin && userProfile.age < candidatePreference.ageMin) return false;
-    if (candidatePreference.ageMax && userProfile.age > candidatePreference.ageMax) return false;
-    if (candidatePreference.heightMin && userProfile.height < candidatePreference.heightMin) return false;
-    if (candidatePreference.heightMax && userProfile.height > candidatePreference.heightMax) return false;
-    if (candidatePreference.style && userProfile.style !== candidatePreference.style) return false;
-    if (
-      candidatePreference.preferredAppearance &&
-      userProfile.appearance !== candidatePreference.preferredAppearance
-    ) {
-      return false;
-    }
-    if (candidatePreference.city && userProfile.city !== candidatePreference.city) return false;
-    if (
-      candidatePreference.financialMin &&
-      userProfile.financialStatus &&
-      userProfile.financialStatus < candidatePreference.financialMin
-    ) {
-      return false;
-    }
-    if (
-      candidatePreference.financialMax &&
-      userProfile.financialStatus &&
-      userProfile.financialStatus > candidatePreference.financialMax
-    ) {
-      return false;
-    }
   }
 
   return true;
 };
+
 const getCandidatesForUser = async (userId) => {
-  const userProfile = await Profile.findOne({ user: userId }).lean();
-  const userPreference = await Preference.findOne({ user: userId }).lean();
+  const [userProfile, userPreference] = await Promise.all([
+    Profile.findOne({ user: userId }).lean(),
+    Preference.findOne({ user: userId }).lean(),
+  ]);
 
   if (!userProfile) {
-    const error = new Error("User profile not found");
-    error.statusCode = 404;
-    throw error;
+    throw new HttpError(404, "יש ליצור פרופיל לפני צפייה בהצעות");
   }
 
-  const existingInterests = await Interest.find({ sender: userId })
-    .select("receiver")
+  // Users who already have an interest with this user, in either direction, are not suggested again
+  const interests = await Interest.find({ $or: [{ sender: userId }, { receiver: userId }] })
+    .select("sender receiver")
     .lean();
 
-  const excludedUserIds = new Set();
+  const excludedUserIds = new Set([userId]);
+  for (const interest of interests) {
+    excludedUserIds.add(String(interest.sender));
+    excludedUserIds.add(String(interest.receiver));
+  }
 
-  existingInterests.forEach((interest) => {
-    const receiverId = getIdString(interest.receiver);
-    if (receiverId) {
-      excludedUserIds.add(receiverId);
-    }
-  });
-
-  excludedUserIds.add(userId.toString());
-
-  const allProfiles = await Profile.find({
-    user: { $nin: Array.from(excludedUserIds) },
+  const profiles = await Profile.find({
+    user: { $nin: [...excludedUserIds] },
+    gender: { $ne: userProfile.gender },
   })
-    .populate("user", "name idNumber role")
+    .populate("user", "name role")
     .lean();
 
-  const candidates = [];
+  const candidateProfiles = profiles.filter((profile) => profile.user?.role === "user");
 
-  for (const profile of allProfiles) {
-    if (!profile || !profile.user || !profile.user._id) {
-      continue;
-    }
+  // Load all candidates' preferences in one query
+  const preferences = await Preference.find({
+    user: { $in: candidateProfiles.map((profile) => profile.user._id) },
+  }).lean();
+  const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
 
-    const candidatePreferenceDoc = await Preference.findOne({
-      user: profile.user._id,
-    });
-
-    const candidatePreference = candidatePreferenceDoc
-      ? candidatePreferenceDoc.toObject()
-      : null;
-
-    const isMatch = checkProfileMatch(
-      userProfile,
-      profile,
-      userPreference,
-      candidatePreference
-    );
-
-    if (isMatch) {
-      candidates.push({
-        _id: profile.user._id,
-        name: profile.user.name,
-        idNumber: profile.user.idNumber,
-        age: profile.age,
-        city: profile.city,
-        height: profile.height,
-        style: profile.style,
-        appearance: profile.appearance,
-        gender: profile.gender,
-        description: profile.description,
-      });
-    }
-  }
-
-  return candidates;
+  return candidateProfiles
+    .filter(
+      (profile) =>
+        meetsPreference(profile, userPreference) &&
+        meetsPreference(userProfile, preferenceByUser.get(String(profile.user._id)))
+    )
+    .map((profile) => ({
+      _id: profile.user._id,
+      name: profile.user.name,
+      age: profile.age,
+      city: profile.city,
+      height: profile.height,
+      style: profile.style,
+      appearance: profile.appearance,
+      gender: profile.gender,
+      description: profile.description,
+    }));
 };
+
 module.exports = {
   getMatchesForUser,
-  getCandidatesForUser
+  getCandidatesForUser,
 };
