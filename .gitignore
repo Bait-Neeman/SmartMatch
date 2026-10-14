@@ -1,26 +1,38 @@
+# Dependencies (installed by `npm install` - never commit)
+node_modules/
+
+# Environment files hold secrets - never commit them (see server/.env.example)
+.env
+.env.*
+!.env.example
+*.local
+
+# Build output
+dist/
+dist-ssr/
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# User uploads are stored in Cloudinary, never in the repo
+server/uploads/
 
-# Editor directories and files
+# Vercel CLI project link
+.vercel/
+
+# Local backup of the old root-level client copy (not part of the project)
+.old-root-client/
+
+# Editor and OS files
 .vscode/*
+!.vscode/settings.json
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
-.vercel
-.env*
