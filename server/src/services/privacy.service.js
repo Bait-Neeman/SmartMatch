@@ -124,4 +124,5 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
 module.exports = {
   toPublicPerson,
   redactIdentity,
+  PUBLIC_PROFILE_FIELDS,
 };

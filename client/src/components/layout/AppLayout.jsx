@@ -10,13 +10,11 @@ import {
   ListItemIcon,
   ListItemText,
   Toolbar,
-  Typography,
   useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import {
   AdminPanelSettings,
-  Favorite,
   FormatListBulleted,
   Group,
   HowToReg,
@@ -24,19 +22,20 @@ import {
   Menu as MenuIcon,
   Folder,
   PendingActions,
+  PeopleAlt,
   Person,
   Settings,
 } from "@mui/icons-material";
 import { getSession, logout } from "../../utils/session.js";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
-import PersonAvatar from "../common/PersonAvatar.jsx";
+import TopBar from "./TopBar.jsx";
 
 const USER_LINKS = [
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
   { to: "/suggestions", label: "הצעות", icon: <FormatListBulleted />, end: false },
   { to: "/active", label: "הצעות פעילות", icon: <HowToReg />, end: false },
-  { to: "/matches", label: "התאמות", icon: <Favorite /> },
+  { to: "/matches", label: "התאמות", icon: <PeopleAlt /> },
   { to: "/settings", label: "הגדרות", icon: <Settings /> },
 ];
 
@@ -152,19 +151,20 @@ export default function AppLayout() {
             boxShadow: brand.topBarShadow,
           }}
         >
-          <Toolbar sx={{ minHeight: brand.topBarHeight, gap: 1.5, px: { xs: 2, lg: 3 } }}>
+          <Toolbar
+            sx={{
+              minHeight: brand.topBarHeight,
+              gap: "10px",
+              px: "clamp(16px, 2vw, 32px)",
+              py: "clamp(8px, 1.2vh, 12px)",
+            }}
+          >
             {isCompact && (
               <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)} sx={{ color: brand.paper }}>
                 <MenuIcon />
               </IconButton>
             )}
-            <Box sx={{ flexGrow: 1 }} />
-            {user?.name && (
-              <Typography sx={{ color: brand.paper, fontWeight: 600, fontSize: "15px" }}>
-                שלום, {user.name}
-              </Typography>
-            )}
-            <PersonAvatar size={32} />
+            <TopBar isAdmin={isAdmin} name={user?.name || ""} />
             {isCompact && (
               <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: brand.paper }}>
                 <Logout />
