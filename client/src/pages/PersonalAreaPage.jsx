@@ -6,11 +6,8 @@ import {
   Box,
   Button,
   CircularProgress,
-  Container,
-  Divider,
   FormControl,
   FormHelperText,
-  InputLabel,
   MenuItem,
   Paper,
   Select,
@@ -19,16 +16,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import {
-  Edit,
-  Favorite,
-  Forum,
-  Image as ImageIcon,
-  PersonAdd,
-  PictureAsPdf,
-  Tune,
-  UploadFile,
-} from "@mui/icons-material";
+import { Edit, Favorite, Forum, PersonAdd, Tune } from "@mui/icons-material";
 import {
   createProfile,
   getMyProfile,
@@ -53,6 +41,9 @@ import {
   styleOptions,
 } from "../constants/profileOptions.js";
 import { getSession } from "../utils/session.js";
+import { brand } from "../theme/tokens.js";
+import PersonAvatar from "../components/common/PersonAvatar.jsx";
+import StatusPill from "../components/common/StatusPill.jsx";
 
 const toText = (value) => {
   if (value === undefined || value === null) return "";
@@ -83,48 +74,252 @@ const formatRange = (min, max, unit = "") => {
 
 const FORM_SECTIONS = ["profile", "preferences"];
 
+const PRIVACY_NOTE = "התמונה וקורות החיים גלויים רק לך, למנהל ולמי שיש לך איתו התאמה הדדית.";
+
 const cardSx = {
-  p: { xs: 2.5, sm: 3.5 },
-  borderRadius: "16px",
-  border: "1px solid rgba(29, 53, 87, 0.08)",
-  boxShadow: "0 10px 28px rgba(4, 15, 32, 0.06)",
-  bgcolor: "#ffffff",
+  p: { xs: 2, sm: 3 },
+  borderRadius: `${brand.radiusCard}px`,
+  border: `1px solid ${brand.line}`,
+  boxShadow: brand.shadow,
+  bgcolor: "background.paper",
 };
 
-const fullRow = { gridColumn: "1 / -1" };
+const listSx = {
+  listStyle: "none",
+  m: 0,
+  p: 0,
+  display: "grid",
+  rowGap: 1.5,
+};
 
-function InfoRow({ label, value }) {
+const fieldRowSx = {
+  display: "grid",
+  gridTemplateColumns: { xs: "18px minmax(0, 1fr)", sm: "18px 160px minmax(0, 360px)" },
+  columnGap: 1.25,
+  rowGap: 0.5,
+  alignItems: "center",
+};
+
+const lineFieldSx = {
+  "& .MuiInputBase-root": {
+    fontWeight: 600,
+    color: brand.navy,
+    fontSize: "15.5px",
+  },
+  "& .MuiInput-underline:before": {
+    borderBottomColor: brand.fieldLine,
+  },
+  "& .MuiInput-underline:hover:not(.Mui-disabled, .Mui-error):before": {
+    borderBottomColor: brand.gold,
+  },
+  "& .MuiInput-underline:after": {
+    borderBottomColor: brand.gold,
+  },
+  "& .MuiInputBase-input": {
+    padding: "6px 2px",
+  },
+  "& .MuiSelect-select": {
+    padding: "6px 2px",
+  },
+};
+
+const readValueSx = {
+  borderBottom: `1px solid ${brand.fieldLine}`,
+  minHeight: 34,
+  display: "flex",
+  alignItems: "center",
+  py: "4px",
+  px: "2px",
+};
+
+const photoFrameSx = {
+  height: { xs: 280, lg: 360 },
+  borderRadius: `${brand.radiusPhoto}px`,
+  overflow: "hidden",
+  boxShadow: brand.shadow,
+};
+
+const photoImgSx = {
+  width: "100%",
+  height: "100%",
+  objectFit: "cover",
+  display: "block",
+};
+
+const outlineGoldSx = {
+  "&&": {
+    color: brand.goldDark,
+    borderColor: brand.gold,
+    borderWidth: "1.5px",
+  },
+  "&&:hover": {
+    color: brand.goldDark,
+    borderColor: brand.goldDeep,
+    backgroundColor: brand.pillGoldBg,
+    borderWidth: "1.5px",
+  },
+};
+
+const actionsSx = {
+  display: "flex",
+  gap: 1.5,
+  flexWrap: "wrap",
+  mt: 3.5,
+  pt: 3,
+  borderTop: `1px solid ${brand.line}`,
+};
+
+const blockTitleSx = {
+  fontWeight: 600,
+  fontSize: "1.0625rem",
+  color: brand.navy,
+  letterSpacing: "-0.3px",
+  lineHeight: 1.3,
+};
+
+const ICONS = {
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
+  ruler: (
+    <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0zM14.5 12.5l2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2" />
+  ),
+  star: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" />,
+  pin: (
+    <>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0" />
+      <circle cx="12" cy="10" r="3" />
+    </>
+  ),
+  sliders: <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />,
+  spark: (
+    <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5" />
+  ),
+  school: <path d="M22 10 12 5 2 10l10 5zM6 12v5c3 3 9 3 12 0v-5" />,
+  work: (
+    <>
+      <rect x="2" y="7" width="20" height="14" rx="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
+  camera: (
+    <>
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  download: <path d="M12 3v12M7 11l5 5 5-5M5 21h14" />,
+  refresh: <path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" />,
+  file: (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+    </>
+  ),
+};
+
+function StrokeIcon({ name, size = 16 }) {
   return (
-    <Box sx={{ display: "flex", gap: 1, py: 0.75, borderBottom: "1px dashed rgba(29, 53, 87, 0.12)" }}>
-      <Typography sx={{ fontWeight: 700, color: "text.primary", minWidth: 110 }}>{label}</Typography>
-      <Typography sx={{ color: value ? "text.primary" : "text.disabled", wordBreak: "break-word" }}>
-        {value || "לא צוין"}
-      </Typography>
+    <Box
+      component="svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      sx={{ width: size, height: size, display: "block" }}
+    >
+      {ICONS[name]}
     </Box>
   );
 }
 
-function SectionCard({ title, icon, action, children }) {
+function BlockTitle({ children, first = false }) {
   return (
-    <Paper sx={cardSx}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-        <Box sx={{ color: "primary.main", display: "flex" }}>{icon}</Box>
-        <Typography variant="h6" component="h2" sx={{ fontWeight: 700, color: "text.primary", flexGrow: 1 }}>
-          {title}
-        </Typography>
-        {action}
-      </Box>
+    <Typography component="h3" sx={{ ...blockTitleSx, mt: first ? 0 : 2.75, mb: 1 }}>
       {children}
-    </Paper>
+    </Typography>
+  );
+}
+
+function FieldRow({ icon, label, required = false, children }) {
+  return (
+    <Box component="li" sx={fieldRowSx}>
+      <Box sx={{ color: brand.gold, opacity: 0.75, display: "flex" }}>
+        <StrokeIcon name={icon} />
+      </Box>
+      <Typography component="span" sx={{ color: "text.secondary", fontSize: "15.5px" }}>
+        {label}
+        {required ? (
+          <Box component="span" sx={{ color: "error.main" }}>
+            {" "}
+            *
+          </Box>
+        ) : null}
+      </Typography>
+      <Box sx={{ gridColumn: { xs: "1 / -1", sm: "auto" }, minWidth: 0 }}>{children}</Box>
+    </Box>
+  );
+}
+
+function ReadValue({ value, pill = false, tone = "neutral" }) {
+  return (
+    <Box sx={readValueSx}>
+      {value && pill ? (
+        <StatusPill tone={tone}>{value}</StatusPill>
+      ) : (
+        <Typography
+          sx={{
+            fontWeight: value ? 600 : 400,
+            color: value ? brand.navy : "text.disabled",
+            fontSize: "15.5px",
+            wordBreak: "break-word",
+          }}
+        >
+          {value || "לא צוין"}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+function LineText({ field, label, error, helperText, ...rest }) {
+  return (
+    <TextField
+      {...field}
+      {...rest}
+      variant="standard"
+      fullWidth
+      hiddenLabel
+      error={Boolean(error)}
+      helperText={error?.message || helperText}
+      slotProps={{ htmlInput: { "aria-label": label } }}
+      sx={lineFieldSx}
+    />
   );
 }
 
 function SelectField({ field, label, options, error, required = false }) {
-  const id = `${field.name}-label`;
   return (
-    <FormControl fullWidth required={required} error={Boolean(error)}>
-      <InputLabel id={id}>{label}</InputLabel>
-      <Select labelId={id} label={label} {...field}>
+    <FormControl fullWidth required={required} error={Boolean(error)} variant="standard" sx={lineFieldSx}>
+      <Select {...field} displayEmpty slotProps={{ input: { "aria-label": label } }}>
         {!required && <MenuItem value="">לא נבחר</MenuItem>}
         {options.map((option) => (
           <MenuItem key={option.value} value={option.value}>
@@ -134,6 +329,567 @@ function SelectField({ field, label, options, error, required = false }) {
       </Select>
       {error && <FormHelperText>{error.message}</FormHelperText>}
     </FormControl>
+  );
+}
+
+function FormActions({ submitting, saveLabel, onCancel }) {
+  return (
+    <Box sx={actionsSx}>
+      <Button variant="contained" type="submit" disabled={submitting} sx={{ flex: { sm: 1 }, minWidth: 160 }}>
+        {submitting ? "שומר..." : saveLabel}
+      </Button>
+      <Button variant="outlined" type="button" onClick={onCancel} disabled={submitting} sx={{ minWidth: 120 }}>
+        ביטול
+      </Button>
+    </Box>
+  );
+}
+
+function PhotoFrame({ src, alt, href }) {
+  const frame = (
+    <Box sx={photoFrameSx}>
+      {src ? (
+        <Box component="img" src={src} alt={alt} sx={photoImgSx} />
+      ) : (
+        <PersonAvatar size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
+      )}
+    </Box>
+  );
+
+  if (!href) return frame;
+
+  return (
+    <Box
+      component="a"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label="צפייה בתמונה"
+      sx={{ display: "block" }}
+    >
+      {frame}
+    </Box>
+  );
+}
+
+function ResumeThumb() {
+  const line = { height: 3, borderRadius: "2px", bgcolor: brand.fieldLine };
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        width: 74,
+        height: 96,
+        flex: "none",
+        borderRadius: "6px",
+        bgcolor: "background.paper",
+        border: `1px solid ${brand.line}`,
+        boxShadow: brand.shadow,
+        px: "9px",
+        py: "10px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+      }}
+    >
+      <Box sx={{ height: 6, width: "60%", borderRadius: "2px", bgcolor: brand.navy, mb: "3px" }} />
+      <Box sx={line} />
+      <Box sx={{ ...line, width: "80%" }} />
+      <Box sx={{ ...line, width: "40%", bgcolor: brand.goldMid, mt: "3px" }} />
+      <Box sx={line} />
+      <Box
+        sx={{
+          mt: "auto",
+          alignSelf: "flex-end",
+          fontSize: 8,
+          fontWeight: 700,
+          lineHeight: 1.4,
+          color: "background.paper",
+          bgcolor: "error.main",
+          borderRadius: "3px",
+          px: "4px",
+        }}
+      >
+        PDF
+      </Box>
+    </Box>
+  );
+}
+
+function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit }) {
+  const name = pdfFile?.name || (resumeUrl ? "קורות חיים.pdf" : "");
+
+  const pickInput = (
+    <input
+      hidden
+      type="file"
+      accept="application/pdf"
+      onChange={onPick}
+    />
+  );
+
+  const replaceButton = editing ? (
+    <Button component="label" variant="outlined" size="small" sx={outlineGoldSx} startIcon={<StrokeIcon name="refresh" />}>
+      {resumeUrl || pdfFile ? "החלפה" : "העלאת קורות חיים (PDF)"}
+      {pickInput}
+    </Button>
+  ) : (
+    <Button variant="outlined" size="small" sx={outlineGoldSx} startIcon={<StrokeIcon name="refresh" />} onClick={onEdit}>
+      {resumeUrl ? "החלפה" : "העלאת קורות חיים (PDF)"}
+    </Button>
+  );
+
+  return (
+    <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
+      <BlockTitle>רזומה</BlockTitle>
+      {name ? (
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2.25,
+            alignItems: "center",
+            p: 1.75,
+            border: `1px solid ${brand.line}`,
+            borderRadius: "14px",
+            bgcolor: "background.default",
+            maxWidth: 560,
+          }}
+        >
+          <ResumeThumb />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: "15px", wordBreak: "break-word" }}>
+              {name}
+            </Typography>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 1, flexWrap: "wrap" }}>
+              {resumeUrl && (
+                <Button
+                  component="a"
+                  href={resumeUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  variant="outlined"
+                  size="small"
+                  startIcon={<StrokeIcon name="eye" />}
+                >
+                  צפייה
+                </Button>
+              )}
+              {resumeUrl && (
+                <Button
+                  component="a"
+                  href={resumeUrl}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  variant="outlined"
+                  size="small"
+                  startIcon={<StrokeIcon name="download" />}
+                >
+                  הורדה
+                </Button>
+              )}
+              {replaceButton}
+            </Stack>
+          </Box>
+        </Box>
+      ) : (
+        <Stack direction="row" spacing={1.5} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
+          <Typography component="div" color="text.disabled" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <StrokeIcon name="file" /> לא הועלה קובץ PDF
+          </Typography>
+          {replaceButton}
+        </Stack>
+      )}
+    </Box>
+  );
+}
+
+function profileSubtitle(profile) {
+  if (!profile) return "";
+  const parts = [];
+  if (profile.age) {
+    if (profile.gender === "female") parts.push(`בת ${profile.age}`);
+    else if (profile.gender === "male") parts.push(`בן ${profile.age}`);
+    else parts.push(`גיל ${profile.age}`);
+  }
+  if (profile.city) parts.push(profile.city);
+  return parts.join(" · ");
+}
+
+function ProfileSummary({ profile }) {
+  const height = profile?.height ? `${profile.height} ס"מ` : "";
+  const showSchool = Boolean(profile?.yeshiva || profile?.seminar);
+
+  return (
+    <>
+      <Box component="ul" sx={listSx}>
+        <FieldRow icon="user" label="מגדר">
+          <ReadValue value={labelOf(genderOptions, profile?.gender)} pill />
+        </FieldRow>
+        <FieldRow icon="user" label="גיל">
+          <ReadValue value={toText(profile?.age)} />
+        </FieldRow>
+        <FieldRow icon="ruler" label="גובה">
+          <ReadValue value={height} />
+        </FieldRow>
+        <FieldRow icon="star" label="עדה">
+          <ReadValue value={labelOf(ethnicityOptions, profile?.ethnicity)} pill tone="pending" />
+        </FieldRow>
+        <FieldRow icon="pin" label="עיר">
+          <ReadValue value={profile?.city} />
+        </FieldRow>
+        <FieldRow icon="sliders" label="סגנון">
+          <ReadValue value={labelOf(styleOptions, profile?.style)} pill tone="pending" />
+        </FieldRow>
+        <FieldRow icon="spark" label="מראה">
+          <ReadValue value={labelOf(appearanceOptions, profile?.appearance)} pill />
+        </FieldRow>
+        {showSchool && (
+          <Box component="li" sx={{ display: "block" }}>
+            <BlockTitle>מוסד לימוד</BlockTitle>
+          </Box>
+        )}
+        {profile?.yeshiva && (
+          <FieldRow icon="school" label="ישיבה">
+            <ReadValue value={profile.yeshiva} />
+          </FieldRow>
+        )}
+        {profile?.seminar && (
+          <FieldRow icon="school" label="סמינר">
+            <ReadValue value={profile.seminar} />
+          </FieldRow>
+        )}
+        {profile?.occupation && (
+          <FieldRow icon="work" label="עיסוק">
+            <ReadValue value={profile.occupation} />
+          </FieldRow>
+        )}
+      </Box>
+      {profile?.description && (
+        <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
+          <BlockTitle>קצת עליי / תכונות</BlockTitle>
+          <Typography sx={{ color: "text.secondary", lineHeight: 1.85, wordBreak: "break-word" }}>
+            {profile.description}
+          </Typography>
+        </Box>
+      )}
+    </>
+  );
+}
+
+function ProfileForm({
+  control,
+  onSubmit,
+  submitting,
+  formError,
+  fileError,
+  onCancel,
+  resumeUrl,
+  pdfFile,
+  onPickPdf,
+}) {
+  return (
+    <Box component="form" onSubmit={onSubmit} noValidate>
+      <Box component="ul" sx={listSx}>
+        <Controller
+          name="gender"
+          control={control}
+          rules={{ required: "מין הוא שדה חובה" }}
+          render={({ field, fieldState }) => (
+            <FieldRow icon="user" label="מין" required>
+              <SelectField field={field} label="מין" options={genderOptions} error={fieldState.error} required />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="age"
+          control={control}
+          rules={{ required: "גיל הוא שדה חובה" }}
+          render={({ field, fieldState }) => (
+            <FieldRow icon="user" label="גיל" required>
+              <LineText field={field} label="גיל" type="number" error={fieldState.error} />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="height"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="ruler" label='גובה (בס"מ)'>
+              <LineText field={field} label='גובה (בס"מ)' type="number" placeholder="לדוגמה 175" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="ethnicity"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="star" label="עדה">
+              <SelectField field={field} label="עדה" options={ethnicityOptions} />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="city"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="pin" label="עיר">
+              <LineText field={field} label="עיר" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="style"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="סגנון">
+              <SelectField field={field} label="סגנון" options={styleOptions} />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="appearance"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="spark" label="מראה">
+              <SelectField field={field} label="מראה" options={appearanceOptions} />
+            </FieldRow>
+          )}
+        />
+        <Box component="li" sx={{ display: "block" }}>
+          <BlockTitle>מוסד לימוד</BlockTitle>
+        </Box>
+        <Controller
+          name="yeshiva"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="school" label="ישיבה">
+              <LineText field={field} label="ישיבה" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="seminar"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="school" label="סמינר">
+              <LineText field={field} label="סמינר" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="occupation"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="work" label="עיסוק">
+              <LineText field={field} label="עיסוק" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="financialStatus"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="מדד כספי להתאמה">
+              <LineText
+                field={field}
+                label="מדד כספי להתאמה"
+                type="number"
+                helperText="מספר שמשמש להתאמה לפי מצב כלכלי"
+              />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="financialRequirement"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="דרישה כספית">
+              <LineText field={field} label="דרישה כספית" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="financialCapabilities"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="יכולת כספית">
+              <LineText field={field} label="יכולת כספית" />
+            </FieldRow>
+          )}
+        />
+      </Box>
+
+      <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
+        <BlockTitle>קצת עליי / תכונות</BlockTitle>
+        <Controller
+          name="description"
+          control={control}
+          rules={{ maxLength: { value: 1000, message: "התיאור יכול להכיל עד 1000 תווים" } }}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              hiddenLabel
+              multiline
+              minRows={4}
+              fullWidth
+              placeholder="תיאור"
+              error={Boolean(fieldState.error)}
+              helperText={fieldState.error?.message}
+              slotProps={{ htmlInput: { "aria-label": "תיאור" } }}
+              sx={{ "& .MuiInputBase-root": { lineHeight: 1.75 } }}
+            />
+          )}
+        />
+      </Box>
+
+      <ResumeBlock resumeUrl={resumeUrl} pdfFile={pdfFile} editing onPick={onPickPdf} />
+
+      {fileError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {fileError}
+        </Alert>
+      )}
+      {formError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {formError}
+        </Alert>
+      )}
+      <FormActions submitting={submitting} saveLabel="שמירת פרופיל" onCancel={onCancel} />
+    </Box>
+  );
+}
+
+function PreferencesSummary({ preferences }) {
+  return (
+    <>
+      <Box component="ul" sx={listSx}>
+        <FieldRow icon="user" label="גיל">
+          <ReadValue value={formatRange(preferences?.ageMin, preferences?.ageMax)} />
+        </FieldRow>
+        <FieldRow icon="ruler" label="גובה">
+          <ReadValue value={formatRange(preferences?.heightMin, preferences?.heightMax, ' ס"מ')} />
+        </FieldRow>
+        <FieldRow icon="pin" label="עיר">
+          <ReadValue value={preferences?.city} />
+        </FieldRow>
+        <FieldRow icon="sliders" label="סגנון">
+          <ReadValue value={labelOf(styleOptions, preferences?.style)} pill tone="pending" />
+        </FieldRow>
+        <FieldRow icon="spark" label="מראה">
+          <ReadValue value={labelOf(appearanceOptions, preferences?.preferredAppearance)} pill />
+        </FieldRow>
+        <FieldRow icon="sliders" label="מצב כלכלי">
+          <ReadValue value={formatRange(preferences?.financialMin, preferences?.financialMax)} />
+        </FieldRow>
+      </Box>
+      <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
+        שדה שלא צוין אינו מגביל את ההתאמות.
+      </Typography>
+    </>
+  );
+}
+
+function PreferencesForm({ control, onSubmit, submitting, formError, onCancel }) {
+  return (
+    <Box component="form" onSubmit={onSubmit} noValidate>
+      <Typography sx={{ color: "text.secondary", mb: 2 }}>
+        כל השדות רשות. שדה שנשאר ריק לא מגביל את ההתאמות.
+      </Typography>
+      <BlockTitle first>טווח גילאים</BlockTitle>
+      <Box component="ul" sx={listSx}>
+        <Controller
+          name="ageMin"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="user" label="גיל מינימום">
+              <LineText field={field} label="גיל מינימום" type="number" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="ageMax"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="user" label="גיל מקסימום">
+              <LineText field={field} label="גיל מקסימום" type="number" />
+            </FieldRow>
+          )}
+        />
+      </Box>
+      <BlockTitle>פרטים מועדפים</BlockTitle>
+      <Box component="ul" sx={listSx}>
+        <Controller
+          name="heightMin"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="ruler" label='גובה מינימום (ס"מ)'>
+              <LineText field={field} label='גובה מינימום (ס"מ)' type="number" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="heightMax"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="ruler" label='גובה מקסימום (ס"מ)'>
+              <LineText field={field} label='גובה מקסימום (ס"מ)' type="number" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="city"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="pin" label="עיר">
+              <LineText field={field} label="עיר" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="style"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="סגנון">
+              <SelectField field={field} label="סגנון" options={styleOptions} />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="preferredAppearance"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="spark" label="מראה מועדף">
+              <SelectField field={field} label="מראה מועדף" options={appearanceOptions} />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="financialMin"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="מדד כספי מינימום">
+              <LineText field={field} label="מדד כספי מינימום" type="number" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="financialMax"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="מדד כספי מקסימום">
+              <LineText field={field} label="מדד כספי מקסימום" type="number" />
+            </FieldRow>
+          )}
+        />
+      </Box>
+      {formError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {formError}
+        </Alert>
+      )}
+      <FormActions submitting={submitting} saveLabel="שמירת העדפות" onCancel={onCancel} />
+    </Box>
   );
 }
 
@@ -155,6 +911,7 @@ export default function PersonalAreaPage() {
   });
 
   const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
   const [pdfFile, setPdfFile] = useState(null);
 
   const [loadingData, setLoadingData] = useState(canLoadData);
@@ -318,11 +1075,17 @@ export default function PersonalAreaPage() {
     setOpenForm((current) => (current === name ? null : name));
   };
 
+  const clearImagePreview = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview("");
+  };
+
   // Close the form and go back to the top of the page
   const closeForm = () => {
     setOpenForm(null);
     setFormError("");
     setFileError("");
+    clearImagePreview();
     setImageFile(null);
     setPdfFile(null);
     if (searchParams.has("edit")) {
@@ -414,6 +1177,23 @@ export default function PersonalAreaPage() {
     }
   };
 
+  const onPickImage = (event) => {
+    const file = event.target.files?.[0] || null;
+    const error = file ? getImageFileError(file) : "";
+    setFileError(error);
+    const nextFile = error ? null : file;
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(nextFile ? URL.createObjectURL(nextFile) : "");
+    setImageFile(nextFile);
+  };
+
+  const onPickPdf = (event) => {
+    const file = event.target.files?.[0] || null;
+    const error = file ? getPdfFileError(file) : "";
+    setFileError(error);
+    setPdfFile(error ? null : file);
+  };
+
   if (isAdmin) {
     return <Navigate to="/admin" replace />;
   }
@@ -428,38 +1208,54 @@ export default function PersonalAreaPage() {
 
   const imageUrl = toSafeFileUrl(profileData?.image);
   const resumeUrl = toSafeFileUrl(profileData?.resumePdf);
-
-  const formActions = (saveLabel) => (
-    <Box sx={fullRow}>
-      {formError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {formError}
-        </Alert>
-      )}
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-        <Button variant="contained" type="submit" disabled={submitting} sx={{ minWidth: 160 }}>
-          {submitting ? "שומר..." : saveLabel}
-        </Button>
-        <Button variant="outlined" onClick={closeForm} disabled={submitting} sx={{ minWidth: 120, boxShadow: "none" }}>
-          ביטול
-        </Button>
-      </Stack>
-    </Box>
-  );
+  const shownImage = imagePreview || imageUrl;
+  const subtitle = profileSubtitle(profileData);
+  const editingProfile = openForm === "profile";
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 3, sm: 5 } }}>
-      <Box sx={{ textAlign: "center", mb: 4 }}>
-        <Typography
-          variant="h4"
-          component="h1"
-          sx={{ fontWeight: 700, color: "text.primary" }}
-        >
-          האזור האישי
-        </Typography>
-        {user?.name && (
-          <Typography sx={{ mt: 1, color: "text.secondary", fontSize: "1.05rem" }}>שלום, {user.name}</Typography>
-        )}
+    <Box sx={{ maxWidth: 1120, mx: "auto", textAlign: "start" }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", md: "flex-end" },
+          gap: 2,
+          flexWrap: "wrap",
+          mb: 2.5,
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Typography component="h1" variant="h2" sx={{ color: brand.navy }}>
+            הפרופיל שלי
+          </Typography>
+          <Typography sx={{ mt: 0.75, color: "text.secondary", fontSize: "17px", maxWidth: 640 }}>
+            הפרטים שיוצגו לצד השני. {PRIVACY_NOTE}
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+          <Button
+            size="small"
+            variant={editingProfile ? "outlined" : "contained"}
+            startIcon={profileExists ? <Edit /> : <PersonAdd />}
+            onClick={() => toggleForm("profile")}
+          >
+            {profileExists ? "עדכון פרופיל" : "יצירת פרופיל"}
+          </Button>
+          <Button
+            size="small"
+            variant={openForm === "preferences" ? "outlined" : "contained"}
+            startIcon={<Tune />}
+            onClick={() => toggleForm("preferences")}
+          >
+            {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
+          </Button>
+          <Button size="small" variant="contained" color="secondary" startIcon={<Favorite />} onClick={() => navigate("/matches")}>
+            התאמות
+          </Button>
+          <Button size="small" variant="contained" color="secondary" startIcon={<Forum />} onClick={() => navigate("/interests")}>
+            התעניינויות
+          </Button>
+        </Stack>
       </Box>
 
       {errorMessage && (
@@ -468,371 +1264,171 @@ export default function PersonalAreaPage() {
         </Alert>
       )}
 
-      <Box
-        sx={{
-          display: "grid",
-          gap: 1.5,
-          mb: 4,
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" },
-        }}
-      >
-        <Button
-          variant={openForm === "profile" ? "outlined" : "contained"}
-          startIcon={profileExists ? <Edit /> : <PersonAdd />}
-          onClick={() => toggleForm("profile")}
+      <Paper ref={profileFormRef} sx={{ ...cardSx, mb: 4, scrollMarginTop: 88 }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) minmax(230px, 300px)" },
+            gap: { xs: 2.5, lg: 5 },
+          }}
         >
-          {profileExists ? "עדכון פרופיל" : "יצירת פרופיל"}
-        </Button>
-        <Button
-          variant={openForm === "preferences" ? "outlined" : "contained"}
-          startIcon={<Tune />}
-          onClick={() => toggleForm("preferences")}
-        >
-          {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
-        </Button>
-        <Button variant="contained" color="secondary" startIcon={<Favorite />} onClick={() => navigate("/matches")}>
-          התאמות
-        </Button>
-        <Button variant="contained" color="secondary" startIcon={<Forum />} onClick={() => navigate("/interests")}>
-          התעניינויות
-        </Button>
-      </Box>
-
-      <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, mb: 4 }}>
-        <SectionCard title="הפרופיל שלי" icon={<Edit />}>
-          {profileExists ? (
-            <>
-              <InfoRow label="מגדר" value={labelOf(genderOptions, profileData?.gender)} />
-              <InfoRow label="גיל" value={toText(profileData?.age)} />
-              <InfoRow label="עיר" value={profileData?.city} />
-              <InfoRow label="גובה" value={profileData?.height ? `${profileData.height} ס"מ` : ""} />
-              <InfoRow label="עדה" value={labelOf(ethnicityOptions, profileData?.ethnicity)} />
-              <InfoRow label="סגנון" value={labelOf(styleOptions, profileData?.style)} />
-              <InfoRow label="מראה" value={labelOf(appearanceOptions, profileData?.appearance)} />
-              {profileData?.yeshiva && <InfoRow label="ישיבה" value={profileData.yeshiva} />}
-              {profileData?.seminar && <InfoRow label="סמינר" value={profileData.seminar} />}
-              {profileData?.occupation && <InfoRow label="עיסוק" value={profileData.occupation} />}
-              {profileData?.description && (
-                <Typography sx={{ mt: 2, color: "text.secondary", wordBreak: "break-word" }}>
-                  {profileData.description}
-                </Typography>
-              )}
-            </>
-          ) : (
-            <Box sx={{ textAlign: "center", py: 2 }}>
-              <Typography sx={{ color: "text.secondary", mb: 2 }}>
-                עדיין לא יצרת פרופיל. בלי פרופיל לא נוכל להציע לך התאמות.
-              </Typography>
-              <Button variant="contained" startIcon={<PersonAdd />} onClick={() => toggleForm("profile")}>
-                יצירת פרופיל
-              </Button>
-            </Box>
-          )}
-        </SectionCard>
-
-        <SectionCard title="ההעדפות שלי" icon={<Tune />}>
-          {preferencesExists ? (
-            <>
-              <InfoRow label="גיל" value={formatRange(preferencesData?.ageMin, preferencesData?.ageMax)} />
-              <InfoRow label="גובה" value={formatRange(preferencesData?.heightMin, preferencesData?.heightMax, ' ס"מ')} />
-              <InfoRow label="עיר" value={preferencesData?.city} />
-              <InfoRow label="סגנון" value={labelOf(styleOptions, preferencesData?.style)} />
-              <InfoRow label="מראה" value={labelOf(appearanceOptions, preferencesData?.preferredAppearance)} />
-              <InfoRow label="מצב כלכלי" value={formatRange(preferencesData?.financialMin, preferencesData?.financialMax)} />
-              <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
-                שדה שלא צוין אינו מגביל את ההתאמות.
-              </Typography>
-            </>
-          ) : (
-            <Box sx={{ textAlign: "center", py: 2 }}>
-              <Typography sx={{ color: "text.secondary", mb: 2 }}>
-                עדיין לא הגדרת העדפות, ולכן יוצגו לך כל ההתאמות האפשריות.
-              </Typography>
-              <Button variant="outlined" startIcon={<Tune />} onClick={() => toggleForm("preferences")}>
-                הגדרת העדפות
-              </Button>
-            </Box>
-          )}
-        </SectionCard>
-      </Box>
-
-      {profileExists && (
-        <Box sx={{ mb: 4 }}>
-          <SectionCard title="קבצים" icon={<UploadFile />}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              {imageUrl ? (
-                <Button variant="outlined" startIcon={<ImageIcon />} href={imageUrl} target="_blank" rel="noreferrer">
-                  צפייה בתמונה
-                </Button>
-              ) : (
-                <Typography sx={{ color: "text.disabled", display: "flex", alignItems: "center", gap: 1 }}>
-                  <ImageIcon fontSize="small" /> לא הועלתה תמונה
-                </Typography>
-              )}
-              {resumeUrl ? (
-                <Button variant="outlined" startIcon={<PictureAsPdf />} href={resumeUrl} target="_blank" rel="noreferrer">
-                  צפייה בקובץ PDF
-                </Button>
-              ) : (
-                <Typography sx={{ color: "text.disabled", display: "flex", alignItems: "center", gap: 1 }}>
-                  <PictureAsPdf fontSize="small" /> לא הועלה קובץ PDF
-                </Typography>
-              )}
-            </Stack>
-            <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
-              התמונה וקורות החיים גלויים רק לך, למנהל ולמי שיש לך איתו התאמה הדדית.
-            </Typography>
-          </SectionCard>
-        </Box>
-      )}
-
-      {openForm === "profile" && (
-        <Paper ref={profileFormRef} sx={{ ...cardSx, mb: 4, scrollMarginTop: 88 }}>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 700, color: "text.primary", mb: 3 }}>
-            {profileExists ? "עדכון פרופיל" : "יצירת פרופיל"}
-          </Typography>
-
           <Box
-            component="form"
-            onSubmit={handleProfileSubmit(onSaveProfile)}
-            noValidate
-            sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}
+            sx={{
+              order: { xs: 0, lg: 2 },
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.75,
+              alignSelf: "start",
+              position: { lg: "sticky" },
+              top: { lg: brand.topBarHeight + 16 },
+            }}
           >
-            <Controller
-              name="gender"
-              control={profileControl}
-              rules={{ required: "מין הוא שדה חובה" }}
-              render={({ field, fieldState }) => (
-                <SelectField field={field} label="מין" options={genderOptions} error={fieldState.error} required />
-              )}
+            <PhotoFrame
+              src={shownImage}
+              alt={user?.name ? `תמונה של ${user.name}` : "תמונת פרופיל"}
+              href={imageUrl && !imagePreview ? imageUrl : ""}
             />
-
-            <Controller
-              name="age"
-              control={profileControl}
-              rules={{ required: "גיל הוא שדה חובה" }}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="גיל"
-                  type="number"
-                  required
-                  error={Boolean(fieldState.error)}
-                  helperText={fieldState.error?.message}
-                  fullWidth
-                />
-              )}
-            />
-
-            <Controller
-              name="city"
-              control={profileControl}
-              render={({ field }) => <TextField {...field} label="עיר" fullWidth />}
-            />
-
-            <Controller
-              name="height"
-              control={profileControl}
-              render={({ field }) => (
-                <TextField {...field} label='גובה (בס"מ)' type="number" placeholder="לדוגמה 175" fullWidth />
-              )}
-            />
-
-            <Controller
-              name="ethnicity"
-              control={profileControl}
-              render={({ field }) => <SelectField field={field} label="עדה" options={ethnicityOptions} />}
-            />
-
-            <Controller
-              name="style"
-              control={profileControl}
-              render={({ field }) => <SelectField field={field} label="סגנון" options={styleOptions} />}
-            />
-
-            <Controller
-              name="appearance"
-              control={profileControl}
-              render={({ field }) => <SelectField field={field} label="מראה" options={appearanceOptions} />}
-            />
-
-            <Controller
-              name="financialStatus"
-              control={profileControl}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="מדד כספי להתאמה"
-                  type="number"
-                  helperText="מספר שמשמש להתאמה לפי מצב כלכלי"
-                  fullWidth
-                />
-              )}
-            />
-
-            <Controller
-              name="financialRequirement"
-              control={profileControl}
-              render={({ field }) => <TextField {...field} label="דרישה כספית" fullWidth />}
-            />
-
-            <Controller
-              name="financialCapabilities"
-              control={profileControl}
-              render={({ field }) => <TextField {...field} label="יכולת כספית" fullWidth />}
-            />
-
-            <Controller
-              name="yeshiva"
-              control={profileControl}
-              render={({ field }) => <TextField {...field} label="ישיבה" fullWidth />}
-            />
-
-            <Controller
-              name="seminar"
-              control={profileControl}
-              render={({ field }) => <TextField {...field} label="סמינר" fullWidth />}
-            />
-
-            <Controller
-              name="occupation"
-              control={profileControl}
-              render={({ field }) => <TextField {...field} label="עיסוק" fullWidth />}
-            />
-
-            <Controller
-              name="description"
-              control={profileControl}
-              rules={{ maxLength: { value: 1000, message: "התיאור יכול להכיל עד 1000 תווים" } }}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="תיאור"
-                  multiline
-                  minRows={3}
-                  error={Boolean(fieldState.error)}
-                  helperText={fieldState.error?.message}
-                  fullWidth
-                  sx={fullRow}
-                />
-              )}
-            />
-
-            <Divider sx={fullRow} />
-
-            <Box sx={{ ...fullRow, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-              <Button variant="outlined" component="label" startIcon={<ImageIcon />} sx={{ boxShadow: "none" }}>
-                {imageUrl ? "החלפת תמונה" : "העלאת תמונה"}
-                <input
-                  hidden
-                  type="file"
-                  accept={IMAGE_ACCEPT}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] || null;
-                    const error = file ? getImageFileError(file) : "";
-                    setFileError(error);
-                    setImageFile(error ? null : file);
-                  }}
-                />
+            {editingProfile ? (
+              <Button
+                component="label"
+                variant="outlined"
+                fullWidth
+                disabled={submitting}
+                startIcon={<StrokeIcon name="camera" size={17} />}
+              >
+                {shownImage ? "החלפת תמונה" : "העלאת תמונה"}
+                <input hidden type="file" accept={IMAGE_ACCEPT} onChange={onPickImage} />
               </Button>
-              {imageFile && <Typography sx={{ color: "text.secondary" }}>נבחר: {imageFile.name}</Typography>}
-            </Box>
-
-            <Box sx={{ ...fullRow, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
-              <Button variant="outlined" component="label" startIcon={<PictureAsPdf />} sx={{ boxShadow: "none" }}>
-                {resumeUrl ? "החלפת קורות חיים" : "העלאת קורות חיים (PDF)"}
-                <input
-                  hidden
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] || null;
-                    const error = file ? getPdfFileError(file) : "";
-                    setFileError(error);
-                    setPdfFile(error ? null : file);
-                  }}
-                />
+            ) : (
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<StrokeIcon name="camera" size={17} />}
+                onClick={() => toggleForm("profile")}
+              >
+                {shownImage ? "החלפת תמונה" : "העלאת תמונה"}
               </Button>
-              {pdfFile && <Typography sx={{ color: "text.secondary" }}>נבחר: {pdfFile.name}</Typography>}
-            </Box>
-
-            {fileError && (
-              <Alert severity="error" sx={fullRow}>
-                {fileError}
-              </Alert>
             )}
-
-            {formActions("שמירת פרופיל")}
+            {imageFile && (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                נבחר: {imageFile.name}
+              </Typography>
+            )}
+            {!shownImage && (
+              <Typography variant="body2" color="text.disabled">
+                לא הועלתה תמונה
+              </Typography>
+            )}
+            <Typography
+              component="div"
+              variant="body2"
+              sx={{ display: "flex", gap: 1, alignItems: "flex-start", color: "text.secondary", lineHeight: 1.5 }}
+            >
+              <Box sx={{ color: brand.goldDeep, mt: "2px" }}>
+                <StrokeIcon name="lock" size={15} />
+              </Box>
+              {PRIVACY_NOTE}
+            </Typography>
           </Box>
-        </Paper>
-      )}
 
-      {openForm === "preferences" && (
-        <Paper ref={preferencesFormRef} sx={{ ...cardSx, mb: 4, scrollMarginTop: 88 }}>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 700, color: "text.primary", mb: 1 }}>
-            {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
-          </Typography>
-          <Typography sx={{ color: "text.secondary", mb: 3 }}>
-            כל השדות רשות. שדה שנשאר ריק לא מגביל את ההתאמות.
-          </Typography>
+          <Box sx={{ order: 1, minWidth: 0 }}>
+            <Box sx={{ pb: 2.5, mb: 2.5, borderBottom: `1px solid ${brand.line}` }}>
+              <Typography
+                component="h2"
+                sx={{
+                  fontWeight: 600,
+                  letterSpacing: "-0.3px",
+                  color: brand.navy,
+                  fontSize: { xs: "1.625rem", md: "2.125rem" },
+                  lineHeight: 1.15,
+                }}
+              >
+                {user?.name || "הפרופיל שלי"}
+              </Typography>
+              {subtitle && (
+                <Typography component="div" sx={{ display: "flex", gap: 0.75, alignItems: "center", mt: 1, color: "text.secondary" }}>
+                  <Box sx={{ color: "text.secondary", display: "flex" }}>
+                    <StrokeIcon name="pin" />
+                  </Box>
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
 
-          <Box
-            component="form"
+            {editingProfile ? (
+              <ProfileForm
+                control={profileControl}
+                onSubmit={handleProfileSubmit(onSaveProfile)}
+                submitting={submitting}
+                formError={formError}
+                fileError={fileError}
+                onCancel={closeForm}
+                resumeUrl={resumeUrl}
+                pdfFile={pdfFile}
+                onPickPdf={onPickPdf}
+              />
+            ) : profileExists ? (
+              <>
+                <ProfileSummary profile={profileData} />
+                <ResumeBlock resumeUrl={resumeUrl} editing={false} onEdit={() => toggleForm("profile")} />
+                <Box sx={actionsSx}>
+                  <Button variant="contained" onClick={() => toggleForm("profile")} sx={{ flex: { sm: 1 }, minWidth: 160 }}>
+                    עדכון פרופיל
+                  </Button>
+                </Box>
+              </>
+            ) : (
+              <Box sx={{ py: 1 }}>
+                <Typography sx={{ color: "text.secondary", mb: 2 }}>
+                  עדיין לא יצרת פרופיל. בלי פרופיל לא נוכל להציע לך התאמות.
+                </Typography>
+                <Button variant="contained" startIcon={<PersonAdd />} onClick={() => toggleForm("profile")}>
+                  יצירת פרופיל
+                </Button>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      </Paper>
+
+      <Box sx={{ mb: 2 }}>
+        <Typography component="h2" variant="h2" sx={{ color: brand.navy }}>
+          העדפות התאמה
+        </Typography>
+        <Typography sx={{ mt: 0.75, color: "text.secondary", fontSize: "17px" }}>
+          מה חשוב לך אצל הצד השני. שדה שלא צוין אינו מגביל את ההתאמות.
+        </Typography>
+      </Box>
+
+      <Paper ref={preferencesFormRef} sx={{ ...cardSx, scrollMarginTop: 88 }}>
+        {openForm === "preferences" ? (
+          <PreferencesForm
+            control={preferencesControl}
             onSubmit={handlePreferencesSubmit(onSavePreferences)}
-            noValidate
-            sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}
-          >
-            <Controller
-              name="ageMin"
-              control={preferencesControl}
-              render={({ field }) => <TextField {...field} label="גיל מינימום" type="number" fullWidth />}
-            />
-            <Controller
-              name="ageMax"
-              control={preferencesControl}
-              render={({ field }) => <TextField {...field} label="גיל מקסימום" type="number" fullWidth />}
-            />
-            <Controller
-              name="heightMin"
-              control={preferencesControl}
-              render={({ field }) => <TextField {...field} label='גובה מינימום (ס"מ)' type="number" fullWidth />}
-            />
-            <Controller
-              name="heightMax"
-              control={preferencesControl}
-              render={({ field }) => <TextField {...field} label='גובה מקסימום (ס"מ)' type="number" fullWidth />}
-            />
-            <Controller
-              name="city"
-              control={preferencesControl}
-              render={({ field }) => <TextField {...field} label="עיר" fullWidth />}
-            />
-            <Controller
-              name="style"
-              control={preferencesControl}
-              render={({ field }) => <SelectField field={field} label="סגנון" options={styleOptions} />}
-            />
-            <Controller
-              name="preferredAppearance"
-              control={preferencesControl}
-              render={({ field }) => <SelectField field={field} label="מראה מועדף" options={appearanceOptions} />}
-            />
-            <Box sx={{ display: { xs: "none", sm: "block" } }} />
-            <Controller
-              name="financialMin"
-              control={preferencesControl}
-              render={({ field }) => <TextField {...field} label="מדד כספי מינימום" type="number" fullWidth />}
-            />
-            <Controller
-              name="financialMax"
-              control={preferencesControl}
-              render={({ field }) => <TextField {...field} label="מדד כספי מקסימום" type="number" fullWidth />}
-            />
-
-            {formActions("שמירת העדפות")}
+            submitting={submitting}
+            formError={formError}
+            onCancel={closeForm}
+          />
+        ) : preferencesExists ? (
+          <>
+            <PreferencesSummary preferences={preferencesData} />
+            <Box sx={actionsSx}>
+              <Button variant="contained" onClick={() => toggleForm("preferences")} sx={{ minWidth: 160 }}>
+                עדכון העדפות
+              </Button>
+            </Box>
+          </>
+        ) : (
+          <Box sx={{ py: 1 }}>
+            <Typography sx={{ color: "text.secondary", mb: 2 }}>
+              עדיין לא הגדרת העדפות, ולכן יוצגו לך כל ההתאמות האפשריות.
+            </Typography>
+            <Button variant="outlined" startIcon={<Tune />} onClick={() => toggleForm("preferences")}>
+              הגדרת העדפות
+            </Button>
           </Box>
-        </Paper>
-      )}
+        )}
+      </Paper>
 
       <Snackbar
         open={Boolean(successMessage)}
@@ -844,6 +1440,6 @@ export default function PersonalAreaPage() {
           {successMessage}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 }

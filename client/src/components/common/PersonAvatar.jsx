@@ -3,7 +3,7 @@ import { brand } from "../../theme/tokens.js";
 
 // Head and shoulders overlap in one flat color, so there is no neck and no face.
 
-export default function PersonAvatar({ locked = false, size = 64, color = brand.navy }) {
+export default function PersonAvatar({ locked = false, size = 64, color = brand.navy, sx }) {
   const fill = locked ? brand.mist : color;
   return (
     <Box
@@ -17,6 +17,7 @@ export default function PersonAvatar({ locked = false, size = 64, color = brand.
         bgcolor: locked ? "#E4E9F0" : "#E7EDF4",
         display: "grid",
         placeItems: "center",
+        ...sx,
       }}
     >
       <Box

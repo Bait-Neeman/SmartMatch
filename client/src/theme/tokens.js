@@ -47,8 +47,10 @@ export const brand = {
   topBarHeight: 64,
   radius: 10,
   radiusCard: 16,
+  radiusPhoto: 24,
   radiusPill: 8,
   radiusDialog: 18,
+  fieldLine: "#E3E8F0",
 };
 
 export const statusTones = {
