@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { Alert, Button, Card, CardContent, Stack, Typography } from "@mui/material";
-import { Check, Close, SupervisorAccount } from "@mui/icons-material";
+import { Alert, Box, Button, Card, CardContent, Stack, Typography } from "@mui/material";
+import { Check, Close, Inbox, Send, SupervisorAccount } from "@mui/icons-material";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import StatusPill from "../common/StatusPill.jsx";
+import SuggestionRow from "../suggestion/SuggestionRow.jsx";
+import SuggestionDetail from "../suggestion/SuggestionDetail.jsx";
+import { cleanText, idOf, toSuggestionView } from "../../utils/suggestionView.js";
 import {
   acceptInterest,
   rejectInterest,
   sendToManager,
 } from "../../store/slices/interestsSlice.js";
 
-// unwrap() rejects with the thunk's rejectWithValue payload - the server's message
 const getErrorMessage = (err) =>
   (typeof err === "string" && err) || err?.message || "לא הצלחנו לבצע את הפעולה";
+
+const displayName = (value) => cleanText(value) || "משתמש";
 
 const STATUSES = {
   pending: { label: "ממתין לתשובה", tone: "pending" },
@@ -20,32 +24,107 @@ const STATUSES = {
   rejected: { label: "נדחה", tone: "rejected" },
 };
 
-const InterestCard = ({ interest, type }) => {
+// variant "row" | "detail" is the anonymous suggestions layout.
+// The default card stays on the interests page.
+const InterestCard = ({
+  interest,
+  type,
+  variant = "card",
+  offline = false,
+  onOpen,
+  onDeclined,
+  onAccepted,
+  reservePercent = false,
+  view: viewProp,
+}) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ severity: "success", text: "" });
 
   const otherUser = type === "incoming" ? interest?.sender : interest?.receiver;
-  const otherUserId = otherUser?._id || otherUser?.id;
+  const otherUserId = idOf(otherUser);
   const status = STATUSES[interest?.status] || { label: "לא ידוע", tone: "neutral" };
+  const kind = type === "incoming" ? "received" : "sent";
 
-  // Each side approves separately; the match reaches the manager once both have approved
   const iApproved = type === "incoming" ? interest?.receiverApprovedToManager : interest?.senderApprovedToManager;
   const otherApproved = type === "incoming" ? interest?.senderApprovedToManager : interest?.receiverApprovedToManager;
 
-  // successText is optional: the card's own status often says it already
-  const run = async (action, successText = "") => {
+  const run = async (action, outcome, successText = "") => {
     try {
       setLoading(true);
       setMessage({ severity: "success", text: "" });
-      await dispatch(action).unwrap();
-      setMessage({ severity: "success", text: successText });
+      if (!offline) {
+        await dispatch(action).unwrap();
+      }
+      if (outcome === "rejected") onDeclined?.(interest);
+      if (outcome === "accepted") onAccepted?.(interest);
+      if (variant === "card" && successText) {
+        setMessage({ severity: "success", text: successText });
+      }
     } catch (err) {
       setMessage({ severity: "error", text: getErrorMessage(err) });
     } finally {
       setLoading(false);
     }
   };
+
+  if (variant === "row" || variant === "detail") {
+    const person = type === "incoming" ? interest?.sender : interest?.receiver;
+    const suggestion = viewProp || toSuggestionView(person, kind, interest);
+    const icon = kind === "received" ? <Inbox /> : <Send />;
+    const actions =
+      kind === "received" && interest?.status === "pending" ? (
+        <>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Check />}
+            disabled={loading || !otherUserId}
+            onClick={(event) => {
+              event.stopPropagation();
+              run(acceptInterest(otherUserId), "accepted");
+            }}
+          >
+            אשר התעניינות
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Close />}
+            disabled={loading || !otherUserId}
+            onClick={(event) => {
+              event.stopPropagation();
+              run(rejectInterest(otherUserId), "rejected");
+            }}
+          >
+            לא מעוניין/ת
+          </Button>
+        </>
+      ) : null;
+
+    if (variant === "detail") {
+      return (
+        <SuggestionDetail
+          view={suggestion}
+          icon={icon}
+          actions={actions}
+          error={message.severity === "error" ? message.text : ""}
+          onBack={onOpen}
+        />
+      );
+    }
+
+    return (
+      <SuggestionRow
+        view={suggestion}
+        icon={icon}
+        actions={actions}
+        error={message.severity === "error" ? message.text : ""}
+        onOpen={onOpen}
+        reservePercent={reservePercent}
+      />
+    );
+  }
 
   const renderManagerStep = () => {
     if (iApproved && otherApproved) {
@@ -82,16 +161,14 @@ const InterestCard = ({ interest, type }) => {
   };
 
   return (
-    <Card
-      sx={{ height: "100%" }}
-    >
+    <Card sx={{ height: "100%" }}>
       <CardContent
         sx={{ p: 3, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
       >
         <PersonAvatar size={64} locked={interest?.status !== "accepted"} />
 
         <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
-          {otherUser?.name || "משתמש"}
+          {displayName(otherUser?.name)}
         </Typography>
 
         <StatusPill tone={status.tone} label={status.label} />
@@ -102,7 +179,7 @@ const InterestCard = ({ interest, type }) => {
               variant="contained"
               startIcon={<Check />}
               disabled={loading || !otherUserId}
-              onClick={() => run(acceptInterest(otherUserId), "הפנייה אושרה")}
+              onClick={() => run(acceptInterest(otherUserId), "accepted", "הפנייה אושרה")}
             >
               אישור
             </Button>
@@ -111,7 +188,7 @@ const InterestCard = ({ interest, type }) => {
               color="error"
               startIcon={<Close />}
               disabled={loading || !otherUserId}
-              onClick={() => run(rejectInterest(otherUserId), "הפנייה נדחתה")}
+              onClick={() => run(rejectInterest(otherUserId), "rejected", "הפנייה נדחתה")}
             >
               דחייה
             </Button>

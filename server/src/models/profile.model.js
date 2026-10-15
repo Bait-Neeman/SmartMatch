@@ -23,16 +23,21 @@ const profileSchema = new mongoose.Schema(
 
     description: textField(1000, "תיאור"),
 
-    // Male fields
+    occupation: textField(100, "עיסוק"),
+
+    // Learning institution (מוסד). Either side may set either field.
     yeshiva: textField(100, "ישיבה"),
+    seminar: textField(100, "סמינר"),
+
+    // דרישה כספית (financialDemand): the minimum this side requires from the other.
+    // A higher participation on the other side still fits. Free text, not used by matching.
     financialRequirement: textField(100, "דרישה כספית"),
 
-    // Female fields
-    seminar: textField(100, "סמינר"),
-    occupation: textField(100, "עיסוק"),
+    // יכולת כספית. There is no separate השתתפות כספית (financialContribution) field.
+    // This is the other stored money figure, and either side may set it.
     financialCapabilities: textField(100, "יכולת כספית"),
 
-    // Financial status for matching (numeric scale)
+    // One number matched against a preference min/max range. Not demand or participation.
     financialStatus: { type: Number, min: [0, "המדד הכספי לא יכול להיות שלילי"] },
 
     // Cloudinary public IDs - the API returns them as signed URLs (see storage.service)

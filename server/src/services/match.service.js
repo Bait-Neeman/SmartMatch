@@ -1,29 +1,45 @@
 const Interest = require("../models/interest.model");
 const Profile = require("../models/profile.model");
 const Preference = require("../models/preference.model");
+const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
+const { toPublicPerson, redactIdentity } = require("./privacy.service");
 
-// Mutual (accepted) matches of the user. Other users are shown by name - never by ID number.
+const otherUserId = (interest, viewerId) =>
+  String(interest.sender) === String(viewerId) ? interest.receiver : interest.sender;
+
+// Mutual (accepted) matches. Identity is included because both sides already approved.
+// The national ID number is never selected.
 const getMatchesForUser = async (userId) => {
   const accepted = await Interest.find({
     $or: [{ sender: userId }, { receiver: userId }],
     status: "accepted",
-  })
-    .populate("sender", "name role")
-    .populate("receiver", "name role")
-    .lean();
+  }).lean();
+
+  const otherIds = accepted.map((item) => otherUserId(item, userId));
+  const [users, profiles] = await Promise.all([
+    User.find({ _id: { $in: otherIds } }).select("name email role").lean(),
+    Profile.find({ user: { $in: otherIds } }).lean(),
+  ]);
+  const userById = new Map(users.map((user) => [String(user._id), user]));
+  const profileByUser = new Map(profiles.map((profile) => [String(profile.user), profile]));
 
   return accepted
-    .filter((item) => item.sender && item.receiver)
     .map((item) => {
-      const otherUser = String(item.sender._id) === userId ? item.receiver : item.sender;
-      return {
-        _id: otherUser._id,
-        name: otherUser.name,
-        role: otherUser.role,
-        matchedAt: item.updatedAt || item.createdAt,
-      };
-    });
+      const otherId = otherUserId(item, userId);
+      const otherUser = userById.get(String(otherId));
+      if (!otherUser) return null;
+      const person = toPublicPerson(otherUser, profileByUser.get(String(otherId)), { revealIdentity: true });
+      return redactIdentity(
+        {
+          ...person,
+          role: otherUser.role,
+          matchedAt: item.updatedAt || item.createdAt,
+        },
+        { revealIdentity: true }
+      );
+    })
+    .filter(Boolean);
 };
 
 // True when the value is outside [min, max]. A value the profile doesn't have
@@ -44,8 +60,10 @@ const meetsPreference = (profile, preference) => {
   if (preference.preferredAppearance && profile.appearance !== preference.preferredAppearance) return false;
   if (preference.city && profile.city !== preference.city) return false;
 
-  // Financial status is optional and older profiles never collected it,
-  // so a profile without it is not excluded by a financial range
+  // Existing filter only. financialStatus must fall inside the other side's
+  // [financialMin, financialMax]: a range, not an exact match. It does not compare
+  // דרישה כספית (financialRequirement, a minimum) with participation. A profile
+  // that never stored financialStatus is not excluded by this range.
   if (
     profile.financialStatus != null &&
     isOutOfRange(profile.financialStatus, preference.financialMin, preference.financialMax)
@@ -80,15 +98,21 @@ const getCandidatesForUser = async (userId) => {
   const profiles = await Profile.find({
     user: { $nin: [...excludedUserIds] },
     gender: { $ne: userProfile.gender },
-  })
-    .populate("user", "name role")
-    .lean();
+  }).lean();
 
-  const candidateProfiles = profiles.filter((profile) => profile.user?.role === "user");
+  // Role only — name, email, and ID number are not loaded for a suggestion.
+  const candidateUsers = await User.find({
+    _id: { $in: profiles.map((profile) => profile.user) },
+    role: "user",
+  })
+    .select("_id")
+    .lean();
+  const candidateUserIds = new Set(candidateUsers.map((user) => String(user._id)));
+  const candidateProfiles = profiles.filter((profile) => candidateUserIds.has(String(profile.user)));
 
   // Load all candidates' preferences in one query
   const preferences = await Preference.find({
-    user: { $in: candidateProfiles.map((profile) => profile.user._id) },
+    user: { $in: candidateProfiles.map((profile) => profile.user) },
   }).lean();
   const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
 
@@ -96,19 +120,13 @@ const getCandidatesForUser = async (userId) => {
     .filter(
       (profile) =>
         meetsPreference(profile, userPreference) &&
-        meetsPreference(userProfile, preferenceByUser.get(String(profile.user._id)))
+        meetsPreference(userProfile, preferenceByUser.get(String(profile.user)))
     )
-    .map((profile) => ({
-      _id: profile.user._id,
-      name: profile.user.name,
-      age: profile.age,
-      city: profile.city,
-      height: profile.height,
-      style: profile.style,
-      appearance: profile.appearance,
-      gender: profile.gender,
-      description: profile.description,
-    }));
+    .map((profile) =>
+      redactIdentity(toPublicPerson({ _id: profile.user }, profile, { revealIdentity: false }), {
+        revealIdentity: false,
+      })
+    );
 };
 
 module.exports = {

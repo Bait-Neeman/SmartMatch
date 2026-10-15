@@ -19,6 +19,7 @@ const preferenceSchema = new mongoose.Schema(
 
     preferredAppearance: choiceField(APPEARANCES, "מראה חיצוני"),
 
+    // Range for the profile's financialStatus number. Not דרישה כספית vs השתתפות כספית.
     financialMin: rangeField("מצב כלכלי מינימלי"),
     financialMax: rangeField("מצב כלכלי מקסימלי"),
   },
