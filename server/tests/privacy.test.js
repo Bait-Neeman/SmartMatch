@@ -112,6 +112,10 @@ const CANDIDATE_KEYS = new Set([
   "financialRequirement",
   "financialCapabilities",
   "financialStatus",
+  "financialDemand",
+  "financialParticipation",
+  "lookingFor",
+  "matchPercent",
 ]);
 
 // Institution plus both stored money figures. financialRequirement is דרישה כספית

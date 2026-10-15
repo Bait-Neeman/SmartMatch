@@ -1,10 +1,12 @@
 const Interest = require('../models/interest.model');
 const User = require('../models/user.model');
 const Profile = require('../models/profile.model');
+const Preference = require('../models/preference.model');
 const HttpError = require('../utils/httpError');
 const { assertObjectId } = require('../utils/validators');
+const { stageForViewer } = require('../utils/suggestionStage');
 const { toPublicPerson, redactIdentity } = require('./privacy.service');
-const { getCandidatesForUser } = require('./match.service');
+const { getCandidatesForUser, computeMatchPercent } = require('./match.service');
 
 const RESPONSE_STATUSES = ['accepted', 'rejected'];
 const USER_NOT_FOUND = 'המשתמש לא נמצא';
@@ -246,13 +248,18 @@ const withPublicCounterparts = async (interests, viewerId) => {
     .filter((interest) => interest.status === 'accepted')
     .map((interest) => otherUserId(interest, viewerId));
 
-  const [users, profiles] = await Promise.all([
-    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email').lean() : [],
-    Profile.find({ user: { $in: otherIds } }).lean(),
+  const contextIds = [...new Set([String(viewerId), ...otherIds.map(String)])];
+  const [users, profiles, preferences, viewerProfile] = await Promise.all([
+    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email phone').lean() : [],
+    Profile.find({ user: { $in: contextIds } }).lean(),
+    Preference.find({ user: { $in: contextIds } }).lean(),
+    Profile.findOne({ user: viewerId }).lean(),
   ]);
 
   const userById = new Map(users.map((user) => [String(user._id), user]));
   const profileByUser = new Map(profiles.map((profile) => [String(profile.user), profile]));
+  const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
+  if (viewerProfile) profileByUser.set(String(viewerId), viewerProfile);
 
   return interests.map((interest) => {
     const otherId = otherUserId(interest, viewerId);
@@ -263,11 +270,17 @@ const withPublicCounterparts = async (interests, viewerId) => {
       { revealIdentity }
     );
     person._id = otherId;
+    person.matchPercent = computeMatchPercent(
+      profileByUser.get(String(viewerId)),
+      preferenceByUser.get(String(viewerId)),
+      profileByUser.get(String(otherId)),
+      preferenceByUser.get(String(otherId))
+    );
 
     const view =
       String(interest.sender) === String(viewerId)
-        ? { ...interest, receiver: person }
-        : { ...interest, sender: person };
+        ? { ...interest, receiver: person, ...stageForViewer(interest, viewerId) }
+        : { ...interest, sender: person, ...stageForViewer(interest, viewerId) };
 
     return redactIdentity(view, { revealIdentity });
   });

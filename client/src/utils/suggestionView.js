@@ -16,6 +16,7 @@ const PUBLIC_KEYS = [
   "yeshiva",
   "seminar",
   "financialRequirement",
+  "financialDemand",
   "financialCapabilities",
   "financialContribution",
   "financialParticipation",
@@ -172,7 +173,11 @@ export const toSuggestionView = (person, kind = "new", extra) => {
     { key: "city", label: "מגורים", value: city },
     { key: "institution", label: "מוסד לימוד", value: institution },
     { key: "occupation", label: "עיסוק", value: occupation },
-    { key: "financialRequirement", label: "דרישה כספית", value: cleanText(source.financialRequirement) },
+    {
+      key: cleanText(source.financialDemand) ? "financialDemand" : "financialRequirement",
+      label: "דרישה כספית",
+      value: cleanText(source.financialDemand) || cleanText(source.financialRequirement),
+    },
     { key: "financialParticipation", label: "השתתפות כספית", value: contributionOf(source) },
   ].filter((field) => field.value);
 

@@ -52,8 +52,18 @@ const uploadBuffer = (buffer, options) =>
     stream.end(buffer);
   });
 
+// Tests substitute this so a profile upload does not contact Cloudinary.
+let uploadOverride = null;
+
+const setProfileFileUploader = (uploader) => {
+  uploadOverride = uploader;
+};
+
 // Uploads a file received by multer and returns its Cloudinary public ID.
 const uploadProfileFile = async (kind, file) => {
+  if (uploadOverride) {
+    return uploadOverride(kind, file);
+  }
   if (!configured) {
     throw new HttpError(503, "העלאת קבצים אינה זמינה כרגע. נסו שוב מאוחר יותר.");
   }
@@ -76,8 +86,17 @@ const uploadProfileFile = async (kind, file) => {
   }
 };
 
+let deleteOverride = null;
+
+const setProfileFileDeleter = (deleter) => {
+  deleteOverride = deleter;
+};
+
 // Never fails the request: a leftover file is logged so it can be removed later.
 const deleteProfileFile = async (kind, publicId) => {
+  if (deleteOverride) {
+    return deleteOverride(kind, publicId);
+  }
   if (!configured || !isStoredFileId(publicId)) {
     return;
   }
@@ -175,6 +194,8 @@ module.exports = {
   fileAccessPath,
   createShortLivedReadUrl,
   setStoredFileReader,
+  setProfileFileUploader,
+  setProfileFileDeleter,
   readStoredFile,
   READ_URL_TTL_SECONDS,
 };

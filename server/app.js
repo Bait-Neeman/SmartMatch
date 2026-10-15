@@ -9,6 +9,8 @@ const interestRoutes = require("./src/routes/interest.routes");
 const matchRoutes = require("./src/routes/match.routes");
 const adminRoutes = require("./src/routes/admin.routes");
 const fileRoutes = require("./src/routes/file.routes");
+const settingsRoutes = require("./src/routes/settings.routes");
+const suggestionRoutes = require("./src/routes/suggestion.routes");
 const { apiLimiter } = require("./src/middleware/rateLimit.middleware");
 const { notFound, errorHandler } = require("./src/middleware/error.middleware");
 
@@ -62,6 +64,8 @@ app.use("/api/interest", interestRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/files", fileRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/suggestions", suggestionRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

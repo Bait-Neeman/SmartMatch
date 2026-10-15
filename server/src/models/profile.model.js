@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { GENDERS, STYLES, APPEARANCES, ETHNICITIES, textField, choiceField } = require("./options");
+const { GENDERS, STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES, textField, choiceField } = require("./options");
 
 const heightMessage = "יש להזין גובה בסנטימטרים (100-250)";
 
@@ -22,6 +22,9 @@ const profileSchema = new mongoose.Schema(
     ethnicity: choiceField(ETHNICITIES, "עדה"),
 
     description: textField(1000, "תיאור"),
+    // Free text: what this person is looking for (מה אני מחפש/ת).
+    lookingFor: textField(1000, "מה אני מחפש"),
+    maritalStatus: choiceField(MARITAL_STATUSES, "סטטוס משפחתי"),
 
     occupation: textField(100, "עיסוק"),
 
@@ -40,9 +43,17 @@ const profileSchema = new mongoose.Schema(
     // One number matched against a preference min/max range. Not demand or participation.
     financialStatus: { type: Number, min: [0, "המדד הכספי לא יכול להיות שלילי"] },
 
+    // Numeric pair used by matching. financialDemand is the minimum this side requires.
+    // financialParticipation is what this side can give. Both are amounts, not text.
+    financialDemand: { type: Number, min: [0, "הדרישה הכספית לא יכולה להיות שלילית"] },
+    financialParticipation: { type: Number, min: [0, "ההשתתפות הכספית לא יכולה להיות שלילית"] },
+
     // Cloudinary public IDs - the API returns them as signed URLs (see storage.service)
     resumePdf: { type: String },
     image: { type: String },
+    // Set when a resume is uploaded. Shown on the owner's profile, not before mutual approval.
+    resumeSize: { type: Number, min: [0, "גודל הקובץ אינו תקין"] },
+    resumeUploadedAt: { type: Date },
   },
   { timestamps: true }
 );

@@ -1,11 +1,14 @@
 const Profile = require("../models/profile.model");
+const Preference = require("../models/preference.model");
 const Interest = require("../models/interest.model");
 const User = require("../models/user.model");
+const { MARITAL_STATUSES } = require("../models/options");
 const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
 const { uploadProfileFile, deleteProfileFile, fileAccessPath } = require("./storage.service");
 const { toPublicPerson } = require("./privacy.service");
 const { getCandidatesForUser } = require("./match.service");
+const { applyProfilePreference } = require("./preference.service");
 
 // Same wording for a missing profile and a profile this viewer may not open,
 // so an id does not reveal whether that person exists.
@@ -21,16 +24,21 @@ const EDITABLE_FIELDS = {
   appearance: "מראה חיצוני",
   ethnicity: "עדה",
   description: "תיאור",
+  lookingFor: "מה אני מחפש",
+  maritalStatus: "סטטוס משפחתי",
   yeshiva: "ישיבה",
   seminar: "סמינר",
   occupation: "עיסוק",
-  // financialRequirement is דרישה כספית (financialDemand): a minimum.
-  // financialCapabilities is יכולת כספית. There is no השתתפות כספית (financialContribution) field.
+  // financialRequirement is the older free-text דרישה כספית.
+  // financialDemand / financialParticipation are the numeric pair used by matching.
   financialRequirement: "דרישה כספית",
   financialCapabilities: "יכולת כספית",
   financialStatus: "מדד כספי",
+  financialDemand: "דרישה כספית",
+  financialParticipation: "השתתפות כספית",
 };
-const NUMBER_FIELDS = new Set(["age", "height", "financialStatus"]);
+const NUMBER_FIELDS = new Set(["age", "height", "financialStatus", "financialDemand", "financialParticipation"]);
+const NON_NEGATIVE_FIELDS = new Set(["financialDemand", "financialParticipation"]);
 const REQUIRED_FIELDS = ["gender", "age"];
 const FILE_FIELDS = ["image", "resumePdf"];
 
@@ -59,8 +67,15 @@ const pickProfileFields = (body = {}) => {
       if (typeof value !== "number" || !Number.isFinite(value)) {
         throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
       }
+      if (NON_NEGATIVE_FIELDS.has(field) && value < 0) {
+        throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+      }
     } else if (typeof value !== "string") {
       throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+    }
+
+    if (field === "maritalStatus" && !MARITAL_STATUSES.includes(value)) {
+      throw new HttpError(400, "ערך לא תקין בשדה סטטוס משפחתי");
     }
 
     values[field] = value;
@@ -75,6 +90,23 @@ const toProfileResponse = (profile, { includeFiles = true } = {}) => {
   for (const field of FILE_FIELDS) {
     data[field] = includeFiles ? fileAccessPath(data.user, field, data[field]) : null;
   }
+  data.resumeSize = data.resumeSize ?? null;
+  data.resumeUploadedAt = data.resumeUploadedAt ?? null;
+  return data;
+};
+
+// The owner's own profile, including age-range preference and resume metadata.
+const toOwnerProfile = async (profile) => {
+  const data = toProfileResponse(profile);
+  const userId = data.user?._id || data.user;
+  const preference = await Preference.findOne({ user: userId }).lean();
+  data.lookingFor = data.lookingFor ?? null;
+  data.maritalStatus = data.maritalStatus ?? null;
+  data.financialDemand = data.financialDemand ?? null;
+  data.financialParticipation = data.financialParticipation ?? null;
+  data.ageMin = preference?.ageMin ?? null;
+  data.ageMax = preference?.ageMax ?? null;
+  data.preferredMaritalStatus = preference?.preferredMaritalStatus ?? null;
   return data;
 };
 
@@ -108,6 +140,10 @@ const saveWithFiles = async (profile, files) => {
   const uploaded = await uploadRequestFiles(files);
   const replaced = Object.fromEntries(Object.keys(uploaded).map((field) => [field, profile[field]]));
 
+  if (uploaded.resumePdf && files?.resumePdf?.[0]) {
+    profile.resumeSize = files.resumePdf[0].size;
+    profile.resumeUploadedAt = new Date();
+  }
   profile.set(uploaded);
   try {
     await profile.save({ validateModifiedOnly: !profile.isNew });
@@ -125,11 +161,12 @@ const createProfileForUser = async (userId, body, files) => {
   }
 
   const profile = new Profile({ ...pickProfileFields(body).values, user: userId });
-  // Reject invalid data before uploading any file
+  // Reject invalid data before uploading any file or writing preferences
   await profile.validate();
+  await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 
-  return toProfileResponse(profile);
+  return toOwnerProfile(profile);
 };
 
 const getProfileByUserId = async (userId) => {
@@ -137,7 +174,7 @@ const getProfileByUserId = async (userId) => {
   if (!profile) {
     throw new HttpError(404, "הפרופיל לא נמצא");
   }
-  return toProfileResponse(profile);
+  return toOwnerProfile(profile);
 };
 
 const updateProfileByUserId = async (userId, body, files) => {
@@ -161,9 +198,10 @@ const updateProfileByUserId = async (userId, body, files) => {
 
   // Only the changed fields are validated, so older profiles can still be edited
   await profile.validate(undefined, { validateModifiedOnly: true });
+  await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 
-  return toProfileResponse(profile);
+  return toOwnerProfile(profile);
 };
 
 const deleteProfileByUserId = async (userId) => {
@@ -220,11 +258,11 @@ const getProfileForViewer = async (viewer, targetUserId) => {
   }
 
   if (isSelf || isAdmin) {
-    return toProfileResponse(profile, { includeFiles: true });
+    return toOwnerProfile(profile);
   }
 
   const user = accepted
-    ? await User.findById(targetUserId).select("name email").lean()
+    ? await User.findById(targetUserId).select("name email phone").lean()
     : { _id: targetUserId };
 
   return toPublicPerson(user, profile, { revealIdentity: accepted });
@@ -237,4 +275,5 @@ module.exports = {
   deleteProfileByUserId,
   getProfileForViewer,
   toProfileResponse,
+  toOwnerProfile,
 };

@@ -22,6 +22,7 @@ const FIELD_ICONS = {
   institution: School,
   occupation: Work,
   financialRequirement: Payments,
+  financialDemand: Payments,
   financialParticipation: Payments,
 };
 

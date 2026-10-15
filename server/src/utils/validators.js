@@ -38,6 +38,12 @@ const validateName = (name) => {
   return typeof name === "string" && name.trim().length > 0 && name.trim().length <= 100;
 };
 
+const validatePhone = (phone) => {
+  if (typeof phone !== "string" || phone.length > 20) return false;
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 9 && digits.length <= 15;
+};
+
 module.exports = {
   isObjectId,
   assertObjectId,
@@ -45,4 +51,5 @@ module.exports = {
   validateIdNumber,
   validatePassword,
   validateName,
+  validatePhone,
 };
