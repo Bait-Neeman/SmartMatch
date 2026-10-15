@@ -68,6 +68,19 @@ const AdminPage = () => {
           >
             הצעות שממתינות לטיפול
           </Button>
+
+          <Button
+            variant="contained"
+            onClick={() => navigate("/admin/matchmaker")}
+            sx={{
+              py: 1.75,
+              px: 5,
+              width: "100%",
+              maxWidth: 350,
+            }}
+          >
+            הצעות בטיפול
+          </Button>
         </Stack>
       </Paper>
     </Container>

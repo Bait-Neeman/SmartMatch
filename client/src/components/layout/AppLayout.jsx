@@ -22,6 +22,7 @@ import {
   HowToReg,
   Logout,
   Menu as MenuIcon,
+  Folder,
   PendingActions,
   Person,
   Settings,
@@ -43,6 +44,7 @@ const ADMIN_LINKS = [
   { to: "/admin", label: "ניהול", icon: <AdminPanelSettings /> },
   { to: "/admin/users", label: "משתמשים", icon: <Group /> },
   { to: "/admin/pending-matches", label: "הצעות ממתינות", icon: <PendingActions /> },
+  { to: "/admin/matchmaker", label: "הצעות בטיפול", icon: <Folder /> },
 ];
 
 const navItemSx = {
