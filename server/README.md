@@ -83,12 +83,13 @@ those links expire after one hour.
 
 ## Access Control
 
-Profile files (resumePdf, image) are only visible to:
-1. The profile owner
-2. Users with whom there is a mutual accepted interest
-3. Admin users
+Until both sides have an accepted interest, suggestions, incoming and outgoing interests, and another user's profile return only non-identifying details: age, height, community (`ethnicity`), residence (`city`), occupation, and the free-text description (plus the same kind of non-identifying categories already used for matching, such as style). Name, photo URL, resume URL, email, school or seminary names, and other identifying fields are omitted.
 
-Users see each other by name only - ID numbers are returned only to the user themselves and to admins.
+After mutual approval, name, email, photo URL, and resume URL are included. If both users send interest at the same time, that is mutual approval (`accepted`), not a conflict.
+
+The national ID number is still returned only to the user themselves and to admins.
+
+Profile files are stored as private Cloudinary assets. A signed URL is issued only to the owner, an admin, or a user with a mutual accepted interest.
 
 ## Security
 

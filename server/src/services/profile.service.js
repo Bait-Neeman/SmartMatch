@@ -1,8 +1,10 @@
 const Profile = require("../models/profile.model");
 const Interest = require("../models/interest.model");
+const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
 const { uploadProfileFile, deleteProfileFile, getFileUrl } = require("./storage.service");
+const { toPublicPerson } = require("./privacy.service");
 
 // The fields a user may set on their profile, with their Hebrew names for error messages
 const EDITABLE_FIELDS = {
@@ -174,7 +176,9 @@ const hasAcceptedInterest = (userA, userB) =>
     status: "accepted",
   });
 
-// The photo and resume are visible only to the owner, an admin, or a user with a mutual match.
+// The owner and an admin see the stored profile. Anyone else sees a suggestion:
+// non-identifying details until the interest is accepted, and name, contact, photo,
+// and resume only after that.
 const getProfileForViewer = async (viewer, targetUserId) => {
   assertObjectId(targetUserId);
 
@@ -183,12 +187,16 @@ const getProfileForViewer = async (viewer, targetUserId) => {
     throw new HttpError(404, "הפרופיל לא נמצא");
   }
 
-  const canSeeFiles =
-    viewer.role === "admin" ||
-    viewer.userId === targetUserId ||
-    Boolean(await hasAcceptedInterest(viewer.userId, targetUserId));
+  if (viewer.role === "admin" || viewer.userId === String(targetUserId)) {
+    return toProfileResponse(profile, { includeFiles: true });
+  }
 
-  return toProfileResponse(profile, { includeFiles: canSeeFiles });
+  const revealIdentity = Boolean(await hasAcceptedInterest(viewer.userId, targetUserId));
+  const user = revealIdentity
+    ? await User.findById(targetUserId).select("name email").lean()
+    : { _id: targetUserId };
+
+  return toPublicPerson(user, profile, { revealIdentity });
 };
 
 module.exports = {
