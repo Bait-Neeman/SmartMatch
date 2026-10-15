@@ -11,6 +11,8 @@ const adminRoutes = require("./src/routes/admin.routes");
 const fileRoutes = require("./src/routes/file.routes");
 const settingsRoutes = require("./src/routes/settings.routes");
 const suggestionRoutes = require("./src/routes/suggestion.routes");
+const searchRoutes = require("./src/routes/search.routes");
+const notificationRoutes = require("./src/routes/notification.routes");
 const { apiLimiter } = require("./src/middleware/rateLimit.middleware");
 const { notFound, errorHandler } = require("./src/middleware/error.middleware");
 
@@ -66,6 +68,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/suggestions", suggestionRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

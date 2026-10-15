@@ -108,6 +108,11 @@ export const brand = {
   portraitBottom: "#D9E2EE",
   portraitInk: "#1D3557",
   portraitSoft: "#97A6BC",
+  // Final top-bar chrome from the approved stylesheet (.tsearch, .tb, .tme, kbd).
+  topBarControl: "rgba(255, 255, 255, 0.08)",
+  topBarLine: "rgba(255, 255, 255, 0.12)",
+  topBarKbd: "#9FB0C8",
+  topBarKbdLine: "rgba(255, 255, 255, 0.2)",
 };
 
 export const statusTones = {
