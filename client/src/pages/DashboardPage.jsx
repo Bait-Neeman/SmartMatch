@@ -18,7 +18,7 @@ export default function DashboardPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        bgcolor: brand.navyDeep,
+        bgcolor: brand.navy,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

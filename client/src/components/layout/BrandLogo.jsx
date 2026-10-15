@@ -6,7 +6,7 @@ import logo400 from "../../assets/brand/logo-shiny-400.png";
 import logo240 from "../../assets/brand/logo-shiny-240.png";
 import logo480 from "../../assets/brand/logo-shiny-480.png";
 
-// Lanczos downsamples of logo-shiny-original.png (1254). Each slot has a 1x file and a 2x file.
+// Lanczos downsamples of logo-transparent.png (1254, alpha kept). Each slot has a 1x file and a 2x file.
 const sources = {
   160: { one: logo160, two: logo320 },
   200: { one: logo200, two: logo400 },
@@ -33,6 +33,7 @@ export default function BrandLogo({ maxWidth = 160 }) {
         maxWidth: width,
         height: "auto",
         mx: "auto",
+        bgcolor: "transparent",
         imageRendering: "auto",
         userSelect: "none",
       }}

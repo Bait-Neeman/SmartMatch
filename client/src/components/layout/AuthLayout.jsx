@@ -24,7 +24,7 @@ export default function AuthLayout({ title, subtitle, children }) {
       sx={{
         minHeight: "100vh",
         width: "100%",
-        bgcolor: brand.navyDeep,
+        bgcolor: brand.navy,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -53,7 +53,7 @@ export default function AuthLayout({ title, subtitle, children }) {
         >
           <Box
             sx={{
-              bgcolor: brand.navyDeep,
+              bgcolor: brand.navy,
               borderRadius: "14px",
               mb: 3,
               pt: 0.5,
