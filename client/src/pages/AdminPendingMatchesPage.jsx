@@ -23,6 +23,7 @@ import {
   selectAdminPendingMatchesError,
   selectAdminUserProfile,
 } from "../store/slices/adminSlice.js";
+import { brand } from "../theme/tokens.js";
 import { toSafeFileUrl } from "../utils/files.js";
 import { appearanceOptions, labelOf, roleLabel, styleOptions } from "../constants/profileOptions.js";
 
@@ -160,7 +161,7 @@ const AdminPendingMatchesPage = () => {
                     width: "100%",
                     maxWidth: 320,
                     borderRadius: 2,
-                    border: "1px solid rgba(31,63,149,0.12)",
+                    border: `1px solid ${brand.blueLine}`,
                     objectFit: "cover",
                   }}
                 />

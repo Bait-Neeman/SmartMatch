@@ -155,7 +155,7 @@ const photoFrameSx = {
   borderRadius: `${brand.radiusPhoto}px`,
   overflow: "hidden",
   boxShadow: brand.shadow,
-  bgcolor: brand.avatarBg,
+  bgcolor: brand.avatar,
 };
 
 const photoImgSx = {

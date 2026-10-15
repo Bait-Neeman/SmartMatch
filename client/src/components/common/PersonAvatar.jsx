@@ -8,8 +8,8 @@ import { brand } from "../../theme/tokens.js";
 export default function PersonAvatar({ locked = false, size = 64, color, sx }) {
   const rawId = useId().replace(/:/g, "");
   const ink = color || (locked ? brand.portraitSoft : brand.portraitInk);
-  const bgTop = locked ? brand.avatarBgLocked : brand.portraitTop;
-  const bgBottom = locked ? brand.avatarBg : brand.portraitBottom;
+  const bgTop = locked ? brand.avatarLocked : brand.portraitTop;
+  const bgBottom = locked ? brand.avatar : brand.portraitBottom;
 
   return (
     <Box
@@ -20,7 +20,7 @@ export default function PersonAvatar({ locked = false, size = 64, color, sx }) {
         borderRadius: "50%",
         overflow: "hidden",
         flexShrink: 0,
-        bgcolor: locked ? brand.avatarBgLocked : brand.avatarBg,
+        bgcolor: locked ? brand.avatarLocked : brand.avatar,
         ...sx,
       }}
     >
