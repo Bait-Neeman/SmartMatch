@@ -12,6 +12,7 @@ const PUBLIC_KEYS = [
   "gender",
   "occupation",
   "description",
+  "lookingFor",
   "yeshiva",
   "seminar",
   "financialRequirement",
@@ -42,6 +43,22 @@ const IDENTITY_KEYS = [
 ];
 
 const PERCENT_KEYS = ["matchPercent", "compatibility", "score", "percent", "matchScore"];
+
+// Free-text "what they are looking for". The profile and preference models have no
+// field for this, and PR #7's PUBLIC_PROFILE_FIELDS does not copy one. These names
+// are accepted if a later payload adds the text under any of them.
+const LOOKING_FOR_KEYS = [
+  "lookingFor",
+  "lookingForText",
+  "whatLookingFor",
+  "sought",
+  "seeking",
+  "desiredPartner",
+  "partnerDescription",
+  "aboutPartner",
+  "preferenceDescription",
+  "preferencesDescription",
+];
 
 export const SUGGESTION_KINDS = {
   new: {
@@ -87,13 +104,45 @@ const asPerson = (value) => {
   return { ...nested, ...value };
 };
 
+const textOf = (value) => {
+  if (typeof value !== "string" && typeof value !== "number") return "";
+  return cleanText(value);
+};
+
+export const lookingForOf = (person) => {
+  const source = asPerson(person);
+  for (const key of LOOKING_FOR_KEYS) {
+    const text = textOf(source[key]);
+    if (text) return text;
+  }
+  for (const nest of [source.preferences, source.preference]) {
+    const direct = textOf(nest);
+    if (direct) return direct;
+    if (!nest || typeof nest !== "object") continue;
+    for (const key of ["text", "note", "description", ...LOOKING_FOR_KEYS]) {
+      const text = textOf(nest[key]);
+      if (text) return text;
+    }
+  }
+  return "";
+};
+
+export const lookingForHeading = (gender) => {
+  if (gender === "female") return "מה היא מחפשת";
+  if (gender === "male") return "מה הוא מחפש";
+  return "מה מחפש/ת";
+};
+
 export const publicFields = (value) => {
   const source = asPerson(value);
   const copy = {};
   for (const key of PUBLIC_KEYS) {
+    if (key === "lookingFor") continue;
     const text = cleanText(source[key]);
     if (text) copy[key] = source[key];
   }
+  const lookingFor = lookingForOf(source);
+  if (lookingFor) copy.lookingFor = lookingFor;
   return copy;
 };
 
@@ -155,6 +204,7 @@ export const toSuggestionView = (person, kind = "new", extra) => {
   const occupation = cleanText(source.occupation);
   const institution = institutionOf(source);
   const description = cleanText(source.description);
+  const lookingFor = cleanText(source.lookingFor) || lookingForOf(source);
   const fields = [
     { key: "height", label: "גובה", value: formatHeight(source.height) },
     { key: "community", label: "עדה", value: communityOf(source) },
@@ -171,6 +221,8 @@ export const toSuggestionView = (person, kind = "new", extra) => {
     subtitle: [city, occupation || institution].filter(Boolean).join(" · "),
     city,
     description,
+    lookingFor,
+    lookingForHeading: lookingForHeading(source.gender),
     percent: readPercent(source, extra),
     fields,
   };
@@ -264,7 +316,7 @@ export const filterSuggestions = (items, { query = "", city = "", age = "", perc
     }
 
     if (!needle) return true;
-    const haystack = [view.title, view.subtitle, view.city, view.description, ...view.fields.map((field) => field.value)]
+    const haystack = [view.title, view.subtitle, view.city, view.description, view.lookingFor, ...view.fields.map((field) => field.value)]
       .join(" ")
       .toLowerCase();
     return haystack.includes(needle);

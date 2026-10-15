@@ -4,6 +4,9 @@ import { idOf, publicFields } from "./suggestionView.js";
 const DESCRIPTION =
   "בחור שמח ורציני, עם לב פתוח ויחס חם לכל אדם. לומד בבוקר בכולל ועובד אחר הצהריים כמפתח תוכנה, ומשתדל לשלב בין עולם התורה לפרנסה בצורה מכובדת. אוהב שיחות עומק, טיולים בטבע ומוזיקה יהודית.";
 
+const LOOKING_FOR =
+  "מחפש בת זוג עם מידות טובות, רגישה ושמחה, שרואה בבניית בית של תורה ערך מרכזי. חשוב לי שתהיה פתוחה לשיחה כנה, בעלת שאיפות אישיות ואכפתיות למשפחה ולסביבה.";
+
 const hidden = {
   name: "לא להציג",
   email: "secret@example.com",
@@ -12,7 +15,7 @@ const hidden = {
   resumePdf: "resume.pdf",
 };
 
-const person = (fields) => ({ ...hidden, gender: "male", description: DESCRIPTION, ...fields });
+const person = (fields) => ({ ...hidden, gender: "male", description: DESCRIPTION, lookingFor: LOOKING_FOR, ...fields });
 
 const initialPreview = () => ({
   matches: [

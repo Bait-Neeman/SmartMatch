@@ -187,22 +187,48 @@ export default function SuggestionDetail({ view, icon, actions, error, onBack })
               </Box>
             ) : null}
 
-            {view.description ? (
+            {view.description || view.lookingFor ? (
               <Box sx={{ mt: 2.75, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
-                <Typography
-                  component="h3"
-                  sx={{
-                    mt: 2.25,
-                    mb: 1,
-                    fontWeight: 600,
-                    letterSpacing: "-0.3px",
-                    color: brand.navy,
-                    fontSize: "clamp(17px, 1.4vw, 20px)",
-                  }}
-                >
-                  קצת עליי / תכונות
-                </Typography>
-                <Typography sx={{ color: brand.ink2, lineHeight: 1.85, fontSize: 16 }}>{view.description}</Typography>
+                {view.description ? (
+                  <Box>
+                    <Typography
+                      component="h3"
+                      sx={{
+                        mt: 2.25,
+                        mb: 1,
+                        fontWeight: 600,
+                        letterSpacing: "-0.3px",
+                        color: brand.navy,
+                        fontSize: "clamp(17px, 1.4vw, 20px)",
+                      }}
+                    >
+                      קצת עליי / תכונות
+                    </Typography>
+                    <Typography sx={{ color: brand.ink2, lineHeight: 1.85, fontSize: 16, maxWidth: "68ch" }}>
+                      {view.description}
+                    </Typography>
+                  </Box>
+                ) : null}
+                {view.lookingFor ? (
+                  <Box>
+                    <Typography
+                      component="h3"
+                      sx={{
+                        mt: 2.75,
+                        mb: 1,
+                        fontWeight: 600,
+                        letterSpacing: "-0.3px",
+                        color: brand.navy,
+                        fontSize: "clamp(17px, 1.4vw, 20px)",
+                      }}
+                    >
+                      {view.lookingForHeading || "מה מחפש/ת"}
+                    </Typography>
+                    <Typography sx={{ color: brand.ink2, lineHeight: 1.85, fontSize: 16, maxWidth: "68ch" }}>
+                      {view.lookingFor}
+                    </Typography>
+                  </Box>
+                ) : null}
               </Box>
             ) : null}
 
