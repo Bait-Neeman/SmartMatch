@@ -5,6 +5,11 @@ const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
 const { uploadProfileFile, deleteProfileFile, getFileUrl } = require("./storage.service");
 const { toPublicPerson } = require("./privacy.service");
+const { getCandidatesForUser } = require("./match.service");
+
+// Same wording for a missing profile and a profile this viewer may not open,
+// so an id does not reveal whether that person exists.
+const PROFILE_NOT_FOUND = "הפרופיל לא נמצא";
 
 // The fields a user may set on their profile, with their Hebrew names for error messages
 const EDITABLE_FIELDS = {
@@ -169,31 +174,54 @@ const deleteProfileByUserId = async (userId) => {
   await deleteFiles({ image: profile.image, resumePdf: profile.resumePdf });
 };
 
-const hasAcceptedInterest = (userA, userB) =>
-  Interest.exists({
+const interestBetween = (userA, userB) =>
+  Interest.findOne({
     $or: [
       { sender: userA, receiver: userB },
       { sender: userB, receiver: userA },
     ],
-    status: "accepted",
-  });
+  })
+    .select("status")
+    .lean();
 
-// The owner and an admin see the stored profile. Anyone else sees a suggestion:
-// non-identifying details until the interest is accepted, and name, contact, photo,
-// and resume only after that.
+// True when the matching logic would currently offer targetUserId to viewerId.
+const isCurrentCandidate = async (viewerId, targetUserId) => {
+  try {
+    const candidates = await getCandidatesForUser(viewerId);
+    return candidates.some((candidate) => String(candidate._id) === String(targetUserId));
+  } catch (error) {
+    if (error instanceof HttpError && error.statusCode === 404) return false;
+    throw error;
+  }
+};
+
+// The owner and an admin see the stored profile. Another registered user sees it
+// only when that person is a current suggestion or there is already an interest
+// between them: anonymized until the interest is accepted, then with name, contact,
+// photo, and resume. Everyone else gets the same not-found response.
 const getProfileForViewer = async (viewer, targetUserId) => {
   assertObjectId(targetUserId);
 
-  const profile = await Profile.findOne({ user: targetUserId });
-  if (!profile) {
-    throw new HttpError(404, "הפרופיל לא נמצא");
+  const isSelf = viewer.userId === String(targetUserId);
+  const isAdmin = viewer.role === "admin";
+  const interest = isSelf || isAdmin ? null : await interestBetween(viewer.userId, targetUserId);
+  const offered =
+    !isSelf && !isAdmin && !interest && (await isCurrentCandidate(viewer.userId, targetUserId));
+
+  if (!isSelf && !isAdmin && !interest && !offered) {
+    throw new HttpError(404, PROFILE_NOT_FOUND);
   }
 
-  if (viewer.role === "admin" || viewer.userId === String(targetUserId)) {
+  const profile = await Profile.findOne({ user: targetUserId });
+  if (!profile) {
+    throw new HttpError(404, PROFILE_NOT_FOUND);
+  }
+
+  if (isSelf || isAdmin) {
     return toProfileResponse(profile, { includeFiles: true });
   }
 
-  const revealIdentity = Boolean(await hasAcceptedInterest(viewer.userId, targetUserId));
+  const revealIdentity = interest?.status === "accepted";
   const user = revealIdentity
     ? await User.findById(targetUserId).select("name email").lean()
     : { _id: targetUserId };

@@ -10,7 +10,7 @@ const request = require("supertest");
 const app = require("../app");
 const { getFileUrl } = require("../src/services/storage.service");
 const { generateToken } = require("../src/config/jwt");
-const { sendInterest } = require("../src/services/interest.service");
+const { sendInterest, respondInterest } = require("../src/services/interest.service");
 const User = require("../src/models/user.model");
 const Profile = require("../src/models/profile.model");
 const Preference = require("../src/models/preference.model");
@@ -112,6 +112,18 @@ const CANDIDATE_KEYS = new Set([
 // Institution plus both stored money figures. financialRequirement is דרישה כספית
 // (financialDemand). financialCapabilities is יכולת כספית, not a separate
 // השתתפות כספית (financialContribution) field.
+const EXPIRY_QUERY_KEYS = new Set(["expires_at", "expires", "expiry", "ttl", "timestamp"]);
+
+const assertPermanentFileUrl = (url, publicId) => {
+  assert.equal(typeof url, "string", url);
+  assert.equal(url.includes(publicId), true, url);
+  const query = url.includes("?") ? url.slice(url.indexOf("?") + 1) : "";
+  for (const part of query.split("&").filter(Boolean)) {
+    const key = decodeURIComponent(part.split("=")[0]).toLowerCase();
+    assert.equal(EXPIRY_QUERY_KEYS.has(key), false, `expiry parameter ${key} in ${url}`);
+  }
+};
+
 const assertMoneyAndInstitution = (person, source) => {
   assert.equal(person.yeshiva, source.yeshiva);
   assert.equal(person.seminar, source.seminar);
@@ -169,6 +181,8 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     const resumeUrl = getFileUrl("resumePdf", RIVKA.resumePdf);
     assert.ok(imageUrl && imageUrl.includes(RIVKA.image), `image signing unavailable: ${imageUrl}`);
     assert.ok(resumeUrl && resumeUrl.includes(RIVKA.resumePdf), `resume signing unavailable: ${resumeUrl}`);
+    assertPermanentFileUrl(imageUrl, RIVKA.image);
+    assertPermanentFileUrl(resumeUrl, RIVKA.resumePdf);
 
     mongo = await MongoMemoryServer.create();
     await mongoose.connect(mongo.getUri());
@@ -471,6 +485,8 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(viewerSees.email, RIVKA.email);
     assert.equal(viewerSees.image, getFileUrl("image", RIVKA.image));
     assert.equal(viewerSees.resumePdf, getFileUrl("resumePdf", RIVKA.resumePdf));
+    assertPermanentFileUrl(viewerSees.image, RIVKA.image);
+    assertPermanentFileUrl(viewerSees.resumePdf, RIVKA.resumePdf);
     assert.equal(viewerSees.seminar, RIVKA.seminar);
     assert.equal(viewerSees.yeshiva, RIVKA.yeshiva);
     assert.equal(viewerSees.financialRequirement, RIVKA.financialRequirement);
@@ -623,6 +639,8 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(mine.body.profile.yeshiva, VIEWER.yeshiva);
     assert.equal(mine.body.profile.image, getFileUrl("image", VIEWER.image));
     assert.equal(mine.body.profile.resumePdf, getFileUrl("resumePdf", VIEWER.resumePdf));
+    assertPermanentFileUrl(mine.body.profile.image, VIEWER.image);
+    assertPermanentFileUrl(mine.body.profile.resumePdf, VIEWER.resumePdf);
 
     const users = await request(app).get("/api/admin/users").set(auth(tokenFor(fixture.admin)));
     assert.equal(users.status, 200);
@@ -642,5 +660,206 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(adminProfile.body.profile.image, getFileUrl("image", RIVKA.image));
     assert.equal(adminProfile.body.profile.resumePdf, getFileUrl("resumePdf", RIVKA.resumePdf));
     assert.equal(adminProfile.body.user.password, undefined);
+    assertPermanentFileUrl(adminProfile.body.profile.image, RIVKA.image);
+    assertPermanentFileUrl(adminProfile.body.profile.resumePdf, RIVKA.resumePdf);
+  });
+
+  it("refuses to accept a rejected interest or to reject an accepted one", async () => {
+    const fixture = await seed();
+    const viewerId = String(fixture.viewer._id);
+    const rivkaId = String(fixture.rivka._id);
+    const rivkaHeaders = auth(tokenFor(fixture.rivka));
+
+    await sendInterest(viewerId, rivkaId);
+    const rejected = await request(app)
+      .put("/api/interest/respond")
+      .set(rivkaHeaders)
+      .send({ senderId: viewerId, status: "rejected" });
+    assert.equal(rejected.status, 200);
+
+    const reopen = await request(app)
+      .put("/api/interest/respond")
+      .set(rivkaHeaders)
+      .send({ senderId: viewerId, status: "accepted" });
+    assert.equal(reopen.status, 409);
+    const afterReject = await Interest.find().lean();
+    assert.equal(afterReject.length, 1);
+    assert.equal(afterReject[0].status, "rejected");
+
+    const incoming = await request(app).get("/api/interest/incoming").set(rivkaHeaders);
+    assertAnonymous(incoming.body);
+    assert.equal(incoming.body.interests[0].status, "rejected");
+
+    await Interest.deleteMany({});
+    await sendInterest(viewerId, rivkaId);
+    const accepted = await request(app)
+      .put("/api/interest/respond")
+      .set(rivkaHeaders)
+      .send({ senderId: viewerId, status: "accepted" });
+    assert.equal(accepted.status, 200);
+
+    const takeBack = await request(app)
+      .put("/api/interest/respond")
+      .set(rivkaHeaders)
+      .send({ senderId: viewerId, status: "rejected" });
+    assert.equal(takeBack.status, 409);
+    const afterAccept = await Interest.findOne().lean();
+    assert.equal(afterAccept.status, "accepted");
+  });
+
+  it("does not let a mutual send overwrite a rejection", async () => {
+    const fixture = await seed();
+    const viewerId = String(fixture.viewer._id);
+    const rivkaId = String(fixture.rivka._id);
+
+    await sendInterest(viewerId, rivkaId);
+    await respondInterest(rivkaId, viewerId, "rejected");
+
+    const again = await sendInterest(rivkaId, viewerId).then(
+      (interest) => interest,
+      (error) => error
+    );
+    assert.equal(again.statusCode, 409);
+    const stored = await Interest.find().lean();
+    assert.equal(stored.length, 1);
+    assert.equal(stored[0].status, "rejected");
+
+    await Interest.deleteMany({});
+    await sendInterest(viewerId, rivkaId);
+    const raced = await Promise.all([
+      respondInterest(rivkaId, viewerId, "rejected").then(
+        (interest) => ({ ok: true, status: interest.status }),
+        (error) => ({ ok: false, statusCode: error.statusCode })
+      ),
+      sendInterest(rivkaId, viewerId).then(
+        (interest) => ({ ok: true, status: interest.status }),
+        (error) => ({ ok: false, statusCode: error.statusCode })
+      ),
+    ]);
+
+    const rows = await Interest.find().lean();
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].status === "rejected" || rows[0].status === "accepted");
+    const winner = rows[0].status;
+    const succeeded = raced.filter((result) => result.ok);
+    const failed = raced.filter((result) => !result.ok);
+    assert.equal(succeeded.length, 1);
+    assert.equal(succeeded[0].status, winner);
+    assert.equal(failed.length, 1);
+    assert.equal(failed[0].statusCode, 409);
+
+    if (winner === "rejected") {
+      const incoming = await request(app)
+        .get("/api/interest/incoming")
+        .set(auth(tokenFor(fixture.rivka)));
+      assertAnonymous(incoming.body);
+      const followUp = await sendInterest(rivkaId, viewerId).then(
+        (interest) => interest,
+        (error) => error
+      );
+      assert.equal(followUp.statusCode, 409);
+    } else {
+      const followUp = await respondInterest(rivkaId, viewerId, "rejected").then(
+        (interest) => interest,
+        (error) => error
+      );
+      assert.equal(followUp.statusCode, 409);
+    }
+    const finalRow = await Interest.findOne().lean();
+    assert.equal(finalRow.status, winner);
+  });
+
+  it("limits profile reads to the owner, an admin, or a real proposal", async () => {
+    const fixture = await seed();
+    const viewerHeaders = auth(tokenFor(fixture.viewer));
+    const rivkaHeaders = auth(tokenFor(fixture.rivka));
+    const excludedHeaders = auth(tokenFor(fixture.excluded));
+    const hidden = { message: "הפרופיל לא נמצא" };
+
+    const anonymous = await request(app).get(`/api/profile/${fixture.rivka._id}`);
+    assert.equal(anonymous.status, 401);
+
+    const unknownId = new mongoose.Types.ObjectId();
+    const missing = await request(app).get(`/api/profile/${unknownId}`).set(viewerHeaders);
+    const notOffered = await request(app).get(`/api/profile/${fixture.excluded._id}`).set(viewerHeaders);
+    const reverseNotOffered = await request(app)
+      .get(`/api/profile/${fixture.viewer._id}`)
+      .set(excludedHeaders);
+    const preferenceBlocked = await request(app)
+      .get(`/api/profile/${fixture.preferenceExcluded._id}`)
+      .set(viewerHeaders);
+    assert.equal(missing.status, 404);
+    assert.equal(notOffered.status, 404);
+    assert.equal(reverseNotOffered.status, 404);
+    assert.equal(preferenceBlocked.status, 404);
+    assert.deepEqual(missing.body, hidden);
+    assert.deepEqual(notOffered.body, hidden);
+    assert.deepEqual(reverseNotOffered.body, hidden);
+    assert.deepEqual(preferenceBlocked.body, hidden);
+    assertNoSecrets(notOffered.body, secretMarkersFor(fixture));
+
+    const offered = await request(app).get(`/api/profile/${fixture.rivka._id}`).set(viewerHeaders);
+    assert.equal(offered.status, 200);
+    assertAnonymous(offered.body);
+    assertMoneyAndInstitution(offered.body.profile, RIVKA);
+    assert.equal(offered.body.profile.name, undefined);
+
+    const asOwner = await request(app).get(`/api/profile/${fixture.viewer._id}`).set(viewerHeaders);
+    assert.equal(asOwner.status, 200);
+    assert.equal(asOwner.body.profile.yeshiva, VIEWER.yeshiva);
+    assert.equal(asOwner.body.profile.image, getFileUrl("image", VIEWER.image));
+
+    const asAdmin = await request(app)
+      .get(`/api/profile/${fixture.rivka._id}`)
+      .set(auth(tokenFor(fixture.admin)));
+    assert.equal(asAdmin.status, 200);
+    assert.equal(asAdmin.body.profile.seminar, RIVKA.seminar);
+    assert.equal(asAdmin.body.profile.image, getFileUrl("image", RIVKA.image));
+    assert.equal(asAdmin.body.profile.resumePdf, getFileUrl("resumePdf", RIVKA.resumePdf));
+
+    const toAdmin = await request(app)
+      .post("/api/interest")
+      .set(viewerHeaders)
+      .send({ receiverId: String(fixture.admin._id) });
+    assert.equal(toAdmin.status, 404);
+    const adminAsProfile = await request(app).get(`/api/profile/${fixture.admin._id}`).set(viewerHeaders);
+    assert.equal(adminAsProfile.status, 404);
+    assert.deepEqual(adminAsProfile.body, hidden);
+    const candidates = await request(app).get("/api/match/candidates").set(viewerHeaders);
+    assert.equal(
+      candidates.body.candidates.some((card) => String(card._id) === String(fixture.admin._id)),
+      false
+    );
+
+    await request(app)
+      .post("/api/interest")
+      .set(viewerHeaders)
+      .send({ receiverId: String(fixture.rivka._id) });
+
+    const whilePending = await request(app).get(`/api/profile/${fixture.rivka._id}`).set(viewerHeaders);
+    assert.equal(whilePending.status, 200);
+    assertAnonymous(whilePending.body);
+    assertMoneyAndInstitution(whilePending.body.profile, RIVKA);
+    const receiverSeesSender = await request(app)
+      .get(`/api/profile/${fixture.viewer._id}`)
+      .set(rivkaHeaders);
+    assert.equal(receiverSeesSender.status, 200);
+    assertAnonymous(receiverSeesSender.body);
+
+    await request(app).put("/api/interest/respond").set(rivkaHeaders).send({
+      senderId: String(fixture.viewer._id),
+      status: "accepted",
+    });
+
+    const revealed = await request(app).get(`/api/profile/${fixture.rivka._id}`).set(viewerHeaders);
+    assert.equal(revealed.status, 200);
+    assert.equal(revealed.body.profile.name, RIVKA.name);
+    assert.equal(revealed.body.profile.email, RIVKA.email);
+    assert.equal(revealed.body.profile.image, getFileUrl("image", RIVKA.image));
+    assert.equal(revealed.body.profile.resumePdf, getFileUrl("resumePdf", RIVKA.resumePdf));
+    assertPermanentFileUrl(revealed.body.profile.image, RIVKA.image);
+    assertPermanentFileUrl(revealed.body.profile.resumePdf, RIVKA.resumePdf);
+    assert.equal(revealed.body.profile.idNumber, undefined);
+    assertNoSecrets(revealed.body, alwaysHiddenFor(fixture));
   });
 });

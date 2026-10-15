@@ -76,10 +76,9 @@ Files are stored only in Cloudinary - never on the server's disk.
 - Maximum file size: 10MB
 - The real file type is checked from the file's content, not only from the type the browser declares.
 
-Files are uploaded as private ("authenticated") assets. The API never returns a permanent public address;
-it returns a signed URL, and only to users who may see the file.
-Resumes are opened through Cloudinary's signed download API (free accounts block CDN delivery of PDFs);
-those links expire after one hour.
+Files are uploaded as private ("authenticated") assets. The API returns a signed URL with no expiry time.
+Anyone who has that link can open it later, including after a decline. The API still hands the link out
+only to eligible users, and only after mutual approval (or to the owner and to admins).
 
 ## Access Control
 
@@ -89,7 +88,9 @@ After mutual approval, name, email, photo URL, and resume URL are included. If b
 
 The national ID number is still returned only to the user themselves and to admins.
 
-Profile files are stored as private Cloudinary assets. A signed URL is issued only to the owner, an admin, or a user with a mutual accepted interest.
+`GET /api/profile/:userId` is limited to the profile owner, an admin, or a logged-in user for whom that person is a current suggestion or an existing interest. Anyone else, and an unknown id, get the same not-found response. A request without a login token is rejected as unauthorized.
+
+Profile files are stored as private Cloudinary assets. Photo and resume URLs are permanent signed links. They are issued only to the owner, an admin, or a user with a mutual accepted interest.
 
 ## Security
 

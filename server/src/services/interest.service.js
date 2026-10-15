@@ -37,13 +37,25 @@ const settlePair = async (userA, userB) => {
     const keep = rejected || docs[0];
     const extraIds = docs.filter((doc) => String(doc._id) !== String(keep._id)).map((doc) => doc._id);
 
-    if (!rejected && keep.status !== 'accepted') {
-      await Interest.updateOne({ _id: keep._id }, { $set: { status: 'accepted' } });
+    if (!rejected && keep.status === 'pending') {
+      // Only a row that is still pending can become accepted. A rejection that
+      // landed after this read is not overwritten.
+      await Interest.updateOne({ _id: keep._id, status: 'pending' }, { $set: { status: 'accepted' } });
     }
     if (extraIds.length > 0) {
-      await Interest.deleteMany({ _id: { $in: extraIds } });
+      // Leave a rejected row in place. Only a still-pending duplicate is removed.
+      await Interest.deleteMany({ _id: { $in: extraIds }, status: 'pending' });
     }
   }
+
+  const rejectedNow = await Interest.findOne({
+    $or: [
+      { sender: userA, receiver: userB },
+      { sender: userB, receiver: userA },
+    ],
+    status: 'rejected',
+  });
+  if (rejectedNow) return rejectedNow;
 
   return Interest.findOne({
     $or: [
@@ -51,6 +63,27 @@ const settlePair = async (userA, userB) => {
       { sender: userB, receiver: userA },
     ],
   }).sort({ createdAt: 1, _id: 1 });
+};
+
+// Promote the other person's still-pending interest. If a rejection landed first,
+// this does not report that rejected row as a successful send.
+const acceptIfStillPending = async (interestId, senderId, receiverId) => {
+  const promoted = await Interest.findOneAndUpdate(
+    { _id: interestId, status: 'pending' },
+    { $set: { status: 'accepted' } },
+    { returnDocument: 'after' }
+  );
+  if (promoted) return promoted;
+
+  const current = await settlePair(senderId, receiverId);
+  if (current?.status === 'rejected') {
+    throw new HttpError(409, 'הפנייה כבר נדחתה');
+  }
+  if (current?.status === 'accepted') return current;
+  if (current?.status === 'pending' && String(current.sender) === String(senderId)) {
+    return current;
+  }
+  throw new HttpError(409, 'לא ניתן לעדכן את הפנייה');
 };
 
 const sendInterest = async (senderId, receiverId) => {
@@ -75,8 +108,7 @@ const sendInterest = async (senderId, receiverId) => {
       throw new HttpError(409, 'הפנייה כבר נדחתה');
     }
     if (String(settled.sender) !== String(senderId)) {
-      await Interest.updateOne({ _id: settled._id, status: 'pending' }, { $set: { status: 'accepted' } });
-      return (await settlePair(senderId, receiverId)) || (await Interest.findById(settled._id));
+      return acceptIfStillPending(settled._id, senderId, receiverId);
     }
     throw new HttpError(409, 'כבר שלחת פנייה למשתמש זה');
   };
@@ -97,17 +129,24 @@ const sendInterest = async (senderId, receiverId) => {
 
   const settled = await settlePair(senderId, receiverId);
   if (settled?.status === 'accepted') return settled;
+  if (settled?.status === 'rejected') {
+    throw new HttpError(409, 'הפנייה כבר נדחתה');
+  }
 
   if (created && settled && String(settled.sender) === String(senderId) && settled.status === 'pending') {
     // The other person may have inserted the opposite row while this one was being saved.
     const latest = await settlePair(senderId, receiverId);
     if (latest?.status === 'accepted') return latest;
-    if (latest && String(latest.sender) !== String(senderId) && latest.status === 'pending') {
-      await Interest.updateOne({ _id: latest._id, status: 'pending' }, { $set: { status: 'accepted' } });
-      return (await settlePair(senderId, receiverId)) || (await Interest.findById(latest._id));
+    if (latest?.status === 'rejected') {
+      throw new HttpError(409, 'הפנייה כבר נדחתה');
     }
-    const refreshed = latest ? await Interest.findById(latest._id) : null;
-    return refreshed || settled;
+    if (latest && String(latest.sender) !== String(senderId) && latest.status === 'pending') {
+      return acceptIfStillPending(latest._id, senderId, receiverId);
+    }
+    if (latest?.status === 'pending' && String(latest.sender) === String(senderId)) {
+      return latest;
+    }
+    throw new HttpError(409, 'לא ניתן לעדכן את הפנייה');
   }
 
   // The other request won the race and now holds the pair.
@@ -125,19 +164,26 @@ const respondInterest = async (receiverId, senderId, status) => {
   }
   assertObjectId(senderId);
 
-  const interest = await Interest.findOne({ sender: senderId, receiver: receiverId });
-  if (!interest) {
-    throw new HttpError(404, 'הפנייה לא נמצאה');
-  }
-
-  interest.status = status;
+  const update = { status };
   if (status === 'rejected') {
     // A rejected match must not stay waiting for the manager
-    interest.senderApprovedToManager = false;
-    interest.receiverApprovedToManager = false;
+    update.senderApprovedToManager = false;
+    update.receiverApprovedToManager = false;
   }
 
-  return interest.save();
+  // Only a pending interest can change. Accepted and rejected rows stay as they are.
+  const interest = await Interest.findOneAndUpdate(
+    { sender: senderId, receiver: receiverId, status: 'pending' },
+    { $set: update },
+    { returnDocument: 'after' }
+  );
+  if (interest) return interest;
+
+  const existing = await Interest.findOne({ sender: senderId, receiver: receiverId }).select('_id').lean();
+  if (!existing) {
+    throw new HttpError(404, 'הפנייה לא נמצאה');
+  }
+  throw new HttpError(409, 'לא ניתן לעדכן את הפנייה');
 };
 
 const otherUserId = (interest, viewerId) =>

@@ -29,13 +29,8 @@ const FILE_KINDS = {
     resourceType: "raw",
     folder: `${ROOT_FOLDER}/resumes`,
     extension: ".pdf",
-    // Free Cloudinary accounts block CDN delivery of PDF files, so resumes are opened
-    // through the signed download API instead - and those links expire.
-    viaDownloadApi: true,
   },
 };
-
-const DOWNLOAD_LINK_TTL_SECONDS = 60 * 60;
 
 const isStorageConfigured = () => configured;
 
@@ -98,22 +93,15 @@ const deleteProfileFile = async (kind, publicId) => {
   }
 };
 
-// Signed URL for a stored file, or null when there is no (available) file.
+// Permanent signed URL, or null when there is no (available) file.
+// No expires_at: a link keeps working for anyone who has it, including after a later decline.
+// The API still returns these URLs only to eligible users, and only after mutual approval.
 const getFileUrl = (kind, publicId) => {
   if (!configured || !isStoredFileId(publicId)) {
     return null;
   }
 
-  const { resourceType, viaDownloadApi } = FILE_KINDS[kind];
-
-  if (viaDownloadApi) {
-    return cloudinary.utils.private_download_url(publicId, "", {
-      resource_type: resourceType,
-      type: DELIVERY_TYPE,
-      attachment: false,
-      expires_at: Math.floor(Date.now() / 1000) + DOWNLOAD_LINK_TTL_SECONDS,
-    });
-  }
+  const { resourceType } = FILE_KINDS[kind];
 
   return cloudinary.url(publicId, {
     resource_type: resourceType,
