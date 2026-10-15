@@ -2,7 +2,7 @@ import { Box, Typography } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
 
 // Gold disc from the stylesheet: 64px, radial gold fill, percent in Rubik.
-export default function MatchRing({ value = 0, size = 64 }) {
+export default function MatchRing({ value = 0, size = 64, caption }) {
   const percent = Math.max(0, Math.min(100, Number(value) || 0));
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
@@ -35,22 +35,35 @@ export default function MatchRing({ value = 0, size = 64 }) {
           transform="rotate(-90 32 32)"
         />
       </Box>
-      <Typography
-        component="span"
+      <Box
         sx={{
           position: "absolute",
           inset: 0,
-          display: "grid",
-          placeItems: "center",
-          fontWeight: 600,
-          fontSize: size >= 64 ? "18px" : "14px",
-          letterSpacing: "-0.3px",
-          color: brand.navy,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
           lineHeight: 1,
         }}
       >
-        {Math.round(percent)}%
-      </Typography>
+        <Typography
+          component="span"
+          sx={{
+            fontWeight: 600,
+            fontSize: size >= 80 ? "22px" : size >= 64 ? "18px" : "14px",
+            letterSpacing: "-0.3px",
+            color: brand.navy,
+            lineHeight: 1,
+          }}
+        >
+          {Math.round(percent)}%
+        </Typography>
+        {caption ? (
+          <Typography component="small" sx={{ fontSize: 11, color: brand.mut, mt: "3px" }}>
+            {caption}
+          </Typography>
+        ) : null}
+      </Box>
     </Box>
   );
 }

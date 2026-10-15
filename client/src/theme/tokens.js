@@ -36,7 +36,20 @@ export const brand = {
   pillGrayBg: "#F4F2F6",
   pillGrayText: "#6D6878",
   pillGrayLine: "#E5E1E9",
+  // Sent / received pills from the approved stylesheet (.pill.purple, .pill.blue).
+  pillPurpleBg: "#F1EFFB",
+  pillPurpleText: "#5B4FA3",
+  pillPurpleLine: "#DDD9F2",
+  pillBlueBg: "#F0F4FA",
+  pillBlueText: "#47689A",
+  pillBlueLine: "#DAE3F0",
   tabOn: "#F6EFDC",
+  rowHover: "#FFFDF7",
+  rowHoverBorder: "#E6D6AC",
+  rowHoverShadow: "0 2px 4px rgba(4, 15, 32, 0.05), 0 14px 30px -12px rgba(4, 15, 32, 0.18)",
+  // Locked photo placeholder (.nophoto, later rule).
+  lockedPhoto:
+    "radial-gradient(120px 120px at 50% 35%, rgba(90, 110, 140, 0.9), transparent 70%), radial-gradient(200px 160px at 50% 110%, rgba(40, 60, 90, 0.95), transparent 70%), linear-gradient(160deg, #C7D0DC, #8A99AD)",
   shadow: "0 1px 2px rgba(11, 31, 58, 0.04), 0 6px 20px -8px rgba(11, 31, 58, 0.10)",
   shadowLift: "0 2px 4px rgba(11, 31, 58, 0.05), 0 20px 40px -12px rgba(11, 31, 58, 0.18), 0 40px 80px -40px rgba(19, 43, 80, 0.30)",
   goldButton: "linear-gradient(90deg, #B8913F, #D9B864 60%, #E6C77A)",
@@ -57,4 +70,6 @@ export const statusTones = {
   rejected: { background: brand.pillRedBg, color: brand.pillRedText, border: brand.pillRedLine },
   neutral: { background: brand.pillGrayBg, color: brand.pillGrayText, border: brand.pillGrayLine },
   locked: { background: brand.pillGrayBg, color: brand.pillGrayText, border: brand.pillGrayLine },
+  sent: { background: brand.pillPurpleBg, color: brand.pillPurpleText, border: brand.pillPurpleLine },
+  received: { background: brand.pillBlueBg, color: brand.pillBlueText, border: brand.pillBlueLine },
 };

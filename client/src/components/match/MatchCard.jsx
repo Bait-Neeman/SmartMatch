@@ -1,28 +1,27 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { Alert, Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
-import { FavoriteBorder, LocationOn } from "@mui/icons-material";
+import { AutoAwesome, FavoriteBorder, LocationOn } from "@mui/icons-material";
 import { sendInterest } from "../../store/slices/matchesSlice.js";
 import { appearanceOptions, labelOf, styleOptions } from "../../constants/profileOptions.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import MatchRing from "../common/MatchRing.jsx";
+import SuggestionRow from "../suggestion/SuggestionRow.jsx";
+import SuggestionDetail from "../suggestion/SuggestionDetail.jsx";
+import { cleanText, idOf, toSuggestionView } from "../../utils/suggestionView.js";
+import { pushOptimisticSent, removeOptimisticSent } from "../../utils/suggestionPreview.js";
+
+const displayName = (value) => cleanText(value) || "משתמש";
 
 // onSent is called after a successful send - the card itself is removed from the list then,
-// so the confirmation is shown by the page
-const MatchCard = ({ match, onSent }) => {
+// so the confirmation is shown by the page.
+// variant "row" | "detail" is the anonymous suggestions layout. The default card stays on התאמות.
+const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, view, reservePercent = false }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const rawReceiver = match?._id || match?.id || match?.user?._id || match?.user;
-
-  const normalizeId = (item) => {
-    if (!item && item !== 0) return item;
-    if (typeof item === "object") return item._id || item.id || item.user?._id || item.user || undefined;
-    return item;
-  };
-
-  const receiverId = normalizeId(rawReceiver);
+  const receiverId = idOf(match);
 
   const matchPercent = [match?.matchPercent, match?.compatibility, match?.score].find(
     (value) => typeof value === "number" && Number.isFinite(value)
@@ -35,21 +34,54 @@ const MatchCard = ({ match, onSent }) => {
     labelOf(appearanceOptions, match?.appearance),
   ].filter(Boolean);
 
-  const handleSendInterest = async () => {
+  const handleSendInterest = async (event) => {
+    event?.stopPropagation?.();
     try {
       setLoading(true);
       setMessage("");
-
+      if (offline) {
+        onSent?.(match);
+        return;
+      }
       await dispatch(sendInterest(receiverId)).unwrap();
-
+      pushOptimisticSent(match);
       onSent?.(match);
     } catch (err) {
-      // unwrap() rejects with the thunk's rejectWithValue payload - the server's message
+      removeOptimisticSent(receiverId);
       setMessage((typeof err === "string" && err) || err?.message || "לא הצלחנו לשלוח התעניינות");
     } finally {
       setLoading(false);
     }
   };
+
+  if (variant === "row" || variant === "detail") {
+    const suggestion = view || toSuggestionView(match, "new");
+    const actions = (
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={<FavoriteBorder />}
+        onClick={handleSendInterest}
+        disabled={loading || !receiverId}
+      >
+        {loading ? "שולח..." : "שלח התעניינות"}
+      </Button>
+    );
+    const icon = <AutoAwesome />;
+    if (variant === "detail") {
+      return <SuggestionDetail view={suggestion} icon={icon} actions={actions} error={message} onBack={onOpen} />;
+    }
+    return (
+      <SuggestionRow
+        view={suggestion}
+        icon={icon}
+        actions={actions}
+        error={message}
+        onOpen={onOpen}
+        reservePercent={reservePercent}
+      />
+    );
+  }
 
   return (
     <Card
@@ -68,7 +100,7 @@ const MatchCard = ({ match, onSent }) => {
         {matchPercent !== undefined && <MatchRing value={matchPercent} />}
 
         <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
-          {match?.name || "משתמש"}
+          {displayName(match?.name)}
         </Typography>
 
         {match?.city && (

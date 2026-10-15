@@ -7,6 +7,8 @@ import ProfilePage from "../pages/ProfilePage";
 import PersonalAreaPage from "../pages/PersonalAreaPage";
 import MatchesPage from "../pages/MatchesPage";
 import InterestsPage from "../pages/InterestsPage";
+import SuggestionsPage from "../pages/SuggestionsPage.jsx";
+import SuggestionDetailPage from "../pages/SuggestionDetailPage.jsx";
 import AdminPage from "../pages/AdminPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminRoute from "../components/AdminRoute.jsx";
@@ -40,6 +42,8 @@ export default function AppRoutes() {
         <Route path="/personal-area" element={<PersonalAreaPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/preferences" element={<PreferencesPage />} />
+        <Route path="/suggestions/:kind/:id" element={<SuggestionDetailPage />} />
+        <Route path="/suggestions" element={<SuggestionsPage />} />
         <Route path="/matches" element={<MatchesPage />} />
         <Route path="/interests" element={<InterestsPage />} />
       </Route>

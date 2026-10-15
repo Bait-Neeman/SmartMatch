@@ -17,6 +17,7 @@ import { useTheme } from "@mui/material/styles";
 import {
   AdminPanelSettings,
   Favorite,
+  FormatListBulleted,
   Forum,
   Group,
   Logout,
@@ -31,6 +32,7 @@ import PersonAvatar from "../common/PersonAvatar.jsx";
 
 const USER_LINKS = [
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
+  { to: "/suggestions", label: "הצעות", icon: <FormatListBulleted />, end: false },
   { to: "/matches", label: "התאמות", icon: <Favorite /> },
   { to: "/interests", label: "התעניינויות", icon: <Forum /> },
 ];
@@ -82,7 +84,7 @@ function SideNav({ links, onNavigate }) {
       </Box>
       <List sx={{ px: 0.5, py: 0.5 }}>
         {links.map((link) => (
-          <ListItemButton key={link.to} component={NavLink} to={link.to} end onClick={onNavigate} sx={navItemSx}>
+          <ListItemButton key={link.to} component={NavLink} to={link.to} end={link.end !== false} onClick={onNavigate} sx={navItemSx}>
             <ListItemIcon>{link.icon}</ListItemIcon>
             <ListItemText primary={link.label} />
           </ListItemButton>
