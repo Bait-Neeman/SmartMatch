@@ -1,26 +1,39 @@
 import { Box } from "@mui/material";
-import logo from "../../assets/brand/logo-shiny.png";
+import logo160 from "../../assets/brand/logo-shiny-160.png";
+import logo320 from "../../assets/brand/logo-shiny-320.png";
+import logo200 from "../../assets/brand/logo-shiny-200.png";
+import logo400 from "../../assets/brand/logo-shiny-400.png";
+import logo240 from "../../assets/brand/logo-shiny-240.png";
 import logo480 from "../../assets/brand/logo-shiny-480.png";
-import logo960 from "../../assets/brand/logo-shiny-960.png";
 
-// Approved shiny mark. Sidebar display size is 160px; larger sources stay crisp.
+// Lanczos downsamples of logo-shiny-original.png (1254). Each slot has a 1x file and a 2x file.
+const sources = {
+  160: { one: logo160, two: logo320 },
+  200: { one: logo200, two: logo400 },
+  240: { one: logo240, two: logo480 },
+};
+
 export default function BrandLogo({ maxWidth = 160 }) {
+  const known = Boolean(sources[maxWidth]);
+  const pair = sources[maxWidth] ?? sources[160];
+  const width = known ? maxWidth : 160;
+
   return (
     <Box
       component="img"
-      src={logo}
-      srcSet={`${logo480} 480w, ${logo960} 960w, ${logo} 1178w`}
-      sizes={`${maxWidth}px`}
+      src={pair.one}
+      srcSet={`${pair.one} 1x, ${pair.two} 2x`}
       alt="בית נאמן"
-      width={1178}
-      height={864}
+      width={width}
+      height={width}
       draggable={false}
       sx={{
         display: "block",
         width: "100%",
-        maxWidth,
+        maxWidth: width,
         height: "auto",
         mx: "auto",
+        imageRendering: "auto",
         userSelect: "none",
       }}
     />
