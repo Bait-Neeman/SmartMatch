@@ -15,6 +15,7 @@ import AdminRoute from "../components/AdminRoute.jsx";
 import AppLayout from "../components/layout/AppLayout.jsx";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminPendingMatchesPage from "../pages/AdminPendingMatchesPage";
+import AdminMatchmakerPage from "../pages/AdminMatchmakerPage";
 import SettingsPage from "../pages/SettingsPage";
 import { getSession, homePathFor } from "../utils/session.js";
 
@@ -55,6 +56,7 @@ export default function AppRoutes() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/pending-matches" element={<AdminPendingMatchesPage />} />
+        <Route path="/admin/matchmaker" element={<AdminMatchmakerPage />} />
       </Route>
 
       {/* Unknown addresses go to the right home page */}
