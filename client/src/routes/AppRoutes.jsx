@@ -12,11 +12,12 @@ import SuggestionDetailPage from "../pages/SuggestionDetailPage.jsx";
 import ActiveSuggestionsPage from "../pages/ActiveSuggestionsPage.jsx";
 import ActiveSuggestionDetailPage from "../pages/ActiveSuggestionDetailPage.jsx";
 import AdminPage from "../pages/AdminPage";
+import AdminDirectoryPage from "../pages/AdminDirectoryPage";
+import AdminCasesPage from "../pages/AdminCasesPage";
+import AdminSettingsPage from "../pages/AdminSettingsPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminRoute from "../components/AdminRoute.jsx";
 import AppLayout from "../components/layout/AppLayout.jsx";
-import AdminUsersPage from "../pages/AdminUsersPage";
-import AdminPendingMatchesPage from "../pages/AdminPendingMatchesPage";
 import AdminMatchmakerPage from "../pages/AdminMatchmakerPage";
 import SettingsPage from "../pages/SettingsPage";
 import { getSession, homePathFor } from "../utils/session.js";
@@ -58,9 +59,13 @@ export default function AppRoutes() {
       {/* Admin Routes (with the site header) */}
       <Route element={<AdminRoute><AppLayout /></AdminRoute>}>
         <Route path="/admin" element={<AdminPage />} />
-        <Route path="/admin/users" element={<AdminUsersPage />} />
-        <Route path="/admin/pending-matches" element={<AdminPendingMatchesPage />} />
+        <Route path="/admin/boys" element={<AdminDirectoryPage gender="male" />} />
+        <Route path="/admin/girls" element={<AdminDirectoryPage gender="female" />} />
+        <Route path="/admin/cases" element={<AdminCasesPage />} />
         <Route path="/admin/matchmaker" element={<AdminMatchmakerPage />} />
+        <Route path="/admin/settings" element={<AdminSettingsPage />} />
+        <Route path="/admin/users" element={<Navigate to="/admin/boys" replace />} />
+        <Route path="/admin/pending-matches" element={<Navigate to="/admin/cases" replace />} />
       </Route>
 
       {/* Unknown addresses go to the right home page */}

@@ -2,8 +2,8 @@ import { Box, Typography } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
 
 // Gold disc from the stylesheet: 64px, radial gold fill, percent in Rubik.
-export default function MatchRing({ value = 0, size = 64, caption }) {
-  const percent = Math.max(0, Math.min(100, Number(value) || 0));
+export default function MatchRing({ value = 0, size = 64, caption, unknown = false }) {
+  const percent = unknown ? 0 : Math.max(0, Math.min(100, Number(value) || 0));
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
   const dash = (percent / 100) * circumference;
@@ -11,7 +11,7 @@ export default function MatchRing({ value = 0, size = 64, caption }) {
   return (
     <Box
       role="img"
-      aria-label={`התאמה ${Math.round(percent)} אחוז`}
+      aria-label={unknown ? "אין אחוז התאמה" : `התאמה ${Math.round(percent)} אחוז`}
       sx={{
         width: size,
         height: size,
@@ -56,7 +56,7 @@ export default function MatchRing({ value = 0, size = 64, caption }) {
             lineHeight: 1,
           }}
         >
-          {Math.round(percent)}%
+          {unknown ? "—" : `${Math.round(percent)}%`}
         </Typography>
         {caption ? (
           <Typography component="small" sx={{ fontSize: 11, color: brand.mut, mt: "3px" }}>

@@ -6,11 +6,31 @@ const {
   removePending,
   getUsers,
   getUserProfile,
+  getSummary,
+  getCases,
+  search,
+  patchCase,
+  getSettings,
+  patchSettings,
+  putAccount,
+  postCandidate,
+  postMatchmaker,
 } = require("../controllers/admin.controller");
 
 const { protect, requireAdmin } = require("../middleware/auth.middleware");
 
 router.use(protect, requireAdmin);
+
+router.get("/summary", getSummary);
+router.get("/search", search);
+router.get("/settings", getSettings);
+router.patch("/settings", patchSettings);
+router.put("/account", putAccount);
+router.post("/candidates", postCandidate);
+router.post("/matchmakers", postMatchmaker);
+
+router.get("/cases", getCases);
+router.patch("/cases/:id", patchCase);
 
 router.get("/pending-matches", getPending);
 router.delete("/pending-match", removePending);
