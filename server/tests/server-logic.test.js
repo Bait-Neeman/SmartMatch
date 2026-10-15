@@ -562,9 +562,9 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
       .send({ currentPassword: PASSWORD, newPassword: "Newpass12" });
     assert.equal(changed.status, 200);
     assert.equal(changed.body.token, undefined);
-    const oldLogin = await request(app).post("/api/auth/login").send({ idNumber: owner.idNumber, password: PASSWORD });
+    const oldLogin = await request(app).post("/api/auth/login").send({ email: owner.email, password: PASSWORD });
     assert.equal(oldLogin.status, 401);
-    const newLogin = await request(app).post("/api/auth/login").send({ idNumber: owner.idNumber, password: "Newpass12" });
+    const newLogin = await request(app).post("/api/auth/login").send({ email: owner.email, password: "Newpass12" });
     assert.equal(newLogin.status, 200);
 
     const staleToken = await request(app).get("/api/settings").set(auth(token));
@@ -749,5 +749,123 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(ages.status, 201, JSON.stringify(ages.body));
     assert.equal(ages.body.preferences.ageMin, 18);
     assert.equal(ages.body.preferences.ageMax, 99);
+  });
+
+  it("registers and logs in with email and password, and does not use an ID number", async () => {
+    const created = await request(app).post("/api/auth/register").send({
+      email: "new-user@example.test",
+      password: PASSWORD,
+      idNumber: "123456789",
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(created.body.user.email, "new-user@example.test");
+    assert.equal(created.body.user.idNumber, undefined);
+    assert.equal(JSON.stringify(created.body).includes("123456789"), false);
+    assert.equal(created.body.user.name, "new user");
+
+    const stored = await User.findById(created.body.user._id).lean();
+    assert.equal(stored.idNumber, undefined);
+    assert.equal(stored.email, "new-user@example.test");
+
+    const again = await request(app).post("/api/auth/register").send({
+      email: "new-user@example.test",
+      password: PASSWORD,
+    });
+    assert.equal(again.status, 201);
+    assert.equal(String(again.body.user._id), String(created.body.user._id));
+
+    const clash = await request(app).post("/api/auth/register").send({
+      email: "new-user@example.test",
+      password: "Otherpass1",
+    });
+    assert.equal(clash.status, 409);
+
+    const missing = await request(app).post("/api/auth/login").send({ password: PASSWORD });
+    assert.equal(missing.status, 400);
+    const byId = await request(app).post("/api/auth/login").send({ idNumber: "123456789", password: PASSWORD });
+    assert.equal(byId.status, 400);
+    const wrong = await request(app).post("/api/auth/login").send({ email: "new-user@example.test", password: "Otherpass1" });
+    assert.equal(wrong.status, 401);
+
+    const loggedIn = await request(app).post("/api/auth/login").send({
+      email: "New-User@example.test",
+      password: PASSWORD,
+    });
+    assert.equal(loggedIn.status, 200, JSON.stringify(loggedIn.body));
+    assert.equal(loggedIn.body.user.idNumber, undefined);
+    const me = await request(app).get("/api/auth/me").set(auth(loggedIn.body.token));
+    assert.equal(me.status, 200);
+    assert.equal(me.body.user.email, "new-user@example.test");
+    assert.equal(me.body.user.idNumber, undefined);
+  });
+
+  it("keeps a declined suggestion without identity, and re-checks approval on the next read", async () => {
+    const viewer = await createUser({ n: 101, name: "DECLINE-VIEWER", email: "decline-viewer@example.test" });
+    const other = await createUser({ n: 102, name: "DECLINE-OTHER", email: "decline-other@example.test", phone: "0507777777" });
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female", age: 24, city: "Haifa" }) },
+      {
+        user: other._id,
+        ...baseProfile({ gender: "male", age: 28, city: "Elad", maritalStatus: "single", financialDemand: 40, financialParticipation: 80 }),
+        image: "secret-image",
+        resumePdf: "secret-resume",
+      },
+    ]);
+
+    const sent = await request(app)
+      .post("/api/interest")
+      .set(auth(tokenFor(viewer)))
+      .send({ receiverId: String(other._id) });
+    assert.equal(sent.status, 201, JSON.stringify(sent.body));
+    const approved = await request(app)
+      .put("/api/interest/respond")
+      .set(auth(tokenFor(other)))
+      .send({ senderId: String(viewer._id), status: "accepted" });
+    assert.equal(approved.status, 200);
+
+    const open = await request(app).get(`/api/profile/${other._id}`).set(auth(tokenFor(viewer)));
+    assert.equal(open.status, 200);
+    assert.equal(open.body.profile.name, "DECLINE-OTHER");
+
+    const declined = await request(app)
+      .put("/api/interest/respond")
+      .set(auth(tokenFor(viewer)))
+      .send({ senderId: String(other._id), status: "rejected" });
+    assert.equal(declined.status, 200);
+
+    const lists = await request(app).get("/api/suggestions").set(auth(tokenFor(viewer)));
+    assert.equal(lists.status, 200);
+    assert.equal(lists.body.declined.length, 1);
+    assert.equal(lists.body.active.length, 0);
+    assert.equal(lists.body.matchmaker.length, 0);
+    assert.equal(lists.body.sent.length, 0);
+    assert.equal(lists.body.received.length, 0);
+    const row = lists.body.declined[0];
+    assert.equal(row.stage, "declined");
+    assert.equal(row.declinedByViewer, true);
+    assert.equal(row.receiver.age, 28);
+    assert.equal(row.receiver.city, "Elad");
+    assert.equal(row.receiver.maritalStatus, "single");
+    assert.equal(row.receiver.financialDemand, 40);
+    assert.equal(typeof row.receiver.matchPercent, "number");
+    const blob = JSON.stringify(lists.body.declined);
+    for (const secret of ["DECLINE-OTHER", "decline-other@example.test", "0507777777", "secret-image", "secret-resume"]) {
+      assert.equal(blob.includes(secret), false, secret);
+    }
+
+    const otherLists = await request(app).get("/api/suggestions").set(auth(tokenFor(other)));
+    assert.equal(otherLists.body.declined.length, 1);
+    assert.equal(otherLists.body.declined[0].declinedByViewer, false);
+    assert.equal(JSON.stringify(otherLists.body.declined).includes("DECLINE-VIEWER"), false);
+
+    const closed = await request(app).get(`/api/profile/${other._id}`).set(auth(tokenFor(viewer)));
+    const closedFile = await request(app).get(`/api/files/${other._id}/image`).set(auth(tokenFor(viewer)));
+    assert.equal(closed.status, 404);
+    assert.equal(closedFile.status, 404);
+    assert.equal(await Interest.countDocuments({ status: "rejected" }), 1);
+
+    const again = await request(app).get("/api/suggestions").set(auth(tokenFor(viewer)));
+    assert.equal(again.body.declined.length, 1);
+    assert.equal(JSON.stringify(again.body.declined).includes("DECLINE-OTHER"), false);
   });
 });

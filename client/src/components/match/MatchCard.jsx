@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { Alert, Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
-import { AutoAwesome, FavoriteBorder, LocationOn, Send } from "@mui/icons-material";
+import { AutoAwesome, LocationOn, Send } from "@mui/icons-material";
 import { sendInterest } from "../../store/slices/matchesSlice.js";
 import { appearanceOptions, labelOf, maritalStatusOptions, styleOptions } from "../../constants/profileOptions.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
@@ -9,7 +9,6 @@ import MatchRing from "../common/MatchRing.jsx";
 import SuggestionRow from "../suggestion/SuggestionRow.jsx";
 import SuggestionDetail from "../suggestion/SuggestionDetail.jsx";
 import { cleanText, idOf, toSuggestionView } from "../../utils/suggestionView.js";
-import { pushOptimisticSent, removeOptimisticSent } from "../../hooks/useSuggestions.js";
 import { brand } from "../../theme/tokens.js";
 
 const displayName = (value) => cleanText(value) || "משתמש";
@@ -44,10 +43,8 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
         return;
       }
       await dispatch(sendInterest(receiverId)).unwrap();
-      pushOptimisticSent(match);
       onSent?.(match);
     } catch (err) {
-      removeOptimisticSent(receiverId);
       setMessage((typeof err === "string" && err) || err?.message || "לא הצלחנו לשלוח התעניינות");
     } finally {
       setLoading(false);
@@ -127,7 +124,7 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
         <Button
           variant="contained"
           fullWidth
-          startIcon={<FavoriteBorder />}
+          startIcon={<Send />}
           onClick={handleSendInterest}
           disabled={loading || !receiverId}
         >

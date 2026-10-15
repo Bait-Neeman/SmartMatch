@@ -1,92 +1,169 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import {
   Alert,
   Box,
   Button,
-  Chip,
-  Container,
+  CircularProgress,
   FormControl,
-  InputLabel,
+  FormHelperText,
   MenuItem,
-  Paper,
   Select,
-  Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { brand } from "../theme/tokens.js";
-import { createPreferences } from "../services/preference.service.js";
-import { appearanceOptions, styleOptions } from "../constants/profileOptions.js";
+import { createPreferences, getMyPreferences, updatePreferences } from "../services/preference.service.js";
+import { getMyProfile, updateProfile } from "../services/profile.service.js";
+import { appearanceOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
 
-const numberRule = (message) => ({ pattern: { value: /^[0-9]*$/, message } });
+const empty = {
+  ageMin: "",
+  ageMax: "",
+  city: "",
+  heightMin: "",
+  heightMax: "",
+  style: "",
+  preferredAppearance: "",
+  financialMin: "",
+  financialMax: "",
+  preferredMaritalStatus: "",
+  lookingFor: "",
+  maritalStatus: "",
+  financialDemand: "",
+  financialParticipation: "",
+};
 
-const fullRow = { gridColumn: "1 / -1" };
+const numberOrEmpty = (value) => (value === "" || value == null ? "" : Number(value));
+
+const pageTitleSx = {
+  m: 0,
+  fontWeight: 600,
+  letterSpacing: "-0.3px",
+  color: brand.navy,
+  fontSize: "clamp(22px, 1.9vw, 28px)",
+  lineHeight: 1.2,
+};
 
 export default function PreferencesPage() {
   const navigate = useNavigate();
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [preferencesExist, setPreferencesExist] = useState(false);
+  const [profileExists, setProfileExists] = useState(false);
 
   const {
     control,
     handleSubmit,
+    reset,
     formState: { errors },
-  } = useForm({
-    defaultValues: {
-      ageMin: "",
-      ageMax: "",
-      city: "",
-      heightMin: "",
-      heightMax: "",
-      style: "",
-      preferredAppearance: "",
-      financialMin: "",
-      financialMax: "",
-    },
-  });
+  } = useForm({ defaultValues: empty });
+
+  useEffect(() => {
+    let ignore = false;
+    Promise.allSettled([getMyPreferences(), getMyProfile()])
+      .then(([preferencesResult, profileResult]) => {
+        if (ignore) return;
+        const next = { ...empty };
+        if (preferencesResult.status === "fulfilled") {
+          const preferences = preferencesResult.value?.preferences;
+          setPreferencesExist(Boolean(preferences));
+          if (preferences) {
+            next.ageMin = preferences.ageMin ?? "";
+            next.ageMax = preferences.ageMax ?? "";
+            next.city = preferences.city || "";
+            next.heightMin = preferences.heightMin ?? "";
+            next.heightMax = preferences.heightMax ?? "";
+            next.style = preferences.style || "";
+            next.preferredAppearance = preferences.preferredAppearance || "";
+            next.financialMin = preferences.financialMin ?? "";
+            next.financialMax = preferences.financialMax ?? "";
+            next.preferredMaritalStatus = preferences.preferredMaritalStatus || "";
+          }
+        } else if (preferencesResult.reason?.response?.status !== 404) {
+          throw preferencesResult.reason;
+        }
+        if (profileResult.status === "fulfilled") {
+          const profile = profileResult.value?.profile;
+          setProfileExists(Boolean(profile));
+          if (profile) {
+            next.lookingFor = profile.lookingFor || "";
+            next.maritalStatus = profile.maritalStatus || "";
+            next.financialDemand = profile.financialDemand ?? "";
+            next.financialParticipation = profile.financialParticipation ?? "";
+          }
+        }
+        reset(next);
+      })
+      .catch((error) => {
+        if (!ignore) setApiError(error?.message || "לא הצלחנו לטעון העדפות");
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [reset]);
 
   const onSubmit = async (values) => {
     setApiError("");
     setIsSubmitting(true);
 
-    const payload = {
-      ageMin: values.ageMin === "" ? undefined : Number(values.ageMin),
-      ageMax: values.ageMax === "" ? undefined : Number(values.ageMax),
-      city: values.city || undefined,
-      heightMin: values.heightMin === "" ? undefined : Number(values.heightMin),
-      heightMax: values.heightMax === "" ? undefined : Number(values.heightMax),
-      style: values.style || undefined,
-      preferredAppearance: values.preferredAppearance || undefined,
-      financialMin: values.financialMin === "" ? undefined : Number(values.financialMin),
-      financialMax: values.financialMax === "" ? undefined : Number(values.financialMax),
+    const preferencePayload = {
+      ageMin: numberOrEmpty(values.ageMin),
+      ageMax: numberOrEmpty(values.ageMax),
+      city: values.city || "",
+      heightMin: numberOrEmpty(values.heightMin),
+      heightMax: numberOrEmpty(values.heightMax),
+      style: values.style || "",
+      preferredAppearance: values.preferredAppearance || "",
+      financialMin: numberOrEmpty(values.financialMin),
+      financialMax: numberOrEmpty(values.financialMax),
+      preferredMaritalStatus: values.preferredMaritalStatus || "",
     };
 
     try {
-      await createPreferences(payload);
+      if (preferencesExist) await updatePreferences(preferencePayload);
+      else await createPreferences(preferencePayload);
+      setPreferencesExist(true);
+
+      if (profileExists) {
+        await updateProfile({
+          lookingFor: values.lookingFor || "",
+          maritalStatus: values.maritalStatus || "",
+          financialDemand: numberOrEmpty(values.financialDemand),
+          financialParticipation: numberOrEmpty(values.financialParticipation),
+          ageMin: numberOrEmpty(values.ageMin),
+          ageMax: numberOrEmpty(values.ageMax),
+          preferredMaritalStatus: values.preferredMaritalStatus || "",
+        });
+      }
+
       navigate("/personal-area");
     } catch (error) {
-      const message = error?.response?.data?.message || error.message || "שגיאה בשמירת העדפות";
-      setApiError(message);
+      setApiError(error?.response?.data?.message || error.message || "שגיאה בשמירת העדפות");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const numberField = (name, label, message) => (
+  const numberField = (name, label, sx) => (
     <Controller
       name={name}
       control={control}
-      rules={numberRule(message)}
+      rules={{ pattern: { value: /^[0-9]*$/, message: "הזן מספר תקין" } }}
       render={({ field }) => (
         <TextField
           {...field}
           label={label}
           type="number"
           error={Boolean(errors[name])}
-          helperText={errors[name] ? errors[name].message : ""}
-          fullWidth
+          helperText={errors[name]?.message || ""}
+          fullWidth={!sx}
+          sx={sx}
         />
       )}
     />
@@ -98,8 +175,10 @@ export default function PreferencesPage() {
       control={control}
       render={({ field }) => (
         <FormControl fullWidth>
-          <InputLabel id={`${name}-label`}>{label}</InputLabel>
-          <Select labelId={`${name}-label`} label={label} {...field}>
+          <Typography component="label" sx={{ mb: 0.5, color: "text.secondary", fontSize: 14 }}>
+            {label}
+          </Typography>
+          <Select {...field} displayEmpty aria-label={label}>
             <MenuItem value="">לא משנה</MenuItem>
             {options.map((option) => (
               <MenuItem key={option.value} value={option.value}>
@@ -107,74 +186,100 @@ export default function PreferencesPage() {
               </MenuItem>
             ))}
           </Select>
+          {errors[name] && <FormHelperText error>{errors[name].message}</FormHelperText>}
         </FormControl>
       )}
     />
   );
 
-  return (
-    <Container maxWidth="sm" sx={{ py: { xs: 3, sm: 5 } }}>
-      <Box sx={{ textAlign: "center", mb: 3 }}>
-        <Chip label="שלב 2 מתוך 2" color="primary" variant="outlined" sx={{ fontWeight: 700, mb: 1.5 }} />
-        <Typography variant="h4" component="h1" sx={{ color: "text.primary", fontWeight: 700 }}>
-          מה חשוב לך?
-        </Typography>
-        <Typography sx={{ color: "text.secondary", mt: 1 }}>
-          ההעדפות עוזרות לנו להציג לך התאמות מדויקות. כל השדות רשות – שדה שנשאר ריק לא מגביל את החיפוש.
-        </Typography>
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
       </Box>
+    );
+  }
 
-      <Paper
+  return (
+    <Box sx={{ maxWidth: 760 }}>
+      <Typography component="h1" sx={pageTitleSx}>
+        העדפות התאמה
+      </Typography>
+      <Typography sx={{ mt: 0.75, mb: 2.25, color: "text.secondary", fontSize: 17 }}>
+        מה חשוב לך אצל הצד השני – לפי ההעדפות האלה נבחרות ההצעות שלך
+      </Typography>
+
+      <Box
+        component="form"
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
         sx={{
-          p: { xs: 2.5, sm: 4 },
-          borderRadius: "16px",
-          border: `1px solid ${brand.slateLine}`,
-          boxShadow: brand.cardShadow,
+          p: "clamp(16px, 1.6vw, 24px)",
+          borderRadius: `${brand.radiusCard}px`,
+          border: `1px solid ${brand.line}`,
+          boxShadow: brand.shadow,
+          bgcolor: "background.paper",
+          maxWidth: 640,
         }}
       >
-        <Box
-          component="form"
-          onSubmit={handleSubmit(onSubmit)}
-          noValidate
-          sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}
-        >
-          {numberField("ageMin", "גיל מינימום", "הזן גיל מינימום תקין")}
-          {numberField("ageMax", "גיל מקסימום", "הזן גיל מקסימום תקין")}
-          {numberField("heightMin", 'גובה מינימום (ס"מ)', "הזן גובה מינימום תקין")}
-          {numberField("heightMax", 'גובה מקסימום (ס"מ)', "הזן גובה מקסימום תקין")}
+        <Typography component="h2" sx={{ m: 0, mb: 1.5, color: brand.navy, fontWeight: 600, fontSize: 15 }}>
+          טווח גילאים
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, maxWidth: 420, mb: 2 }}>
+          {numberField("ageMin", "מגיל", { width: 110, flex: "none" })}
+          <Box sx={{ flex: 1, height: 4, borderRadius: 3, bgcolor: brand.navyWash }} />
+          {numberField("ageMax", "עד גיל", { width: 110, flex: "none" })}
+        </Box>
 
+        <Typography component="h2" sx={{ m: 0, mb: 1, color: brand.navy, fontWeight: 600, fontSize: 15 }}>
+          פרטים מועדפים
+        </Typography>
+        <Box sx={{ display: "grid", rowGap: 1.25 }}>
+          {numberField("heightMin", 'גובה מינימום (ס"מ)')}
+          {numberField("heightMax", 'גובה מקסימום (ס"מ)')}
           <Controller
             name="city"
             control={control}
-            render={({ field }) => <TextField {...field} label="עיר" fullWidth sx={fullRow} />}
+            render={({ field }) => <TextField {...field} label="מגורים" placeholder="עיר או כמה ערים" fullWidth />}
           />
-
+          {selectField("preferredMaritalStatus", "סטטוס", maritalStatusOptions)}
           {selectField("style", "סגנון", styleOptions)}
-          {selectField("preferredAppearance", "מראה חיצוני מועדף", appearanceOptions)}
-          {numberField("financialMin", "מצב כלכלי מינימום", "הזן סכום כלכלי מינימלי תקין")}
-          {numberField("financialMax", "מצב כלכלי מקסימום", "הזן סכום כלכלי מקסימלי תקין")}
-
-          {apiError && (
-            <Alert severity="error" sx={fullRow}>
-              {apiError}
-            </Alert>
-          )}
-
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ ...fullRow, mt: 1 }}>
-            <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ flexGrow: 1 }}>
-              {isSubmitting ? "שומר..." : "שמירת העדפות"}
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={isSubmitting}
-              onClick={() => navigate("/personal-area")}
-              sx={{ boxShadow: "none" }}
-            >
-              דילוג – אמלא אחר כך
-            </Button>
-          </Stack>
+          {selectField("preferredAppearance", "מראה חיצוני", appearanceOptions)}
+          {numberField("financialMin", "מצב כלכלי מינימום")}
+          {numberField("financialMax", "מצב כלכלי מקסימום")}
+          {selectField("maritalStatus", "הסטטוס שלי", maritalStatusOptions)}
+          {numberField("financialDemand", "דרישה כספית")}
+          {numberField("financialParticipation", "השתתפות כספית")}
         </Box>
-      </Paper>
-    </Container>
+
+        <Typography component="h3" sx={{ mt: 2.5, mb: 1, color: brand.navy, fontWeight: 600, fontSize: 17 }}>
+          מה אני מחפש/ת
+        </Typography>
+        <Controller
+          name="lookingFor"
+          control={control}
+          render={({ field }) => (
+            <TextField {...field} hiddenLabel multiline minRows={4} fullWidth placeholder="מה אני מחפש/ת" slotProps={{ htmlInput: { "aria-label": "מה אני מחפש/ת" } }} />
+          )}
+        />
+
+        {!profileExists && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            סטטוס, דרישה כספית ומה אני מחפש/ת נשמרים אחרי יצירת פרופיל.
+          </Alert>
+        )}
+        {apiError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {apiError}
+          </Alert>
+        )}
+
+        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mt: 3, pt: 3, borderTop: `1px solid ${brand.line}` }}>
+          <Button type="submit" variant="contained" disabled={isSubmitting}>
+            {isSubmitting ? "שומר..." : "שמירת העדפות"}
+          </Button>
+        </Box>
+      </Box>
+    </Box>
   );
 }

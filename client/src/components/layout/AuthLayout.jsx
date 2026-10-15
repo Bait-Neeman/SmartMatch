@@ -1,24 +1,21 @@
 import { Link as RouterLink } from "react-router-dom";
-import { Box, Button, Divider, Paper, Typography } from "@mui/material";
+import { Box, Button, Link, Paper, Typography } from "@mui/material";
 import { ArrowForward } from "@mui/icons-material";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
 
-export function AuthSwitch({ question, label, to }) {
+export function AuthFooter({ question, label, to }) {
   return (
-    <Box sx={{ mt: 4 }}>
-      <Divider sx={{ mb: 3, color: "text.secondary", fontSize: "0.9rem" }}>או</Divider>
-
-      <Typography sx={{ mb: 2, textAlign: "center", color: "text.secondary", fontSize: "1rem" }}>{question}</Typography>
-
-      <Button component={RouterLink} to={to} variant="outlined" size="large" fullWidth sx={{ py: 1.25, fontWeight: 700 }}>
+    <Typography sx={{ mt: 2.25, textAlign: "center", color: "text.secondary", fontSize: 15 }}>
+      {question}{" "}
+      <Link component={RouterLink} to={to} sx={{ color: brand.goldText, fontWeight: 700, textDecoration: "none" }}>
         {label}
-      </Button>
-    </Box>
+      </Link>
+    </Typography>
   );
 }
 
-export default function AuthLayout({ title, subtitle, children }) {
+export default function AuthLayout({ title, subtitle, children, wide = false }) {
   return (
     <Box
       sx={{
@@ -57,7 +54,7 @@ export default function AuthLayout({ title, subtitle, children }) {
           bgcolor: brand.background,
         }}
       >
-        <Box sx={{ width: "min(420px, 100%)" }}>
+        <Box sx={{ width: wide ? "min(620px, 100%)" : "min(420px, 100%)" }}>
           <Button
             component={RouterLink}
             to="/"
@@ -76,7 +73,7 @@ export default function AuthLayout({ title, subtitle, children }) {
               boxShadow: brand.shadowLift,
             }}
           >
-            <Box sx={{ textAlign: "center", mb: 3 }}>
+            <Box sx={{ textAlign: "start", mb: 3 }}>
               <Typography variant="h3" component="h1" sx={{ fontWeight: 700, color: "text.primary", mb: 1 }}>
                 {title}
               </Typography>

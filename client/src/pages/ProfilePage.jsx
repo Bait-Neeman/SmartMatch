@@ -5,7 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   FormControl,
   FormHelperText,
   MenuItem,
@@ -14,12 +13,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { createProfile } from "../services/profile.service.js";
+import { createProfile, getMyProfile, updateProfile } from "../services/profile.service.js";
 import { getImageFileError, getPdfFileError, IMAGE_ACCEPT } from "../utils/files.js";
 import {
   appearanceOptions,
   ethnicityOptions,
   genderOptions,
+  maritalStatusOptions,
   styleOptions,
 } from "../constants/profileOptions.js";
 import { brand } from "../theme/tokens.js";
@@ -317,10 +317,13 @@ export default function ProfilePage() {
   const [pdfFile, setPdfFile] = useState(null);
   const [imageError, setImageError] = useState("");
   const [resumeError, setResumeError] = useState("");
+  const [profileExists, setProfileExists] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   const {
     control,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -331,10 +334,61 @@ export default function ProfilePage() {
       height: "",
       style: "",
       appearance: "",
+      maritalStatus: "",
+      occupation: "",
+      yeshiva: "",
+      seminar: "",
       financialStatus: "",
+      financialDemand: "",
+      financialParticipation: "",
+      lookingFor: "",
       description: "",
+      ageMin: "",
+      ageMax: "",
+      preferredMaritalStatus: "",
     },
   });
+
+  useEffect(() => {
+    let ignore = false;
+    getMyProfile()
+      .then((data) => {
+        const profile = data?.profile;
+        if (ignore || !profile) return;
+        setProfileExists(true);
+        reset({
+          gender: profile.gender || "",
+          ethnicity: profile.ethnicity || "",
+          age: profile.age ?? "",
+          city: profile.city || "",
+          height: profile.height ?? "",
+          style: profile.style || "",
+          appearance: profile.appearance || "",
+          maritalStatus: profile.maritalStatus || "",
+          occupation: profile.occupation || "",
+          yeshiva: profile.yeshiva || "",
+          seminar: profile.seminar || "",
+          financialStatus: profile.financialStatus ?? "",
+          financialDemand: profile.financialDemand ?? "",
+          financialParticipation: profile.financialParticipation ?? "",
+          lookingFor: profile.lookingFor || "",
+          description: profile.description || "",
+          ageMin: profile.ageMin ?? "",
+          ageMax: profile.ageMax ?? "",
+          preferredMaritalStatus: profile.preferredMaritalStatus || "",
+        });
+      })
+      .catch((error) => {
+        if (ignore || error?.response?.status === 404) return;
+        setApiError(error.message || "לא הצלחנו לטעון את הפרופיל");
+      })
+      .finally(() => {
+        if (!ignore) setLoadingProfile(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [reset]);
 
   const handleImageChange = (event) => {
     const file = event.target.files?.[0] || null;
@@ -369,39 +423,42 @@ export default function ProfilePage() {
       return;
     }
 
-    const payload = {
+    const fields = {
       gender: data.gender,
-      age: data.age === "" ? undefined : Number(data.age),
-      city: data.city,
-      height: data.height === "" ? undefined : Number(data.height),
-      ethnicity: data.ethnicity || undefined,
-      style: data.style || undefined,
-      appearance: data.appearance || undefined,
-      financialStatus: data.financialStatus === "" ? undefined : Number(data.financialStatus),
-      description: data.description || undefined,
+      age: data.age === "" ? "" : Number(data.age),
+      city: data.city || "",
+      height: data.height === "" ? "" : Number(data.height),
+      ethnicity: data.ethnicity || "",
+      style: data.style || "",
+      appearance: data.appearance || "",
+      maritalStatus: data.maritalStatus || "",
+      occupation: data.occupation || "",
+      yeshiva: data.yeshiva || "",
+      seminar: data.seminar || "",
+      financialStatus: data.financialStatus === "" ? "" : Number(data.financialStatus),
+      financialDemand: data.financialDemand === "" ? "" : Number(data.financialDemand),
+      financialParticipation: data.financialParticipation === "" ? "" : Number(data.financialParticipation),
+      lookingFor: data.lookingFor || "",
+      description: data.description || "",
+      ageMin: data.ageMin === "" ? "" : Number(data.ageMin),
+      ageMax: data.ageMax === "" ? "" : Number(data.ageMax),
+      preferredMaritalStatus: data.preferredMaritalStatus || "",
     };
 
     const hasFiles = Boolean(imageFile || pdfFile);
-    const requestData = hasFiles ? new FormData() : payload;
+    const requestData = hasFiles ? new FormData() : fields;
 
     if (hasFiles) {
-      requestData.append("gender", data.gender || "");
-      requestData.append("age", data.age ?? "");
-      requestData.append("city", data.city || "");
-      requestData.append("height", data.height ?? "");
-      requestData.append("ethnicity", data.ethnicity || "");
-      requestData.append("style", data.style || "");
-      requestData.append("appearance", data.appearance || "");
-      requestData.append("financialStatus", data.financialStatus ?? "");
-      requestData.append("description", data.description || "");
+      Object.entries(fields).forEach(([key, value]) => requestData.append(key, value ?? ""));
       if (imageFile) requestData.append("image", imageFile);
       if (pdfFile) requestData.append("resumePdf", pdfFile);
     }
 
     try {
-      await createProfile(requestData);
-      setSuccessMessage("הפרופיל נוצר בהצלחה");
-      setTimeout(() => navigate("/preferences"), 750);
+      if (profileExists) await updateProfile(requestData);
+      else await createProfile(requestData);
+      setSuccessMessage(profileExists ? "הפרופיל נשמר" : "הפרופיל נוצר בהצלחה");
+      setTimeout(() => navigate(profileExists ? "/personal-area" : "/preferences"), 750);
     } catch (error) {
       const message = error?.response?.data?.message || error.message || "שגיאה בשמירת הפרופיל";
       setApiError(message);
@@ -413,12 +470,11 @@ export default function ProfilePage() {
   return (
     <Box sx={{ maxWidth: 1120, mx: "auto" }}>
       <Box sx={{ mb: 2.25 }}>
-        <Chip label="שלב 1 מתוך 2" color="warning" sx={{ fontWeight: 700, mb: 1.5 }} />
         <Typography component="h1" sx={pageTitleSx}>
-          יצירת פרופיל
+          הפרופיל שלי
         </Typography>
         <Typography sx={{ mt: 0.75, color: "text.secondary", fontSize: 17, maxWidth: 640 }}>
-          כמה פרטים בסיסיים, כדי שנוכל להציע לך התאמות. שדות המסומנים בכוכבית הם חובה.
+          הפרטים שיוצגו לצד השני. תמונה, שם ורזומה נחשפים רק לאחר אישור הדדי.
         </Typography>
       </Box>
 
@@ -603,6 +659,100 @@ export default function ProfilePage() {
                   </FieldRow>
                 )}
               />
+
+              <Controller
+                name="maritalStatus"
+                control={control}
+                render={({ field }) => (
+                  <FieldRow icon="user" label="סטטוס">
+                    <SelectField field={field} label="סטטוס" options={maritalStatusOptions} />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="occupation"
+                control={control}
+                render={({ field }) => (
+                  <FieldRow icon="user" label="עיסוק">
+                    <LineText field={field} label="עיסוק" error={errors.occupation} />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="yeshiva"
+                control={control}
+                render={({ field }) => (
+                  <FieldRow icon="user" label="ישיבה">
+                    <LineText field={field} label="ישיבה" />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="seminar"
+                control={control}
+                render={({ field }) => (
+                  <FieldRow icon="user" label="סמינר">
+                    <LineText field={field} label="סמינר" />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="financialDemand"
+                control={control}
+                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן דרישה כספית תקינה" } }}
+                render={({ field }) => (
+                  <FieldRow icon="sliders" label="דרישה כספית">
+                    <LineText field={field} label="דרישה כספית" type="number" error={errors.financialDemand} />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="financialParticipation"
+                control={control}
+                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן השתתפות כספית תקינה" } }}
+                render={({ field }) => (
+                  <FieldRow icon="sliders" label="השתתפות כספית">
+                    <LineText field={field} label="השתתפות כספית" type="number" error={errors.financialParticipation} />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="ageMin"
+                control={control}
+                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן גיל מינימום תקין" } }}
+                render={({ field }) => (
+                  <FieldRow icon="user" label="גיל מועדף מ-">
+                    <LineText field={field} label="גיל מועדף מ-" type="number" error={errors.ageMin} />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="ageMax"
+                control={control}
+                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן גיל מקסימום תקין" } }}
+                render={({ field }) => (
+                  <FieldRow icon="user" label="גיל מועדף עד">
+                    <LineText field={field} label="גיל מועדף עד" type="number" error={errors.ageMax} />
+                  </FieldRow>
+                )}
+              />
+
+              <Controller
+                name="preferredMaritalStatus"
+                control={control}
+                render={({ field }) => (
+                  <FieldRow icon="user" label="סטטוס מועדף">
+                    <SelectField field={field} label="סטטוס מועדף" options={maritalStatusOptions} />
+                  </FieldRow>
+                )}
+              />
             </Box>
 
             <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
@@ -628,6 +778,27 @@ export default function ProfilePage() {
                       "& .MuiInputBase-root": { lineHeight: 1.75 },
                       "& .MuiInputBase-input": { scrollMarginTop: `${brand.topBarHeight + 16}px` },
                     }}
+                  />
+                )}
+              />
+              <Typography component="h3" sx={blockTitleSx}>
+                מה אני מחפש/ת
+              </Typography>
+              <Controller
+                name="lookingFor"
+                control={control}
+                rules={{ maxLength: { value: 1000, message: "הטקסט יכול להכיל עד 1000 תווים" } }}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    hiddenLabel
+                    multiline
+                    minRows={3}
+                    fullWidth
+                    placeholder="מה אני מחפש/ת"
+                    error={Boolean(errors.lookingFor)}
+                    helperText={errors.lookingFor ? errors.lookingFor.message : ""}
+                    slotProps={{ htmlInput: { "aria-label": "מה אני מחפש/ת" } }}
                   />
                 )}
               />
@@ -701,8 +872,11 @@ export default function ProfilePage() {
             )}
 
             <Box sx={actionsSx}>
-              <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ flex: { sm: 1 }, minWidth: 160 }}>
-                {isSubmitting ? "שולח..." : "שמור והמשך"}
+              <Button type="submit" variant="contained" disabled={isSubmitting || loadingProfile} sx={{ minWidth: 160 }}>
+                {isSubmitting ? "שולח..." : "שמירת שינויים"}
+              </Button>
+              <Button variant="outlined" disabled={isSubmitting} onClick={() => navigate("/personal-area")}>
+                ביטול
               </Button>
             </Box>
           </Box>

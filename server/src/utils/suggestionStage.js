@@ -1,5 +1,6 @@
 // Viewer-relative place of one interest in the suggestion flow.
-// Declined rows stay out of the suggestion lists; access to details is closed separately.
+// A declined row stays in the declined list. Identity is decided separately, from the
+// interest status read on this request.
 const stageForViewer = (interest, viewerId) => {
   const viewerIsSender = String(interest.sender?._id || interest.sender) === String(viewerId);
   const viewerForwarded = Boolean(
@@ -10,7 +11,12 @@ const stageForViewer = (interest, viewerId) => {
   );
 
   if (interest.status === "rejected") {
-    return { stage: "declined", viewerForwarded: false, otherForwarded: false };
+    return {
+      stage: "declined",
+      declinedByViewer: String(interest.rejectedBy || "") === String(viewerId),
+      viewerForwarded: false,
+      otherForwarded: false,
+    };
   }
   if (interest.status === "pending") {
     return {

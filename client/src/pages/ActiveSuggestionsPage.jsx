@@ -8,7 +8,7 @@ import useActiveSuggestions from "../hooks/useActiveSuggestions.js";
 import { activeHref } from "../utils/activeSuggestionView.js";
 import { brand } from "../theme/tokens.js";
 
-const DECLINED_TEXT = "הצעה אחת נדחתה והוסרה מהרשימה";
+const DECLINED_TEXT = "ההצעה עברה ללשונית נדחו בעמוד ההצעות";
 
 export default function ActiveSuggestionsPage() {
   const navigate = useNavigate();

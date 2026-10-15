@@ -31,7 +31,8 @@ const hasAcceptedInterest = (viewerId, ownerId) =>
     ],
   });
 
-// Owner, admin, or a person who is mutually accepted with the owner right now.
+// Owner, admin, or a person whose interest with the owner is accepted on this request.
+// A decline is visible here immediately: the check reads the interest again.
 const openProfileFile = async (viewer, ownerId, routeKind) => {
   assertObjectId(ownerId);
   const field = FIELD_BY_ROUTE[routeKind];

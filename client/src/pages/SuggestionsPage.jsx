@@ -12,6 +12,7 @@ import {
 import { Close, DoNotDisturb, PersonAdd, Search, SearchOff } from "@mui/icons-material";
 import MatchCard from "../components/match/MatchCard.jsx";
 import InterestCard from "../components/interest/InterestCard.jsx";
+import SuggestionRow from "../components/suggestion/SuggestionRow.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
 import useSuggestions from "../hooks/useSuggestions.js";
 import { brand } from "../theme/tokens.js";
@@ -46,13 +47,24 @@ const fieldSx = {
   },
 };
 
-const DECLINED_TEXT = "הצעה אחת נדחתה והוסרה מהרשימה";
+const DECLINED_TEXT = "ההצעה עברה ללשונית נדחו";
 
 export default function SuggestionsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { items, loading, matchesError, interestsError, needsProfile, preview, offline, onSent, onDeclined, onAccepted } =
-    useSuggestions();
+  const {
+    items,
+    loading,
+    matchesError,
+    interestsError,
+    needsProfile,
+    preview,
+    offline,
+    showMatchPercent,
+    onSent,
+    onDeclined,
+    onAccepted,
+  } = useSuggestions();
   const [tab, setTab] = useState("all");
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
@@ -73,15 +85,19 @@ export default function SuggestionsPage() {
     [items, query, city, age, percent]
   );
 
+  const activeItems = filtered.filter((item) => item.kind !== "declined");
+  const declinedItems = filtered.filter((item) => item.kind === "declined");
+
   const counts = {
-    all: filtered.length,
-    new: filtered.filter((item) => item.kind === "new").length,
-    sent: filtered.filter((item) => item.kind === "sent").length,
-    received: filtered.filter((item) => item.kind === "received").length,
+    all: activeItems.length,
+    new: activeItems.filter((item) => item.kind === "new").length,
+    sent: activeItems.filter((item) => item.kind === "sent").length,
+    received: activeItems.filter((item) => item.kind === "received").length,
+    declined: declinedItems.length,
   };
 
-  const shown = tab === "all" ? filtered : filtered.filter((item) => item.kind === tab);
-  const reservePercent = shown.some((item) => item.view.percent != null);
+  const shown = tab === "declined" ? declinedItems : tab === "all" ? activeItems : activeItems.filter((item) => item.kind === tab);
+  const reservePercent = showMatchPercent && shown.some((item) => item.view.percent != null);
   const error = matchesError || interestsError;
 
   const dismissNotice = () => {
@@ -119,7 +135,7 @@ export default function SuggestionsPage() {
         <EmptyState
           icon={<SearchOff />}
           title="אין הצעות כרגע"
-          description="הצעות חדשות, התעניינות שנשלחה והתעניינות שהתקבלה יופיעו כאן. הצעה שנדחתה יורדת מהרשימה."
+          description="הצעות חדשות, התעניינות שנשלחה והתעניינות שהתקבלה יופיעו כאן. הצעה שנדחתה נשארת בלשונית נדחו."
         />
       );
     }
@@ -134,15 +150,26 @@ export default function SuggestionsPage() {
       );
     }
 
-    return shown.map((item) =>
-      item.kind === "new" ? (
+    return shown.map((item) => {
+      const view = showMatchPercent ? item.view : { ...item.view, percent: null };
+      if (item.kind === "declined") {
+        return (
+          <SuggestionRow
+            key={`declined-${item.id}`}
+            view={view}
+            reservePercent={reservePercent && showMatchPercent}
+            onOpen={() => navigate(suggestionHref(item, preview))}
+          />
+        );
+      }
+      return item.kind === "new" ? (
         <MatchCard
           key={`new-${item.id}`}
           match={item.match}
-          view={item.view}
+          view={view}
           variant="row"
           offline={offline}
-          reservePercent={reservePercent}
+          reservePercent={reservePercent && showMatchPercent}
           onOpen={() => navigate(suggestionHref(item, preview))}
           onSent={onSent}
         />
@@ -151,16 +178,16 @@ export default function SuggestionsPage() {
           key={`${item.kind}-${item.id}`}
           interest={item.interest}
           type={item.kind === "received" ? "incoming" : "outgoing"}
-          view={item.view}
+          view={view}
           variant="row"
           offline={offline}
-          reservePercent={reservePercent}
+          reservePercent={reservePercent && showMatchPercent}
           onOpen={() => navigate(suggestionHref(item, preview))}
           onDeclined={handleDeclined}
           onAccepted={onAccepted}
         />
-      )
-    );
+      );
+    });
   };
 
   return (
@@ -245,6 +272,27 @@ export default function SuggestionsPage() {
             </Box>
           );
         })}
+        <Box
+          component="button"
+          type="button"
+          onClick={() => setTab("declined")}
+          aria-pressed={tab === "declined"}
+          sx={{
+            marginInlineStart: "auto",
+            border: 0,
+            background: "none",
+            font: "inherit",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+            color: tab === "declined" ? brand.ink2 : brand.mut,
+            textDecoration: tab === "declined" ? "underline" : "none",
+            px: 0.5,
+            py: "9px",
+          }}
+        >
+          נדחו ({counts.declined})
+        </Box>
       </Box>
 
       {notice ? (

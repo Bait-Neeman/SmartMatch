@@ -208,6 +208,7 @@ const rejectPair = async (userId, otherUserId) => {
   const update = {
     $set: {
       status: 'rejected',
+      rejectedBy: userId,
       senderApprovedToManager: false,
       receiverApprovedToManager: false,
     },

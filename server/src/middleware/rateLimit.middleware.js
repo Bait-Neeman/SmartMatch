@@ -33,7 +33,7 @@ const loginAccountLimiter = createLimiter({
   limit: 10,
   skipSuccessfulRequests: true,
   keyGenerator: (req) =>
-    `account:${typeof req.body?.idNumber === "string" ? req.body.idNumber.trim() : ""}`,
+    `account:${typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : ""}`,
   message: "יותר מדי ניסיונות התחברות לחשבון זה. נסו שוב בעוד 15 דקות.",
 });
 

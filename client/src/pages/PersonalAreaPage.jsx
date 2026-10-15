@@ -16,7 +16,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Edit, Favorite, Forum, PersonAdd, Tune } from "@mui/icons-material";
+import { Edit, Forum, HowToReg, PersonAdd, Tune } from "@mui/icons-material";
 import {
   createProfile,
   getMyProfile,
@@ -40,6 +40,7 @@ import {
   ethnicityOptions,
   genderOptions,
   labelOf,
+  maritalStatusOptions,
   styleOptions,
 } from "../constants/profileOptions.js";
 import { getSession } from "../utils/session.js";
@@ -577,7 +578,22 @@ function ProfileSummary({ profile }) {
             <ReadValue value={profile.occupation} />
           </FieldRow>
         )}
+        <FieldRow icon="user" label="סטטוס">
+          <ReadValue value={labelOf(maritalStatusOptions, profile?.maritalStatus)} />
+        </FieldRow>
+        <FieldRow icon="sliders" label="דרישה כספית">
+          <ReadValue value={toText(profile?.financialDemand)} />
+        </FieldRow>
+        <FieldRow icon="sliders" label="השתתפות כספית">
+          <ReadValue value={toText(profile?.financialParticipation)} />
+        </FieldRow>
       </Box>
+      {profile?.lookingFor && (
+        <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
+          <BlockTitle>מה אני מחפש/ת</BlockTitle>
+          <Box sx={descriptionBoxSx}>{profile.lookingFor}</Box>
+        </Box>
+      )}
       {profile?.description && (
         <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
           <BlockTitle>קצת עליי / תכונות</BlockTitle>
@@ -731,6 +747,54 @@ function ProfileForm({
             </FieldRow>
           )}
         />
+        <Controller
+          name="maritalStatus"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="user" label="סטטוס">
+              <SelectField field={field} label="סטטוס" options={maritalStatusOptions} />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="financialDemand"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="דרישה כספית">
+              <LineText field={field} label="דרישה כספית" type="number" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="financialParticipation"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="sliders" label="השתתפות כספית">
+              <LineText field={field} label="השתתפות כספית" type="number" />
+            </FieldRow>
+          )}
+        />
+      </Box>
+      <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
+        <BlockTitle>מה אני מחפש/ת</BlockTitle>
+        <Controller
+          name="lookingFor"
+          control={control}
+          rules={{ maxLength: { value: 1000, message: "הטקסט יכול להכיל עד 1000 תווים" } }}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              hiddenLabel
+              multiline
+              minRows={3}
+              fullWidth
+              placeholder="מה אני מחפש/ת"
+              error={Boolean(fieldState.error)}
+              helperText={fieldState.error?.message}
+              slotProps={{ htmlInput: { "aria-label": "מה אני מחפש/ת" } }}
+            />
+          )}
+        />
       </Box>
 
       <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
@@ -804,6 +868,9 @@ function PreferencesSummary({ preferences }) {
         </FieldRow>
         <FieldRow icon="sliders" label="מצב כלכלי">
           <ReadValue value={formatRange(preferences?.financialMin, preferences?.financialMax)} />
+        </FieldRow>
+        <FieldRow icon="user" label="סטטוס מועדף">
+          <ReadValue value={labelOf(maritalStatusOptions, preferences?.preferredMaritalStatus)} />
         </FieldRow>
       </Box>
       <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
@@ -905,6 +972,15 @@ function PreferencesForm({ control, onSubmit, submitting, formError, onCancel })
             </FieldRow>
           )}
         />
+        <Controller
+          name="preferredMaritalStatus"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="user" label="סטטוס מועדף">
+              <SelectField field={field} label="סטטוס מועדף" options={maritalStatusOptions} />
+            </FieldRow>
+          )}
+        />
       </Box>
       {formError && (
         <Alert severity="error" sx={{ mt: 2 }}>
@@ -964,6 +1040,10 @@ export default function PersonalAreaPage() {
       financialRequirement: "",
       financialCapabilities: "",
       financialStatus: "",
+      financialDemand: "",
+      financialParticipation: "",
+      maritalStatus: "",
+      lookingFor: "",
       yeshiva: "",
       seminar: "",
       occupation: "",
@@ -986,6 +1066,7 @@ export default function PersonalAreaPage() {
       preferredAppearance: "",
       financialMin: "",
       financialMax: "",
+      preferredMaritalStatus: "",
     },
   });
 
@@ -1004,6 +1085,10 @@ export default function PersonalAreaPage() {
         financialRequirement: toText(profile?.financialRequirement),
         financialCapabilities: toText(profile?.financialCapabilities),
         financialStatus: toText(profile?.financialStatus),
+        financialDemand: toText(profile?.financialDemand),
+        financialParticipation: toText(profile?.financialParticipation),
+        maritalStatus: profile?.maritalStatus || "",
+        lookingFor: profile?.lookingFor || "",
         yeshiva: profile?.yeshiva || "",
         seminar: profile?.seminar || "",
         occupation: profile?.occupation || "",
@@ -1027,6 +1112,7 @@ export default function PersonalAreaPage() {
         preferredAppearance: preferences?.preferredAppearance || "",
         financialMin: toText(preferences?.financialMin),
         financialMax: toText(preferences?.financialMax),
+        preferredMaritalStatus: preferences?.preferredMaritalStatus || "",
       });
     },
     [resetPreferences]
@@ -1134,6 +1220,10 @@ export default function PersonalAreaPage() {
     append(formData, "financialRequirement", data.financialRequirement);
     append(formData, "financialCapabilities", data.financialCapabilities);
     append(formData, "financialStatus", toNumberOrEmpty(data.financialStatus));
+    append(formData, "financialDemand", toNumberOrEmpty(data.financialDemand));
+    append(formData, "financialParticipation", toNumberOrEmpty(data.financialParticipation));
+    append(formData, "maritalStatus", data.maritalStatus);
+    append(formData, "lookingFor", data.lookingFor);
     append(formData, "yeshiva", data.yeshiva);
     append(formData, "seminar", data.seminar);
     append(formData, "occupation", data.occupation);
@@ -1179,6 +1269,7 @@ export default function PersonalAreaPage() {
     preferredAppearance: data.preferredAppearance || "",
     financialMin: toNumberOrEmpty(data.financialMin),
     financialMax: toNumberOrEmpty(data.financialMax),
+    preferredMaritalStatus: data.preferredMaritalStatus || "",
   });
 
   const onSavePreferences = async (data) => {
@@ -1284,7 +1375,7 @@ export default function PersonalAreaPage() {
           >
             {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
           </Button>
-          <Button size="small" variant="contained" color="secondary" startIcon={<Favorite />} onClick={() => navigate("/matches")}>
+          <Button size="small" variant="contained" color="secondary" startIcon={<HowToReg />} onClick={() => navigate("/matches")}>
             התאמות
           </Button>
           <Button size="small" variant="contained" color="secondary" startIcon={<Forum />} onClick={() => navigate("/interests")}>

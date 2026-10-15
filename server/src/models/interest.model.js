@@ -11,6 +11,8 @@ const interestSchema = new mongoose.Schema(
     },
     senderApprovedToManager: { type: Boolean, default: false },
     receiverApprovedToManager: { type: Boolean, default: false },
+    // Who declined. Used only to label "דחיתי" versus "נדחה". Not an identity field.
+    rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
