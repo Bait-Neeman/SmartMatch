@@ -165,6 +165,20 @@ const photoImgSx = {
   display: "block",
 };
 
+const goldButtonSx = {
+  "&&": {
+    color: brand.paper,
+    backgroundColor: "transparent",
+    backgroundImage: brand.goldButton,
+    boxShadow: brand.goldButtonShadow,
+  },
+  "&&:hover": {
+    backgroundColor: "transparent",
+    backgroundImage: brand.goldButtonHover,
+    boxShadow: brand.goldButtonShadow,
+  },
+};
+
 const outlineGoldSx = {
   "&&": {
     color: brand.goldDark,
@@ -1273,6 +1287,7 @@ export default function PersonalAreaPage() {
             variant={editingProfile ? "outlined" : "contained"}
             startIcon={profileExists ? <Edit /> : <PersonAdd />}
             onClick={() => toggleForm("profile")}
+            sx={editingProfile ? undefined : goldButtonSx}
           >
             {profileExists ? "עדכון פרופיל" : "יצירת פרופיל"}
           </Button>
@@ -1281,6 +1296,7 @@ export default function PersonalAreaPage() {
             variant={openForm === "preferences" ? "outlined" : "contained"}
             startIcon={<Tune />}
             onClick={() => toggleForm("preferences")}
+            sx={openForm === "preferences" ? undefined : goldButtonSx}
           >
             {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
           </Button>
@@ -1418,7 +1434,7 @@ export default function PersonalAreaPage() {
                   onDownload={onDownloadFile}
                 />
                 <Box sx={actionsSx}>
-                  <Button variant="contained" onClick={() => toggleForm("profile")} sx={{ flex: { sm: 1 }, minWidth: 160 }}>
+                  <Button variant="contained" onClick={() => toggleForm("profile")} sx={{ ...goldButtonSx, flex: { sm: 1 }, minWidth: 160 }}>
                     עדכון פרופיל
                   </Button>
                 </Box>
@@ -1459,7 +1475,7 @@ export default function PersonalAreaPage() {
           <>
             <PreferencesSummary preferences={preferencesData} />
             <Box sx={actionsSx}>
-              <Button variant="contained" onClick={() => toggleForm("preferences")} sx={{ minWidth: 160 }}>
+              <Button variant="contained" onClick={() => toggleForm("preferences")} sx={{ ...goldButtonSx, minWidth: 160 }}>
                 עדכון העדפות
               </Button>
             </Box>
