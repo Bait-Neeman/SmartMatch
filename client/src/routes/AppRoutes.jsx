@@ -20,6 +20,7 @@ import AdminRoute from "../components/AdminRoute.jsx";
 import AppLayout from "../components/layout/AppLayout.jsx";
 import AdminMatchmakerPage from "../pages/AdminMatchmakerPage";
 import SettingsPage from "../pages/SettingsPage";
+import StatusesPage from "../pages/StatusesPage";
 import { getSession, homePathFor } from "../utils/session.js";
 
 // Visitors see the landing page; logged-in users go straight to their area
@@ -46,6 +47,7 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/personal-area" element={<PersonalAreaPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/statuses" element={<StatusesPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/preferences" element={<PreferencesPage />} />
         <Route path="/suggestions/:kind/:id" element={<SuggestionDetailPage />} />

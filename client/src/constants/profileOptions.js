@@ -1,8 +1,8 @@
 // Choices for profile and preference fields: the value stored on the server and its Hebrew label.
 // The values must match server/src/models/options.js.
 export const genderOptions = [
-  { value: "male", label: "זכר" },
-  { value: "female", label: "נקבה" },
+  { value: "male", label: "בחור" },
+  { value: "female", label: "בחורה" },
 ];
 
 export const ethnicityOptions = [

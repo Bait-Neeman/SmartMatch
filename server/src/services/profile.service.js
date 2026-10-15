@@ -236,7 +236,8 @@ const isCurrentCandidate = async (viewerId, targetUserId) => {
 
 // The owner and an admin see the stored profile. Another registered user sees the
 // anonymized profile when that person is a current suggestion or a still-pending
-// interest, and name, contact, photo, and resume only while an interest is accepted.
+// interest. Name, contact, photo, and resume are added only when this request
+// still finds an accepted interest — a decline closes that access immediately.
 // A decline at any stage, a stranger, and an unknown id all get the same not-found response.
 const getProfileForViewer = async (viewer, targetUserId) => {
   assertObjectId(targetUserId);

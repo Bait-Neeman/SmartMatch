@@ -1,24 +1,14 @@
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import {
-  Alert,
-  Box,
-  Button,
-  FormControl,
-  FormHelperText,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  OutlinedInput,
-  TextField,
-} from "@mui/material";
+import { Alert, Box, Button, IconButton, Typography } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { registerUser } from "../services/auth.service.js";
-import AuthLayout, { AuthSwitch } from "../components/layout/AuthLayout.jsx";
-import { authFieldSx, authSubmitSx } from "../components/layout/authStyles.js";
+import AuthLayout, { AuthFooter } from "../components/layout/AuthLayout.jsx";
+import { authSubmitSx } from "../components/layout/authStyles.js";
+import { brand } from "../theme/tokens.js";
 
-const PASSWORD_HINT = "8-16 תווים, לפחות אות אחת באנגלית";
+const STEPS = ["פרטי חשבון", "הפרופיל"];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -28,140 +18,208 @@ export default function RegisterPage() {
 
   const {
     register,
-    control,
     handleSubmit,
     formState: { errors },
   } = useForm({
-    defaultValues: {
-      name: "",
-      idNumber: "",
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
-
-  const handleTogglePassword = () => {
-    setShowPassword((prev) => !prev);
-  };
 
   const onSubmit = async (data) => {
     setApiError("");
     setIsSubmitting(true);
-
-    const payload = {
-      name: data.name.trim(),
-      idNumber: data.idNumber.trim(),
-      email: data.email.trim(),
-      password: data.password,
-    };
-
     try {
-      await registerUser(payload);
-      localStorage.setItem("onboarding", "true");
-      navigate("/login", { state: { onboarding: true } });
+      const res = await registerUser({
+        email: data.email.trim(),
+        password: data.password,
+      });
+      if (res?.token) {
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("user", JSON.stringify(res.user));
+        localStorage.setItem("role", res.user?.role || "user");
+        navigate("/profile");
+        return;
+      }
+      navigate("/login");
     } catch (error) {
-      const message = error?.response?.data?.message || error.message || "שגיאה בהרשמה";
-      setApiError(message);
+      setApiError(error?.response?.data?.message || error.message || "שגיאה בהרשמה");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <AuthLayout title="הרשמה" subtitle="פתיחת חשבון חדש לוקחת פחות מדקה">
-      <Box
-        component="form"
-        onSubmit={handleSubmit(onSubmit)}
-        noValidate
-        sx={{ display: "flex", flexDirection: "column", gap: 3 }}
-      >
-        <TextField
-          label="שם מלא"
-          autoComplete="name"
-          {...register("name", { required: "שם מלא הוא שדה חובה" })}
-          error={Boolean(errors.name)}
-          helperText={errors.name ? errors.name.message : ""}
-          fullWidth
-          sx={authFieldSx}
-        />
+    <AuthLayout wide title="הרשמה" subtitle="כמה פרטים כדי שנוכל להתחיל להציע לך הצעות מתאימות">
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2.5 }}>
+        {STEPS.map((label, index) => {
+          const current = index === 0;
+          return (
+            <Box key={label} sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+              {index > 0 ? <Box sx={{ width: 28, height: 1, bgcolor: brand.inputLine }} /> : null}
+              <Box
+                sx={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  display: "grid",
+                  placeItems: "center",
+                  flex: "none",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: current ? brand.goldText : brand.mut,
+                  bgcolor: current ? brand.tabOn : brand.paper,
+                  boxShadow: `inset 0 0 0 1px ${current ? brand.gold : brand.inputLine}`,
+                }}
+              >
+                {index + 1}
+              </Box>
+              <Typography sx={{ color: current ? brand.navy : brand.mut, fontWeight: current ? 700 : 500, fontSize: 14 }}>
+                {label}
+              </Typography>
+            </Box>
+          );
+        })}
+      </Box>
 
-        <TextField
-          label="תעודת זהות"
-          placeholder="9 ספרות"
-          {...register("idNumber", {
-            required: "תעודת זהות היא שדה חובה",
-            pattern: {
-              value: /^\d{9}$/,
-              message: "תעודת זהות חייבת להכיל 9 ספרות",
-            },
-          })}
-          error={Boolean(errors.idNumber)}
-          helperText={errors.idNumber ? errors.idNumber.message : ""}
-          fullWidth
-          type="tel"
-          sx={authFieldSx}
-        />
+      <Typography component="h2" sx={{ m: 0, mb: 1.5, color: brand.navy, fontWeight: 600, fontSize: 17 }}>
+        פרטי חשבון
+      </Typography>
 
-        <TextField
-          label="אימייל"
-          type="email"
-          autoComplete="email"
-          {...register("email", {
-            required: "אימייל הוא שדה חובה",
-            pattern: {
-              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-              message: "הזן כתובת אימייל תקינה",
-            },
-          })}
-          error={Boolean(errors.email)}
-          helperText={errors.email ? errors.email.message : ""}
-          fullWidth
-          sx={authFieldSx}
-        />
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: "12px 16px" }}>
+          <IconField
+            id="register-email"
+            label="אימייל"
+            icon="mail"
+            error={errors.email?.message}
+          >
+            <Box
+              component="input"
+              id="register-email"
+              type="email"
+              placeholder="name@example.com"
+              autoComplete="email"
+              dir="ltr"
+              {...register("email", {
+                required: "אימייל הוא שדה חובה",
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "הזן כתובת אימייל תקינה" },
+              })}
+              sx={inputSx}
+            />
+          </IconField>
 
-        <Controller
-          name="password"
-          control={control}
-          rules={{
-            required: "סיסמה היא שדה חובה",
-            minLength: { value: 8, message: "הסיסמה חייבת להכיל לפחות 8 תווים" },
-            maxLength: { value: 16, message: "הסיסמה חייבת להכיל עד 16 תווים" },
-            pattern: { value: /[A-Za-z]/, message: "הסיסמה חייבת לכלול אות אנגלית אחת לפחות" },
-          }}
-          render={({ field }) => (
-            <FormControl fullWidth error={Boolean(errors.password)} sx={authFieldSx}>
-              <InputLabel htmlFor="register-password">סיסמה</InputLabel>
-              <OutlinedInput
-                {...field}
-                id="register-password"
-                type={showPassword ? "text" : "password"}
-                label="סיסמה"
-                autoComplete="new-password"
-                endAdornment={
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={handleTogglePassword}
-                      edge="end"
-                      aria-label={showPassword ? "הסתרת הסיסמה" : "הצגת הסיסמה"}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                }
-              />
-              <FormHelperText>{errors.password ? errors.password.message : PASSWORD_HINT}</FormHelperText>
-            </FormControl>
-          )}
-        />
+          <IconField id="register-password" label="סיסמה" icon="lock" error={errors.password?.message}>
+            <Box
+              component="input"
+              id="register-password"
+              type={showPassword ? "text" : "password"}
+              placeholder="לפחות 8 תווים"
+              autoComplete="new-password"
+              {...register("password", {
+                required: "סיסמה היא שדה חובה",
+                minLength: { value: 8, message: "הסיסמה חייבת להכיל לפחות 8 תווים" },
+                maxLength: { value: 72, message: "הסיסמה ארוכה מדי" },
+                pattern: { value: /[A-Za-z]/, message: "הסיסמה חייבת לכלול אות אנגלית אחת לפחות" },
+              })}
+              sx={inputSx}
+            />
+            <IconButton
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "הסתרת הסיסמה" : "הצגת הסיסמה"}
+              sx={{ color: brand.mut, p: 0.5 }}
+            >
+              {showPassword ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
+            </IconButton>
+          </IconField>
+        </Box>
 
-        {apiError && <Alert severity="error">{apiError}</Alert>}
+        {apiError ? (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {apiError}
+          </Alert>
+        ) : null}
 
-        <Button type="submit" variant="contained" size="large" disabled={isSubmitting} sx={authSubmitSx}>
-          {isSubmitting ? "נרשמים..." : "הרשמה"}
+        <Button type="submit" variant="contained" size="large" fullWidth disabled={isSubmitting} sx={{ ...authSubmitSx, mt: 2.5 }}>
+          {isSubmitting ? "נרשמים..." : "יצירת חשבון"}
         </Button>
       </Box>
 
-      <AuthSwitch question="כבר יש לך חשבון?" label="התחברות" to="/login" />
+      <AuthFooter question="כבר רשום/ה?" label="להתחברות" to="/login" />
     </AuthLayout>
+  );
+}
+
+const inputSx = {
+  border: 0,
+  outline: "none",
+  background: "transparent",
+  font: "inherit",
+  color: brand.navy,
+  width: "100%",
+  minWidth: 0,
+  "&::placeholder": { color: brand.mut },
+};
+
+function IconField({ id, label, icon, error, children }) {
+  return (
+    <Box>
+      <Typography component="label" htmlFor={id} sx={{ display: "block", fontWeight: 600, fontSize: 14, color: brand.navy, mb: 0.75 }}>
+        {label}
+      </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          gap: 1.25,
+          alignItems: "center",
+          height: 52,
+          px: 2,
+          borderRadius: "10px",
+          bgcolor: brand.paper,
+          color: brand.mut,
+          boxShadow: `inset 0 0 0 1px ${error ? brand.pillRedLine : brand.inputLine}`,
+          "&:focus-within": { boxShadow: `inset 0 0 0 1.5px ${brand.gold}` },
+        }}
+      >
+        <FieldIcon name={icon} />
+        {children}
+      </Box>
+      {error ? (
+        <Typography role="alert" sx={{ mt: 0.5, color: "error.main", fontSize: 12 }}>
+          {error}
+        </Typography>
+      ) : null}
+    </Box>
+  );
+}
+
+function FieldIcon({ name }) {
+  const paths = {
+    mail: (
+      <>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m22 7-10 6L2 7" />
+      </>
+    ),
+    lock: (
+      <>
+        <rect x="4" y="11" width="16" height="10" rx="2" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      </>
+    ),
+  };
+  return (
+    <Box
+      component="svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      sx={{ width: 18, height: 18, flex: "none", color: brand.gold }}
+    >
+      {paths[name]}
+    </Box>
   );
 }

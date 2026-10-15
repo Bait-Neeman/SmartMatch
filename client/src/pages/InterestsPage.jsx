@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Alert, Box, CircularProgress, Container, Tab, Tabs } from "@mui/material";
-import { ArrowForward, Favorite, Inbox, Send } from "@mui/icons-material";
+import { ArrowForward, Inbox, Send } from "@mui/icons-material";
 import InterestCard from "../components/interest/InterestCard.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
 import PageHeader from "../components/common/PageHeader.jsx";
@@ -14,7 +14,7 @@ import {
 } from "../store/slices/interestsSlice.js";
 
 const emptyActions = [
-  { label: "מעבר להתאמות", to: "/matches", icon: <Favorite /> },
+  { label: "מעבר להתאמות", to: "/matches", icon: <ArrowForward /> },
   { label: "חזרה לאזור האישי", to: "/personal-area", variant: "outlined", icon: <ArrowForward /> },
 ];
 

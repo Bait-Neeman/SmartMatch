@@ -3,11 +3,11 @@ import {
   ArrowForward,
   Height,
   LockOutlined,
+  PeopleOutlined as PeopleOutline,
   Place,
   School,
   Stars,
   Payments,
-  PersonOutlined,
   Phone,
   Work,
 } from "@mui/icons-material";
@@ -19,6 +19,7 @@ import { SUGGESTION_KINDS } from "../../utils/suggestionView.js";
 
 const FIELD_ICONS = {
   height: Height,
+  maritalStatus: PeopleOutline,
   community: Stars,
   city: Place,
   institution: School,
@@ -26,7 +27,6 @@ const FIELD_ICONS = {
   financialRequirement: Payments,
   financialDemand: Payments,
   financialParticipation: Payments,
-  maritalStatus: PersonOutlined,
   phone: Phone,
 };
 

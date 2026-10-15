@@ -84,6 +84,18 @@ export const SUGGESTION_KINDS = {
     bannerTitle: "בטיפול שדכן",
     bannerText: "שני הצדדים העבירו. השדכן קיבל את הפרטים ויצור קשר בקרוב.",
   },
+  declined: {
+    tone: "neutral",
+    label: "נדחה",
+    bannerTitle: "נדחה",
+    bannerText: "הצד השני דחה את ההצעה. הפרטים המזהים נסגרו, וההצעה נשארת כאן.",
+  },
+  "declined-self": {
+    tone: "rejected",
+    label: "דחיתי",
+    bannerTitle: "דחיתי",
+    bannerText: "דחית את ההצעה. הפרטים המזהים נסגרו, וההצעה נשארת כאן.",
+  },
 };
 
 const GENDER_NOUN = { male: "בן", female: "בת" };
@@ -236,60 +248,58 @@ const mergePerson = (userId, person) => ({
   ...publicFields(person),
 });
 
-export const buildSuggestionList = ({ matches = [], incoming = [], outgoing = [] } = {}) => {
-  for (const match of matches) remember(idOf(match), match);
-  for (const interest of incoming) remember(idOf(interest?.sender), interest?.sender);
-  for (const interest of outgoing) remember(idOf(interest?.receiver), interest?.receiver);
+const otherPerson = (interest) => {
+  if (interest?.receiver && typeof interest.receiver === "object") return interest.receiver;
+  if (interest?.sender && typeof interest.sender === "object") return interest.sender;
+  return {};
+};
 
-  const taken = new Set();
-  for (const interest of incoming) {
-    const userId = idOf(interest?.sender);
-    if (userId) taken.add(userId);
-  }
-  for (const interest of outgoing) {
-    const userId = idOf(interest?.receiver);
-    if (userId) taken.add(userId);
-  }
+const interestItem = (interest, kind) => {
+  const person = otherPerson(interest);
+  const userId = idOf(person);
+  const viewKind = kind === "declined" && interest?.declinedByViewer ? "declined-self" : kind;
+  return {
+    kind,
+    id: userId || idOf(interest),
+    userId,
+    interest,
+    view: toSuggestionView(person, viewKind, interest),
+  };
+};
 
+// Lists from GET /suggestions. Declined rows stay out of the main tabs.
+export const buildSuggestionList = ({ newSuggestions = [], sent = [], received = [], declined = [] } = {}) => {
   const items = [];
 
-  for (const match of matches) {
+  for (const match of newSuggestions) {
     const userId = idOf(match);
-    if (!userId || taken.has(userId)) continue;
-    const person = mergePerson(userId, match);
+    if (!userId) continue;
+    remember(userId, match);
     items.push({
       kind: "new",
       id: userId,
       userId,
       match,
-      view: toSuggestionView(person, "new", match),
+      view: toSuggestionView(mergePerson(userId, match), "new", match),
     });
   }
 
-  for (const interest of outgoing) {
-    if (interest?.status !== "pending") continue;
-    const userId = idOf(interest?.receiver);
-    const person = mergePerson(userId, interest?.receiver);
-    items.push({
-      kind: "sent",
-      id: userId || idOf(interest),
-      userId,
-      interest,
-      view: toSuggestionView(person, "sent", interest),
-    });
+  for (const interest of sent) {
+    const person = otherPerson(interest);
+    remember(idOf(person), person);
+    items.push(interestItem(interest, "sent"));
   }
 
-  for (const interest of incoming) {
-    if (interest?.status !== "pending") continue;
-    const userId = idOf(interest?.sender);
-    const person = mergePerson(userId, interest?.sender);
-    items.push({
-      kind: "received",
-      id: userId || idOf(interest),
-      userId,
-      interest,
-      view: toSuggestionView(person, "received", interest),
-    });
+  for (const interest of received) {
+    const person = otherPerson(interest);
+    remember(idOf(person), person);
+    items.push(interestItem(interest, "received"));
+  }
+
+  for (const interest of declined) {
+    const person = otherPerson(interest);
+    remember(idOf(person), person);
+    items.push(interestItem(interest, "declined"));
   }
 
   return items;

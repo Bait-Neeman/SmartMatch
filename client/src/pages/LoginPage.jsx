@@ -14,8 +14,9 @@ import {
   TextField,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-import AuthLayout, { AuthSwitch } from "../components/layout/AuthLayout.jsx";
+import AuthLayout, { AuthFooter } from "../components/layout/AuthLayout.jsx";
 import { authFieldSx, authSubmitSx } from "../components/layout/authStyles.js";
+import { brand } from "../theme/tokens.js";
 import { loginUser } from "../services/auth.service.js";
 import { getMyProfile } from "../services/profile.service.js";
 import { getMyPreferences } from "../services/preference.service.js";
@@ -23,10 +24,12 @@ import { getMyPreferences } from "../services/preference.service.js";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const signedOutNotice = location.state?.notice || "";
 
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetNote, setResetNote] = useState(false);
 
   const {
     control,
@@ -34,7 +37,7 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm({
     defaultValues: {
-      idNumber: "",
+      email: "",
       password: "",
     },
   });
@@ -47,7 +50,7 @@ export default function LoginPage() {
     setApiError("");
 
     const payload = {
-      idNumber: data.idNumber?.trim(),
+      email: data.email?.trim(),
       password: data.password,
     };
 
@@ -120,7 +123,7 @@ export default function LoginPage() {
       const status = err?.response?.status;
 
       if (status === 401) {
-        setApiError("פרטי ההתחברות שגויים");
+        setApiError("אימייל או סיסמה שגויים");
       } else {
         const message =
           err?.response?.data?.message ||
@@ -135,7 +138,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthLayout title="התחברות" subtitle="כניסה עם תעודת זהות וסיסמה">
+    <AuthLayout title="ברוכים הבאים" subtitle="התחברו כדי לצפות בהצעות שלכם">
       <Box
         component="form"
         onSubmit={handleSubmit(onSubmit)}
@@ -143,25 +146,25 @@ export default function LoginPage() {
         sx={{ display: "flex", flexDirection: "column", gap: 3 }}
       >
         <Controller
-          name="idNumber"
+          name="email"
           control={control}
           rules={{
-            required: "תעודת זהות היא שדה חובה",
+            required: "אימייל הוא שדה חובה",
             pattern: {
-              value: /^\d{9}$/,
-              message: "תעודת זהות חייבת להכיל 9 ספרות",
+              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+              message: "הזן כתובת אימייל תקינה",
             },
           }}
           render={({ field }) => (
             <TextField
               {...field}
-              label="תעודת זהות"
-              placeholder="9 ספרות"
+              label="אימייל"
+              placeholder="name@example.com"
               fullWidth
-              type="tel"
-              autoComplete="username"
-              error={Boolean(errors.idNumber)}
-              helperText={errors.idNumber ? errors.idNumber.message : ""}
+              type="email"
+              autoComplete="email"
+              error={Boolean(errors.email)}
+              helperText={errors.email ? errors.email.message : ""}
               sx={authFieldSx}
             />
           )}
@@ -199,14 +202,24 @@ export default function LoginPage() {
           )}
         />
 
+        <Button
+          type="button"
+          onClick={() => setResetNote(true)}
+          sx={{ alignSelf: "flex-start", p: 0, minHeight: 0, color: brand.goldText, fontSize: 13, fontWeight: 600 }}
+        >
+          שכחת סיסמה?
+        </Button>
+
+        {resetNote ? <Alert severity="info">שחזור סיסמה עדיין לא זמין.</Alert> : null}
+        {signedOutNotice && !apiError ? <Alert severity="info">{signedOutNotice}</Alert> : null}
         {apiError && <Alert severity="error">{apiError}</Alert>}
 
-        <Button type="submit" variant="contained" size="large" disabled={isSubmitting} sx={authSubmitSx}>
+        <Button type="submit" variant="contained" size="large" disabled={isSubmitting} sx={{ ...authSubmitSx, width: "100%" }}>
           {isSubmitting ? "ממשיכים..." : "התחברות"}
         </Button>
       </Box>
 
-      <AuthSwitch question="אין לך עדיין חשבון?" label="יצירת חשבון חדש" to="/register" />
+      <AuthFooter question="אין לך חשבון?" label="להרשמה" to="/register" />
     </AuthLayout>
   );
 }
