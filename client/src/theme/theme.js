@@ -1,4 +1,5 @@
 import { createTheme } from "@mui/material/styles";
+import { buttonClasses } from "@mui/material/Button";
 import { brand } from "./tokens.js";
 
 const heading = {
@@ -15,29 +16,29 @@ const theme = createTheme({
       main: brand.gold,
       light: brand.goldLight,
       dark: brand.goldDeep,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     secondary: {
       main: brand.navy,
       light: brand.navy2,
       dark: brand.navy,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     success: {
       main: brand.pillGreenText,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     warning: {
       main: brand.gold,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     error: {
       main: brand.pillRedText,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     info: {
       main: brand.navy,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     background: {
       default: brand.background,
@@ -105,6 +106,22 @@ const theme = createTheme({
           padding: "0 18px",
           boxShadow: "none",
           letterSpacing: 0,
+          // MUI 9 does not apply styleOverrides.containedPrimary. Gold contained
+          // buttons are styled here so the selector wins over disableElevation.
+          [`&.${buttonClasses.contained}.${buttonClasses.colorPrimary}`]: {
+            color: brand.paper,
+            backgroundColor: "transparent",
+            backgroundImage: brand.goldButton,
+            boxShadow: brand.goldButtonShadow,
+            "&:hover": {
+              backgroundColor: "transparent",
+              backgroundImage: brand.goldButtonHover,
+              boxShadow: brand.goldButtonShadow,
+            },
+            "&:active, &:focus-visible": {
+              boxShadow: brand.goldButtonShadow,
+            },
+          },
         },
         sizeSmall: {
           minHeight: 34,
@@ -116,19 +133,8 @@ const theme = createTheme({
           padding: "0 22px",
           fontSize: "15px",
         },
-        containedPrimary: {
-          color: "#ffffff",
-          backgroundColor: "transparent",
-          backgroundImage: brand.goldButton,
-          boxShadow: brand.goldButtonShadow,
-          "&:hover": {
-            backgroundColor: "transparent",
-            backgroundImage: brand.goldButton,
-            boxShadow: brand.goldButtonShadow,
-          },
-        },
         containedSecondary: {
-          color: "#ffffff",
+          color: brand.paper,
           background: brand.navy,
           boxShadow: "none",
           "&:hover": {
@@ -136,20 +142,20 @@ const theme = createTheme({
           },
         },
         outlined: {
-          backgroundColor: "#ffffff",
+          backgroundColor: brand.paper,
           color: brand.navy,
           borderColor: brand.navy,
           borderWidth: "1.5px",
           "&:hover": {
             borderWidth: "1.5px",
             borderColor: brand.navy,
-            backgroundColor: "rgba(4, 15, 32, 0.04)",
+            backgroundColor: brand.navyWash,
           },
         },
         outlinedPrimary: {
           color: brand.goldDark,
           borderColor: brand.gold,
-          backgroundColor: "#ffffff",
+          backgroundColor: brand.paper,
           "&:hover": {
             borderColor: brand.goldDeep,
             backgroundColor: brand.pillGoldBg,
@@ -275,7 +281,7 @@ const theme = createTheme({
           minHeight: 40,
           borderRadius: 10,
           color: brand.navy,
-          backgroundColor: "#ffffff",
+          backgroundColor: brand.paper,
           border: `1px solid ${brand.inputLine}`,
           "&.Mui-selected": {
             color: brand.goldText,

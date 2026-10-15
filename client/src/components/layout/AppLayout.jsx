@@ -24,6 +24,7 @@ import {
   Menu as MenuIcon,
   PendingActions,
   Person,
+  Settings,
 } from "@mui/icons-material";
 import { getSession, logout } from "../../utils/session.js";
 import { brand } from "../../theme/tokens.js";
@@ -35,6 +36,7 @@ const USER_LINKS = [
   { to: "/suggestions", label: "הצעות", icon: <FormatListBulleted />, end: false },
   { to: "/matches", label: "התאמות", icon: <Favorite /> },
   { to: "/interests", label: "התעניינויות", icon: <Forum /> },
+  { to: "/settings", label: "הגדרות", icon: <Settings /> },
 ];
 
 const ADMIN_LINKS = [
@@ -60,13 +62,13 @@ const navItemSx = {
     fontSize: "15px",
   },
   "&:hover": {
-    bgcolor: "rgba(255, 255, 255, 0.06)",
-    color: "#ffffff",
+    bgcolor: brand.whiteSoft,
+    color: brand.paper,
   },
   "&.active": {
     background: brand.navActive,
     color: brand.navy,
-    boxShadow: "0 6px 16px -8px rgba(201, 162, 74, 0.8)",
+    boxShadow: brand.navActiveShadow,
     "& .MuiListItemIcon-root": {
       color: brand.navy,
     },
@@ -90,7 +92,7 @@ function SideNav({ links, onNavigate }) {
           </ListItemButton>
         ))}
       </List>
-      <Box sx={{ mt: "auto", pt: 1, borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+      <Box sx={{ mt: "auto", pt: 1, borderTop: `1px solid ${brand.whiteLine}` }}>
         <List sx={{ py: 0 }}>
           <ListItemButton onClick={logout} sx={navItemSx}>
             <ListItemIcon>
@@ -130,7 +132,7 @@ export default function AppLayout() {
             alignSelf: "flex-start",
             height: "100vh",
             overflowY: "auto",
-            borderInlineEnd: "1px solid rgba(4, 15, 32, 0.4)",
+            borderInlineEnd: `1px solid ${brand.navyEdge}`,
           }}
         >
           <SideNav links={links} />
@@ -144,25 +146,25 @@ export default function AppLayout() {
           color="inherit"
           sx={{
             bgcolor: brand.navy,
-            color: "#ffffff",
-            boxShadow: "0 4px 16px -8px rgba(11, 31, 58, 0.5)",
+            color: brand.paper,
+            boxShadow: brand.topBarShadow,
           }}
         >
           <Toolbar sx={{ minHeight: brand.topBarHeight, gap: 1.5, px: { xs: 2, lg: 3 } }}>
             {isCompact && (
-              <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)} sx={{ color: "#ffffff" }}>
+              <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)} sx={{ color: brand.paper }}>
                 <MenuIcon />
               </IconButton>
             )}
             <Box sx={{ flexGrow: 1 }} />
             {user?.name && (
-              <Typography sx={{ color: "#ffffff", fontWeight: 600, fontSize: "15px" }}>
+              <Typography sx={{ color: brand.paper, fontWeight: 600, fontSize: "15px" }}>
                 שלום, {user.name}
               </Typography>
             )}
             <PersonAvatar size={32} />
             {isCompact && (
-              <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: "#ffffff" }}>
+              <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: brand.paper }}>
                 <Logout />
               </IconButton>
             )}

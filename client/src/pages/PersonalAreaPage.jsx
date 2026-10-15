@@ -29,6 +29,7 @@ import {
   Tune,
   UploadFile,
 } from "@mui/icons-material";
+import { brand } from "../theme/tokens.js";
 import {
   createProfile,
   getMyProfile,
@@ -86,16 +87,16 @@ const FORM_SECTIONS = ["profile", "preferences"];
 const cardSx = {
   p: { xs: 2.5, sm: 3.5 },
   borderRadius: "16px",
-  border: "1px solid rgba(29, 53, 87, 0.08)",
-  boxShadow: "0 10px 28px rgba(4, 15, 32, 0.06)",
-  bgcolor: "#ffffff",
+  border: `1px solid ${brand.slateLine}`,
+  boxShadow: brand.cardShadow,
+  bgcolor: brand.paper,
 };
 
 const fullRow = { gridColumn: "1 / -1" };
 
 function InfoRow({ label, value }) {
   return (
-    <Box sx={{ display: "flex", gap: 1, py: 0.75, borderBottom: "1px dashed rgba(29, 53, 87, 0.12)" }}>
+    <Box sx={{ display: "flex", gap: 1, py: 0.75, borderBottom: `1px dashed ${brand.slateDash}` }}>
       <Typography sx={{ fontWeight: 700, color: "text.primary", minWidth: 110 }}>{label}</Typography>
       <Typography sx={{ color: value ? "text.primary" : "text.disabled", wordBreak: "break-word" }}>
         {value || "לא צוין"}

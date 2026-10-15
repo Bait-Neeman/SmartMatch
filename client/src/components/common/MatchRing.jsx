@@ -18,11 +18,11 @@ export default function MatchRing({ value = 0, size = 64, caption }) {
         position: "relative",
         flexShrink: 0,
         borderRadius: "50%",
-        background: "radial-gradient(circle at 35% 30%, #FDF6E3, #F1DCA6)",
+        background: brand.ringFill,
       }}
     >
       <Box component="svg" viewBox="0 0 64 64" sx={{ width: "100%", height: "100%", display: "block" }}>
-        <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(201, 162, 74, 0.18)" strokeWidth="6" />
+        <circle cx="32" cy="32" r={radius} fill="none" stroke={brand.ringTrack} strokeWidth="6" />
         <circle
           cx="32"
           cy="32"

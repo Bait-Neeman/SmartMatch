@@ -16,6 +16,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { brand } from "../theme/tokens.js";
 import { createPreferences } from "../services/preference.service.js";
 import { appearanceOptions, styleOptions } from "../constants/profileOptions.js";
 
@@ -127,8 +128,8 @@ export default function PreferencesPage() {
         sx={{
           p: { xs: 2.5, sm: 4 },
           borderRadius: "16px",
-          border: "1px solid rgba(29, 53, 87, 0.08)",
-          boxShadow: "0 10px 28px rgba(4, 15, 32, 0.06)",
+          border: `1px solid ${brand.slateLine}`,
+          boxShadow: brand.cardShadow,
         }}
       >
         <Box
