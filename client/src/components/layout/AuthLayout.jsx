@@ -42,6 +42,10 @@ export default function AuthLayout({ title, subtitle, children }) {
           לדף הבית
         </Button>
 
+        <Box sx={{ mb: 3 }}>
+          <BrandLogo maxWidth={320} />
+        </Box>
+
         <Paper
           sx={{
             p: { xs: 3, sm: 4.5 },
@@ -51,18 +55,6 @@ export default function AuthLayout({ title, subtitle, children }) {
             boxShadow: brand.shadowLift,
           }}
         >
-          <Box
-            sx={{
-              bgcolor: brand.navy,
-              borderRadius: "14px",
-              mb: 3,
-              pt: 0.5,
-              pb: 0.5,
-            }}
-          >
-            <BrandLogo maxWidth={200} />
-          </Box>
-
           <Box sx={{ textAlign: "center", mb: 3 }}>
             <Typography variant="h3" component="h1" sx={{ fontWeight: 700, color: "text.primary", mb: 1 }}>
               {title}

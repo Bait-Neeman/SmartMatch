@@ -5,12 +5,14 @@ import logo200 from "../../assets/brand/logo-transparent-new-200.png";
 import logo400 from "../../assets/brand/logo-transparent-new-400.png";
 import logo240 from "../../assets/brand/logo-transparent-new-240.png";
 import logo480 from "../../assets/brand/logo-transparent-new-480.png";
+import logo640 from "../../assets/brand/logo-transparent-new-640.png";
 
 // Lanczos cuts of logo-transparent-new.png (1565×1005). Height follows that ratio.
 const sources = {
   160: { one: logo160, two: logo320, height: 103 },
   200: { one: logo200, two: logo400, height: 128 },
   240: { one: logo240, two: logo480, height: 154 },
+  320: { one: logo320, two: logo640, height: 205 },
 };
 
 export default function BrandLogo({ maxWidth = 160 }) {
