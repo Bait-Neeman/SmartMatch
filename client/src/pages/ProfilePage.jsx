@@ -17,6 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 import { CloudUpload } from "@mui/icons-material";
+import { brand } from "../theme/tokens.js";
 import { createProfile } from "../services/profile.service.js";
 import { getImageFileError, getPdfFileError, IMAGE_ACCEPT } from "../utils/files.js";
 import {
@@ -179,13 +180,13 @@ export default function ProfilePage() {
       }}
     >
       <Chip label="שלב 1 מתוך 2" color="primary" variant="outlined" sx={{ fontWeight: 700, mb: 1.5 }} />
-      <Typography variant="h4" component="h1" sx={{ color: '#1f3f95', textAlign: 'center', fontWeight: 800 }}>
+      <Typography variant="h4" component="h1" sx={{ color: 'text.primary', textAlign: 'center', fontWeight: 700 }}>
         יצירת פרופיל
       </Typography>
       <Typography sx={{ color: "text.secondary", textAlign: "center", mt: 1, mb: 3 }}>
         כמה פרטים בסיסיים, כדי שנוכל להציע לך התאמות. שדות המסומנים בכוכבית הם חובה.
       </Typography>
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "grid", gap: 2, width: "100%", maxWidth: 720, backgroundColor: '#ffffff', borderRadius: 3, boxShadow: '0 6px 20px rgba(31,63,149,0.08)', p: 4 }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "grid", gap: 2, width: "100%", maxWidth: 720, backgroundColor: brand.paper, borderRadius: 3, boxShadow: brand.cardShadow, p: 4 }}>
         <Controller
           name="gender"
           control={control}
@@ -369,21 +370,21 @@ export default function ProfilePage() {
                 gap: 1,
                 p: 2,
                 borderRadius: 3,
-                border: "1px dashed rgba(63, 113, 213, 0.35)",
-                backgroundColor: "rgba(63, 113, 213, 0.06)",
+                border: `1px dashed ${brand.dashed}`,
+                backgroundColor: brand.slateWash,
                 cursor: "pointer",
                 textAlign: "center",
                 minHeight: 120,
                 transition: "background-color 0.2s ease",
                 '&:hover': {
-                  backgroundColor: "rgba(63, 113, 213, 0.1)",
+                  backgroundColor: brand.slateLine,
                 },
               }}
             >
               <input hidden type="file" accept={IMAGE_ACCEPT} onChange={handleImageChange} />
-              <CloudUpload sx={{ color: "#3f71d5", fontSize: 28 }} />
+              <CloudUpload sx={{ color: "primary.main", fontSize: 28 }} />
               <Typography sx={{ fontWeight: 600 }}>העלאת תמונת פרופיל</Typography>
-              <Typography variant="body2" sx={{ color: "#6b7280" }}>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 JPG, PNG, GIF או WEBP עד 10MB
               </Typography>
             </Box>
@@ -395,7 +396,7 @@ export default function ProfilePage() {
                 )}
                 <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
                   {imagePreview && (
-                    <Button component="a" href={imagePreview} target="_blank" rel="noopener" size="small" sx={{ ...previewButtonSx, bgcolor: '#3f71d5', color: '#fff', '&:hover': { bgcolor: '#345ec0' } }}>צפה</Button>
+                    <Button component="a" href={imagePreview} target="_blank" rel="noopener" size="small" sx={{ ...previewButtonSx, bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } }}>צפה</Button>
                   )}
                   {imagePreview && (
                     <Button component="a" href={imagePreview} download size="small" sx={previewButtonSx}>הורד</Button>
@@ -425,21 +426,21 @@ export default function ProfilePage() {
                 gap: 1,
                 p: 2,
                 borderRadius: 3,
-                border: "1px dashed rgba(63, 113, 213, 0.35)",
-                backgroundColor: "rgba(63, 113, 213, 0.06)",
+                border: `1px dashed ${brand.dashed}`,
+                backgroundColor: brand.slateWash,
                 cursor: "pointer",
                 textAlign: "center",
                 minHeight: 120,
                 transition: "background-color 0.2s ease",
                 '&:hover': {
-                  backgroundColor: "rgba(63, 113, 213, 0.1)",
+                  backgroundColor: brand.slateLine,
                 },
               }}
             >
               <input hidden type="file" accept="application/pdf" onChange={handleResumeChange} />
-              <CloudUpload sx={{ color: "#3f71d5", fontSize: 28 }} />
+              <CloudUpload sx={{ color: "primary.main", fontSize: 28 }} />
               <Typography sx={{ fontWeight: 600 }}>העלאת קורות חיים</Typography>
-              <Typography variant="body2" sx={{ color: "#6b7280" }}>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 PDF עד 10MB
               </Typography>
             </Box>
@@ -448,7 +449,7 @@ export default function ProfilePage() {
                 <Typography variant="body2">נבחר קובץ: {pdfFile.name}</Typography>
                 <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
                   {pdfPreview && (
-                    <Button component="a" href={pdfPreview} target="_blank" rel="noopener" size="small" sx={{ ...previewButtonSx, bgcolor: '#3f71d5', color: '#fff', '&:hover': { bgcolor: '#345ec0' } }}>צפה</Button>
+                    <Button component="a" href={pdfPreview} target="_blank" rel="noopener" size="small" sx={{ ...previewButtonSx, bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } }}>צפה</Button>
                   )}
                   {pdfPreview && (
                     <Button component="a" href={pdfPreview} download size="small" sx={previewButtonSx}>הורד</Button>
@@ -475,7 +476,7 @@ export default function ProfilePage() {
           </Alert>
         )}
 
-        <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ mx: 'auto', display: 'block', bgcolor: '#f6b042', color: '#10233b', borderRadius: 30, px: 4, py: 1.25, '&:hover': { bgcolor: '#e0a22f' } }}>
+        <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ mx: 'auto', display: 'block', px: 4, py: 1.25 }}>
           {isSubmitting ? "שולח..." : "שמור והמשך"}
         </Button>
       </Box>

@@ -29,6 +29,7 @@ import {
   Tune,
   UploadFile,
 } from "@mui/icons-material";
+import { brand } from "../theme/tokens.js";
 import {
   createProfile,
   getMyProfile,
@@ -86,18 +87,18 @@ const FORM_SECTIONS = ["profile", "preferences"];
 
 const cardSx = {
   p: { xs: 2.5, sm: 3.5 },
-  borderRadius: "24px",
-  border: "1px solid rgba(63, 113, 213, 0.12)",
-  boxShadow: "0 16px 38px rgba(15, 23, 42, 0.06)",
-  bgcolor: "#ffffff",
+  borderRadius: "16px",
+  border: `1px solid ${brand.slateLine}`,
+  boxShadow: brand.cardShadow,
+  bgcolor: brand.paper,
 };
 
 const fullRow = { gridColumn: "1 / -1" };
 
 function InfoRow({ label, value }) {
   return (
-    <Box sx={{ display: "flex", gap: 1, py: 0.75, borderBottom: "1px dashed rgba(63, 113, 213, 0.12)" }}>
-      <Typography sx={{ fontWeight: 700, color: "#1f3f95", minWidth: 110 }}>{label}</Typography>
+    <Box sx={{ display: "flex", gap: 1, py: 0.75, borderBottom: `1px dashed ${brand.slateDash}` }}>
+      <Typography sx={{ fontWeight: 700, color: "text.primary", minWidth: 110 }}>{label}</Typography>
       <Typography sx={{ color: value ? "text.primary" : "text.disabled", wordBreak: "break-word" }}>
         {value || "לא צוין"}
       </Typography>
@@ -110,7 +111,7 @@ function SectionCard({ title, icon, action, children }) {
     <Paper sx={cardSx}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
         <Box sx={{ color: "primary.main", display: "flex" }}>{icon}</Box>
-        <Typography variant="h6" component="h2" sx={{ fontWeight: 800, color: "#1f3f95", flexGrow: 1 }}>
+        <Typography variant="h6" component="h2" sx={{ fontWeight: 700, color: "text.primary", flexGrow: 1 }}>
           {title}
         </Typography>
         {action}
@@ -454,7 +455,7 @@ export default function PersonalAreaPage() {
         <Typography
           variant="h4"
           component="h1"
-          sx={{ fontWeight: 800, color: "#1f3f95", fontSize: { xs: "1.8rem", sm: "2.2rem" } }}
+          sx={{ fontWeight: 700, color: "text.primary" }}
         >
           האזור האישי
         </Typography>
@@ -589,7 +590,7 @@ export default function PersonalAreaPage() {
 
       {openForm === "profile" && (
         <Paper ref={profileFormRef} sx={{ ...cardSx, mb: 4, scrollMarginTop: 88 }}>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 800, color: "#1f3f95", mb: 3 }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 700, color: "text.primary", mb: 3 }}>
             {profileExists ? "עדכון פרופיל" : "יצירת פרופיל"}
           </Typography>
 
@@ -770,7 +771,7 @@ export default function PersonalAreaPage() {
 
       {openForm === "preferences" && (
         <Paper ref={preferencesFormRef} sx={{ ...cardSx, mb: 4, scrollMarginTop: 88 }}>
-          <Typography variant="h5" component="h2" sx={{ fontWeight: 800, color: "#1f3f95", mb: 1 }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 700, color: "text.primary", mb: 1 }}>
             {preferencesExists ? "עדכון העדפות" : "יצירת העדפות"}
           </Typography>
           <Typography sx={{ color: "text.secondary", mb: 3 }}>

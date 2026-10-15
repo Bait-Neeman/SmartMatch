@@ -8,6 +8,8 @@ import {
   Paper,
 } from "@mui/material";
 import { Favorite, Link as LinkIcon } from "@mui/icons-material";
+import { brand } from "../theme/tokens.js";
+import BrandLogo from "../components/layout/BrandLogo.jsx";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -16,38 +18,15 @@ export default function DashboardPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #eef4ff 0%, #f7fbff 45%, #ffffff 100%)",
+        bgcolor: brand.navy,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         py: 4,
-        position: "relative",
-        overflow: "hidden",
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          top: "-45%",
-          right: "-15%",
-          width: "450px",
-          height: "450px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(63, 113, 213, 0.14) 0%, transparent 70%)",
-          pointerEvents: "none",
-        },
-        "&::after": {
-          content: '""',
-          position: "absolute",
-          bottom: "-25%",
-          left: "-10%",
-          width: "380px",
-          height: "380px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(196, 162, 79, 0.12) 0%, transparent 70%)",
-          pointerEvents: "none",
-        },
+        px: 2,
       }}
     >
-      <Container maxWidth="sm" sx={{ position: "relative", zIndex: 1 }}>
+      <Container maxWidth="sm">
         <Paper
           elevation={0}
           sx={{
@@ -57,35 +36,15 @@ export default function DashboardPage() {
           }}
         >
           {/* Decorative heart icons */}
-          <Box sx={{ display: "flex", justifyContent: "center", gap: 1, mb: 3 }}>
-            <Favorite sx={{ color: "rgba(63,113,213,0.24)", fontSize: 28, opacity: 0.75 }} />
-            <Favorite sx={{ color: "rgba(196,162,79,0.24)", fontSize: 28, opacity: 0.75 }} />
-            <Favorite sx={{ color: "rgba(63,113,213,0.18)", fontSize: 28, opacity: 0.65 }} />
+          <Box component="h1" sx={{ m: 0, mb: 1 }}>
+            <BrandLogo maxWidth={240} />
           </Box>
-
-          {/* Main Title */}
-          <Typography
-            variant="h2"
-            component="h1"
-            sx={{
-              fontWeight: 900,
-              fontSize: { xs: "2.5rem", md: "3.5rem" },
-              background: "linear-gradient(135deg, #3f71d5 0%, #5c85db 50%, #c4a24f 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-              mb: 1,
-              letterSpacing: "-0.5px",
-            }}
-          >
-            SmartMatch
-          </Typography>
 
           {/* Subtitle */}
           <Typography
             variant="h6"
             sx={{
-              color: "#666",
+              color: brand.mist,
               fontWeight: 500,
               fontSize: "1rem",
               mb: 3,
@@ -96,26 +55,25 @@ export default function DashboardPage() {
           </Typography>
 
           {/* Description Box */}
-          <Paper
-            sx={{
-              background: "rgba(255, 255, 255, 0.72)",
-              backdropFilter: "blur(10px)",
-              border: "1px solid rgba(63, 113, 213, 0.14)",
-              borderRadius: "20px",
+            <Paper
+              sx={{
+              bgcolor: brand.whiteSoft,
+              border: `1px solid ${brand.goldLineSoft}`,
+              borderRadius: "16px",
               p: 3,
               mb: 4,
-              boxShadow: "0 12px 36px rgba(15, 23, 42, 0.08)",
+              boxShadow: "none",
             }}
           >
             <Stack spacing={2}>
               <Typography
                 sx={{
-            color: "#3f71d5",
+            color: brand.background,
            fontSize: "1.05rem",
            fontWeight: 500,
             lineHeight: 1.8,
         textAlign: "center",
-        fontFamily: "Inter, Arial, sans-serif",
+        fontFamily: "inherit",
         letterSpacing: "0.3px",
         padding: "10px 20px",
                 }}
@@ -126,8 +84,8 @@ export default function DashboardPage() {
 והכל בדיסקרטיות מלאה, בקצב שלכם ובשליטה שלכם.
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, pt: 1 }}>
-                <Favorite sx={{ color: "rgba(63,113,213,0.5)", fontSize: 20 }} />
-                <Typography sx={{ color: "#3f71d5", fontWeight: 600, fontSize: "0.9rem" }}>
+                <Favorite sx={{ color: brand.gold, fontSize: 20 }} />
+                <Typography sx={{ color: brand.goldLight, fontWeight: 600, fontSize: "0.9rem" }}>
                  מפסיקים לבזבז זמן על הצעות לא רלוונטיות
 ועושים השתדלות ראויה לזיווג הגון בקרוב  
                 </Typography>
@@ -148,24 +106,7 @@ export default function DashboardPage() {
               size="large"
               onClick={() => navigate("/register")}
               startIcon={<LinkIcon />}
-              sx={{
-                background: "linear-gradient(135deg, #3f71d5 0%, #5c85db 100%)",
-                color: "white",
-                borderRadius: "50px",
-                padding: "14px 40px",
-                fontSize: "1.05rem",
-                fontWeight: 600,
-                textTransform: "none",
-                boxShadow: "0 10px 28px rgba(63, 113, 213, 0.22)",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 12px 34px rgba(63, 113, 213, 0.3)",
-                },
-                "&:active": {
-                  transform: "translateY(0px)",
-                },
-              }}
+              sx={{ px: 4, py: 1.4 }}
             >
               הרשמה
             </Button>
@@ -176,23 +117,13 @@ export default function DashboardPage() {
               onClick={() => navigate("/login")}
               startIcon={<Favorite />}
               sx={{
-                color: "#3f71d5",
-                borderColor: "#3f71d5",
-                borderRadius: "50px",
-                padding: "14px 40px",
-                fontSize: "1.05rem",
-                fontWeight: 600,
-                textTransform: "none",
-                border: "2px solid rgba(63, 113, 213, 0.45)",
-                backgroundColor: "rgba(63, 113, 213, 0.05)",
-                transition: "all 0.3s ease",
+                px: 4,
+                py: 1.4,
+                color: brand.goldLight,
+                borderColor: brand.gold,
                 "&:hover": {
-                  backgroundColor: "rgba(63, 113, 213, 0.14)",
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 8px 24px rgba(63, 113, 213, 0.12)",
-                },
-                "&:active": {
-                  transform: "translateY(0px)",
+                  borderColor: brand.goldLight,
+                  bgcolor: brand.goldWash,
                 },
               }}
             >
@@ -203,7 +134,7 @@ export default function DashboardPage() {
           {/* Bottom decorative text */}
           <Typography
             sx={{
-              color: "#999",
+              color: brand.mist,
               fontSize: "0.85rem",
               mt: 4,
               fontStyle: "italic",
