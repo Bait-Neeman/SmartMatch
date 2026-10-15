@@ -78,7 +78,7 @@ function SideNav({ links, onNavigate }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: brand.navy, px: "12px", py: "18px" }}>
       <Box sx={{ px: "4px", pt: "8px", pb: "4px", mb: "8px" }}>
-        <BrandLogo />
+        <BrandLogo maxWidth={190} />
       </Box>
       <List sx={{ px: 0.5, py: 0.5 }}>
         {links.map((link) => (

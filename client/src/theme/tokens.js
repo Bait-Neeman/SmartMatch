@@ -43,7 +43,7 @@ export const brand = {
   goldButtonShadow: "0 8px 18px -10px rgba(184, 145, 63, 0.9)",
   navActive: "linear-gradient(90deg, #B8913F, #E6C77A)",
   fontFamily: '"Rubik", sans-serif',
-  sidebarWidth: "clamp(200px, 14.5vw, 220px)",
+  sidebarWidth: "clamp(230px, 17vw, 252px)",
   topBarHeight: 64,
   radius: 10,
   radiusCard: 16,
