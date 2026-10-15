@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Button, Typography } from "@mui/material";
-import { FileDownload, LockOpen, Visibility } from "@mui/icons-material";
+import { FileDownload, Visibility } from "@mui/icons-material";
 import { brand } from "../../theme/tokens.js";
 import { downloadProtectedFile, openProtectedFile } from "../../utils/protectedFile.js";
 import { formatResumeDate, formatResumeSize } from "../../utils/activeSuggestionView.js";
@@ -39,31 +39,13 @@ export default function ResumeCard({ name, url, size, uploadedAt }) {
         sx={{
           m: 0,
           mb: 1.25,
-          display: "flex",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 1,
           fontWeight: 600,
           letterSpacing: "-0.3px",
           color: brand.navy,
           fontSize: "clamp(17px, 1.4vw, 20px)",
         }}
       >
-        רזומה
-        <Box
-          component="span"
-          sx={{
-            display: "inline-flex",
-            gap: "5px",
-            alignItems: "center",
-            fontWeight: 500,
-            fontSize: 12,
-            color: brand.pillGreenText,
-          }}
-        >
-          <LockOpen sx={{ fontSize: 13 }} />
-          נחשף לאחר אישור הדדי
-        </Box>
+        קורות חיים
       </Typography>
       <Box
         sx={{
