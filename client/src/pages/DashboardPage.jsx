@@ -57,8 +57,8 @@ export default function DashboardPage() {
           {/* Description Box */}
             <Paper
               sx={{
-              bgcolor: "rgba(255, 255, 255, 0.06)",
-              border: "1px solid rgba(232, 213, 163, 0.28)",
+              bgcolor: brand.whiteSoft,
+              border: `1px solid ${brand.goldLineSoft}`,
               borderRadius: "16px",
               p: 3,
               mb: 4,
@@ -68,7 +68,7 @@ export default function DashboardPage() {
             <Stack spacing={2}>
               <Typography
                 sx={{
-            color: "#F4F6FA",
+            color: brand.background,
            fontSize: "1.05rem",
            fontWeight: 500,
             lineHeight: 1.8,
@@ -123,7 +123,7 @@ export default function DashboardPage() {
                 borderColor: brand.gold,
                 "&:hover": {
                   borderColor: brand.goldLight,
-                  bgcolor: "rgba(196, 162, 79, 0.12)",
+                  bgcolor: brand.goldWash,
                 },
               }}
             >

@@ -14,7 +14,7 @@ export default function PersonAvatar({ locked = false, size = 64, color = brand.
         borderRadius: "50%",
         overflow: "hidden",
         flexShrink: 0,
-        bgcolor: locked ? "#E4E9F0" : "#E7EDF4",
+        bgcolor: locked ? brand.avatarLocked : brand.avatar,
         display: "grid",
         placeItems: "center",
       }}
