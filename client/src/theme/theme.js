@@ -118,10 +118,12 @@ const theme = createTheme({
         },
         containedPrimary: {
           color: "#ffffff",
-          background: brand.goldButton,
+          backgroundColor: "transparent",
+          backgroundImage: brand.goldButton,
           boxShadow: brand.goldButtonShadow,
           "&:hover": {
-            background: "linear-gradient(90deg, #A8823A, #C9A24A 60%, #D9B864)",
+            backgroundColor: "transparent",
+            backgroundImage: brand.goldButton,
             boxShadow: brand.goldButtonShadow,
           },
         },

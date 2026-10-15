@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from "react";
 import { idOf, publicFields } from "./suggestionView.js";
 
 const DESCRIPTION =
@@ -122,8 +121,6 @@ export const subscribePreview = (listener) => {
 
 export const getPreviewState = () => previewState;
 
-export const usePreviewState = () => useSyncExternalStore(subscribePreview, getPreviewState, getPreviewState);
-
 export const sendPreviewInterest = (match) => {
   const userId = idOf(match);
   previewState = {
@@ -162,39 +159,3 @@ export const acceptPreviewInterest = (interest) => {
   emit();
 };
 
-let optimistic = [];
-const optimisticListeners = new Set();
-
-const emitOptimistic = () => {
-  optimisticListeners.forEach((listener) => listener());
-};
-
-export const subscribeOptimistic = (listener) => {
-  optimisticListeners.add(listener);
-  return () => optimisticListeners.delete(listener);
-};
-
-export const getOptimisticSent = () => optimistic;
-
-export const useOptimisticSent = () => useSyncExternalStore(subscribeOptimistic, getOptimisticSent, getOptimisticSent);
-
-export const pushOptimisticSent = (match) => {
-  const userId = idOf(match);
-  if (!userId || optimistic.some((item) => idOf(item.receiver) === userId)) return;
-  optimistic = [
-    {
-      _id: `local-${userId}`,
-      status: "pending",
-      receiver: { _id: userId, ...publicFields(match) },
-    },
-    ...optimistic,
-  ];
-  emitOptimistic();
-};
-
-export const removeOptimisticSent = (userId) => {
-  const next = optimistic.filter((item) => idOf(item.receiver) !== userId);
-  if (next.length === optimistic.length) return;
-  optimistic = next;
-  emitOptimistic();
-};

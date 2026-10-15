@@ -20,10 +20,6 @@ const PUBLIC_KEYS = [
   "financialContribution",
   "financialParticipation",
   "matchPercent",
-  "compatibility",
-  "score",
-  "percent",
-  "matchScore",
 ];
 
 const IDENTITY_KEYS = [
@@ -40,24 +36,6 @@ const IDENTITY_KEYS = [
   "resumeUrl",
   "imageUrl",
   "contact",
-];
-
-const PERCENT_KEYS = ["matchPercent", "compatibility", "score", "percent", "matchScore"];
-
-// Free-text "what they are looking for". The profile and preference models have no
-// field for this, and PR #7's PUBLIC_PROFILE_FIELDS does not copy one. These names
-// are accepted if a later payload adds the text under any of them.
-const LOOKING_FOR_KEYS = [
-  "lookingFor",
-  "lookingForText",
-  "whatLookingFor",
-  "sought",
-  "seeking",
-  "desiredPartner",
-  "partnerDescription",
-  "aboutPartner",
-  "preferenceDescription",
-  "preferencesDescription",
 ];
 
 export const SUGGESTION_KINDS = {
@@ -104,27 +82,10 @@ const asPerson = (value) => {
   return { ...nested, ...value };
 };
 
-const textOf = (value) => {
+export const lookingForOf = (person) => {
+  const value = asPerson(person).lookingFor;
   if (typeof value !== "string" && typeof value !== "number") return "";
   return cleanText(value);
-};
-
-export const lookingForOf = (person) => {
-  const source = asPerson(person);
-  for (const key of LOOKING_FOR_KEYS) {
-    const text = textOf(source[key]);
-    if (text) return text;
-  }
-  for (const nest of [source.preferences, source.preference]) {
-    const direct = textOf(nest);
-    if (direct) return direct;
-    if (!nest || typeof nest !== "object") continue;
-    for (const key of ["text", "note", "description", ...LOOKING_FOR_KEYS]) {
-      const text = textOf(nest[key]);
-      if (text) return text;
-    }
-  }
-  return "";
 };
 
 export const lookingForHeading = (gender) => {
@@ -133,31 +94,31 @@ export const lookingForHeading = (gender) => {
   return "מה מחפש/ת";
 };
 
+export const readPercent = (...sources) => {
+  for (const source of sources) {
+    const value = asPerson(source).matchPercent;
+    if (value == null || value === "") continue;
+    const numeric = Number(String(value).replace("%", "").trim());
+    if (!Number.isFinite(numeric)) continue;
+    const percent = numeric > 0 && numeric <= 1 ? numeric * 100 : numeric;
+    return Math.max(0, Math.min(100, Math.round(percent)));
+  }
+  return null;
+};
+
 export const publicFields = (value) => {
   const source = asPerson(value);
   const copy = {};
   for (const key of PUBLIC_KEYS) {
-    if (key === "lookingFor") continue;
+    if (key === "lookingFor" || key === "matchPercent") continue;
     const text = cleanText(source[key]);
     if (text) copy[key] = source[key];
   }
   const lookingFor = lookingForOf(source);
   if (lookingFor) copy.lookingFor = lookingFor;
+  const percent = readPercent(source);
+  if (percent != null) copy.matchPercent = percent;
   return copy;
-};
-
-export const readPercent = (...sources) => {
-  for (const source of sources) {
-    const person = asPerson(source);
-    for (const key of PERCENT_KEYS) {
-      if (person[key] == null || person[key] === "") continue;
-      const numeric = Number(String(person[key]).replace("%", "").trim());
-      if (!Number.isFinite(numeric)) continue;
-      const percent = numeric > 0 && numeric <= 1 ? numeric * 100 : numeric;
-      return Math.max(0, Math.min(100, Math.round(percent)));
-    }
-  }
-  return null;
 };
 
 export const formatHeight = (height) => {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { Alert, Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
-import { AutoAwesome, FavoriteBorder, LocationOn } from "@mui/icons-material";
+import { AutoAwesome, FavoriteBorder, LocationOn, Send } from "@mui/icons-material";
 import { sendInterest } from "../../store/slices/matchesSlice.js";
 import { appearanceOptions, labelOf, styleOptions } from "../../constants/profileOptions.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
@@ -9,7 +9,8 @@ import MatchRing from "../common/MatchRing.jsx";
 import SuggestionRow from "../suggestion/SuggestionRow.jsx";
 import SuggestionDetail from "../suggestion/SuggestionDetail.jsx";
 import { cleanText, idOf, toSuggestionView } from "../../utils/suggestionView.js";
-import { pushOptimisticSent, removeOptimisticSent } from "../../utils/suggestionPreview.js";
+import { pushOptimisticSent, removeOptimisticSent } from "../../hooks/useSuggestions.js";
+import { brand } from "../../theme/tokens.js";
 
 const displayName = (value) => cleanText(value) || "משתמש";
 
@@ -23,9 +24,7 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
 
   const receiverId = idOf(match);
 
-  const matchPercent = [match?.matchPercent, match?.compatibility, match?.score].find(
-    (value) => typeof value === "number" && Number.isFinite(value)
-  );
+  const matchPercent = typeof match?.matchPercent === "number" && Number.isFinite(match.matchPercent) ? match.matchPercent : undefined;
 
   const details = [
     match?.age && `גיל ${match.age}`,
@@ -60,7 +59,7 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
       <Button
         variant="contained"
         size="small"
-        startIcon={<FavoriteBorder />}
+        startIcon={<Send />}
         onClick={handleSendInterest}
         disabled={loading || !receiverId}
       >
@@ -90,7 +89,7 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
         display: "flex",
         flexDirection: "column",
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
-        "&:hover": { transform: "translateY(-2px)", boxShadow: "0 16px 36px rgba(4, 15, 32, 0.10)" },
+        "&:hover": { transform: "translateY(-2px)", boxShadow: brand.cardHoverShadow },
       }}
     >
       <CardContent

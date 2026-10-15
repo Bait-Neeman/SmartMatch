@@ -1,5 +1,4 @@
 import { Alert, Box, Card, Typography } from "@mui/material";
-import { ChevronLeft } from "@mui/icons-material";
 import { brand } from "../../theme/tokens.js";
 import StatusPill from "../common/StatusPill.jsx";
 import { LockedAvatar } from "./LockedMedia.jsx";
@@ -110,7 +109,19 @@ export default function SuggestionRow({ view, icon, actions, error, onOpen, rese
         >
           {actions}
           <Box sx={{ width: 28, display: "grid", placeItems: "center", color: brand.goldDeep, flex: "none" }}>
-            <ChevronLeft sx={{ fontSize: 18 }} />
+            <Box
+              component="svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+              sx={{ width: 18, height: 18, display: "block" }}
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </Box>
           </Box>
         </Box>
       </Card>

@@ -260,12 +260,12 @@ export default function SuggestionsPage() {
             borderRadius: "10px",
             bgcolor: brand.paper,
             border: `1px solid ${brand.line}`,
-            color: brand.mut,
+            color: brand.toastText,
             fontSize: "13.5px",
-            boxShadow: brand.shadow,
+            boxShadow: brand.toastShadow,
           }}
         >
-          <DoNotDisturb sx={{ fontSize: 15, color: brand.mut2 }} />
+          <DoNotDisturb sx={{ fontSize: 15, color: brand.toastIcon }} />
           <span>{notice}</span>
           <Box
             component="button"
@@ -275,7 +275,7 @@ export default function SuggestionsPage() {
             sx={{
               border: 0,
               background: "none",
-              color: brand.mut2,
+              color: brand.toastIcon,
               cursor: "pointer",
               display: "grid",
               placeItems: "center",
