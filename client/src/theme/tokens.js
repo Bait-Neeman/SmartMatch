@@ -88,8 +88,15 @@ export const brand = {
   topBarHeight: 64,
   radius: 10,
   radiusCard: 16,
+  radiusPhoto: 24,
   radiusPill: 8,
   radiusDialog: 18,
+  fieldLine: "#E3E8F0",
+  // Empty-photo illustration from the approved profile page.
+  portraitTop: "#EEF2F8",
+  portraitBottom: "#D9E2EE",
+  portraitInk: "#1D3557",
+  portraitSoft: "#97A6BC",
 };
 
 export const statusTones = {
