@@ -31,8 +31,10 @@ import {
   getImageFileError,
   getPdfFileError,
   IMAGE_ACCEPT,
+  isAppFileUrl,
   toSafeFileUrl,
 } from "../utils/files.js";
+import { downloadProtectedFile, openProtectedFile } from "../utils/protectedFile.js";
 import {
   appearanceOptions,
   ethnicityOptions,
@@ -43,6 +45,7 @@ import {
 import { getSession } from "../utils/session.js";
 import { brand } from "../theme/tokens.js";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
+import ProtectedImage from "../components/common/ProtectedFile.jsx";
 import StatusPill from "../components/common/StatusPill.jsx";
 
 const toText = (value) => {
@@ -74,7 +77,22 @@ const formatRange = (min, max, unit = "") => {
 
 const FORM_SECTIONS = ["profile", "preferences"];
 
-const PRIVACY_NOTE = "התמונה וקורות החיים גלויים רק לך, למנהל ולמי שיש לך איתו התאמה הדדית.";
+const PAGE_SUBTITLE = "הפרטים שיוצגו לצד השני. תמונה, שם ורזומה נחשפים רק לאחר אישור הדדי.";
+const PHOTO_NOTE = "התמונה מוצגת לאחרים רק לאחר אישור התעניינות הדדי";
+
+const descriptionBoxSx = {
+  mt: 0.5,
+  p: 2,
+  minHeight: 120,
+  borderRadius: `${brand.radius}px`,
+  bgcolor: "background.paper",
+  boxShadow: `inset 0 0 0 1px ${brand.inputLine}`,
+  color: brand.ink2,
+  lineHeight: 1.75,
+  fontSize: "16px",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+};
 
 const cardSx = {
   p: { xs: 2, sm: 3 },
@@ -137,6 +155,7 @@ const photoFrameSx = {
   borderRadius: `${brand.radiusPhoto}px`,
   overflow: "hidden",
   boxShadow: brand.shadow,
+  bgcolor: brand.avatarBg,
 };
 
 const photoImgSx = {
@@ -345,27 +364,32 @@ function FormActions({ submitting, saveLabel, onCancel }) {
   );
 }
 
-function PhotoFrame({ src, alt, href }) {
-  const frame = (
-    <Box sx={photoFrameSx}>
-      {src ? (
-        <Box component="img" src={src} alt={alt} sx={photoImgSx} />
-      ) : (
-        <PersonAvatar size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
-      )}
-    </Box>
-  );
+function PhotoFrame({ src, alt, onOpen }) {
+  let picture = <PersonAvatar size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />;
+  if (src && isAppFileUrl(src)) {
+    picture = <ProtectedImage url={src} alt={alt} sx={photoImgSx} />;
+  } else if (src) {
+    picture = <Box component="img" src={src} alt={alt} sx={photoImgSx} />;
+  }
 
-  if (!href) return frame;
+  const frame = <Box sx={photoFrameSx}>{picture}</Box>;
+  if (!onOpen) return frame;
 
   return (
     <Box
-      component="a"
-      href={href}
-      target="_blank"
-      rel="noreferrer"
+      component="button"
+      type="button"
+      onClick={() => onOpen(src)}
       aria-label="צפייה בתמונה"
-      sx={{ display: "block" }}
+      sx={{
+        display: "block",
+        width: "100%",
+        p: 0,
+        border: 0,
+        bgcolor: "transparent",
+        cursor: "pointer",
+        borderRadius: `${brand.radiusPhoto}px`,
+      }}
     >
       {frame}
     </Box>
@@ -416,7 +440,7 @@ function ResumeThumb() {
   );
 }
 
-function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit }) {
+function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit, onView, onDownload }) {
   const name = pdfFile?.name || (resumeUrl ? "קורות חיים.pdf" : "");
 
   const pickInput = (
@@ -434,7 +458,7 @@ function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit }) {
       {pickInput}
     </Button>
   ) : (
-    <Button variant="outlined" size="small" sx={outlineGoldSx} startIcon={<StrokeIcon name="refresh" />} onClick={onEdit}>
+    <Button type="button" variant="outlined" size="small" sx={outlineGoldSx} startIcon={<StrokeIcon name="refresh" />} onClick={onEdit}>
       {resumeUrl ? "החלפה" : "העלאת קורות חיים (PDF)"}
     </Button>
   );
@@ -462,28 +486,17 @@ function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit }) {
             </Typography>
             <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 1, flexWrap: "wrap" }}>
               {resumeUrl && (
-                <Button
-                  component="a"
-                  href={resumeUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  variant="outlined"
-                  size="small"
-                  startIcon={<StrokeIcon name="eye" />}
-                >
+                <Button type="button" variant="outlined" size="small" startIcon={<StrokeIcon name="eye" />} onClick={() => onView(resumeUrl)}>
                   צפייה
                 </Button>
               )}
               {resumeUrl && (
                 <Button
-                  component="a"
-                  href={resumeUrl}
-                  download
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
                   variant="outlined"
                   size="small"
                   startIcon={<StrokeIcon name="download" />}
+                  onClick={() => onDownload(resumeUrl)}
                 >
                   הורדה
                 </Button>
@@ -568,9 +581,7 @@ function ProfileSummary({ profile }) {
       {profile?.description && (
         <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
           <BlockTitle>קצת עליי / תכונות</BlockTitle>
-          <Typography sx={{ color: "text.secondary", lineHeight: 1.85, wordBreak: "break-word" }}>
-            {profile.description}
-          </Typography>
+          <Box sx={descriptionBoxSx}>{profile.description}</Box>
         </Box>
       )}
     </>
@@ -587,6 +598,8 @@ function ProfileForm({
   resumeUrl,
   pdfFile,
   onPickPdf,
+  onViewFile,
+  onDownloadFile,
 }) {
   return (
     <Box component="form" onSubmit={onSubmit} noValidate>
@@ -737,13 +750,23 @@ function ProfileForm({
               error={Boolean(fieldState.error)}
               helperText={fieldState.error?.message}
               slotProps={{ htmlInput: { "aria-label": "תיאור" } }}
-              sx={{ "& .MuiInputBase-root": { lineHeight: 1.75 } }}
+              sx={{
+                "& .MuiInputBase-root": { lineHeight: 1.75, bgcolor: "background.paper" },
+                "& .MuiOutlinedInput-notchedOutline": { borderColor: brand.inputLine },
+              }}
             />
           )}
         />
       </Box>
 
-      <ResumeBlock resumeUrl={resumeUrl} pdfFile={pdfFile} editing onPick={onPickPdf} />
+      <ResumeBlock
+        resumeUrl={resumeUrl}
+        pdfFile={pdfFile}
+        editing
+        onPick={onPickPdf}
+        onView={onViewFile}
+        onDownload={onDownloadFile}
+      />
 
       {fileError && (
         <Alert severity="error" sx={{ mt: 2 }}>
@@ -1194,6 +1217,18 @@ export default function PersonalAreaPage() {
     setPdfFile(error ? null : file);
   };
 
+  const onViewFile = (url) => {
+    openProtectedFile(url).catch((error) => {
+      setFileError(error.message || "לא הצלחנו לפתוח את הקובץ");
+    });
+  };
+
+  const onDownloadFile = (url) => {
+    downloadProtectedFile(url).catch((error) => {
+      setFileError(error.message || "לא הצלחנו להוריד את הקובץ");
+    });
+  };
+
   if (isAdmin) {
     return <Navigate to="/admin" replace />;
   }
@@ -1229,7 +1264,7 @@ export default function PersonalAreaPage() {
             הפרופיל שלי
           </Typography>
           <Typography sx={{ mt: 0.75, color: "text.secondary", fontSize: "17px", maxWidth: 640 }}>
-            הפרטים שיוצגו לצד השני. {PRIVACY_NOTE}
+            {PAGE_SUBTITLE}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
@@ -1286,7 +1321,7 @@ export default function PersonalAreaPage() {
             <PhotoFrame
               src={shownImage}
               alt={user?.name ? `תמונה של ${user.name}` : "תמונת פרופיל"}
-              href={imageUrl && !imagePreview ? imageUrl : ""}
+              onOpen={imageUrl && !imagePreview ? onViewFile : undefined}
             />
             {editingProfile ? (
               <Button
@@ -1319,6 +1354,9 @@ export default function PersonalAreaPage() {
                 לא הועלתה תמונה
               </Typography>
             )}
+            {fileError && !editingProfile && (
+              <Alert severity="error">{fileError}</Alert>
+            )}
             <Typography
               component="div"
               variant="body2"
@@ -1327,7 +1365,7 @@ export default function PersonalAreaPage() {
               <Box sx={{ color: brand.goldDeep, mt: "2px" }}>
                 <StrokeIcon name="lock" size={15} />
               </Box>
-              {PRIVACY_NOTE}
+              {PHOTO_NOTE}
             </Typography>
           </Box>
 
@@ -1366,11 +1404,19 @@ export default function PersonalAreaPage() {
                 resumeUrl={resumeUrl}
                 pdfFile={pdfFile}
                 onPickPdf={onPickPdf}
+                onViewFile={onViewFile}
+                onDownloadFile={onDownloadFile}
               />
             ) : profileExists ? (
               <>
                 <ProfileSummary profile={profileData} />
-                <ResumeBlock resumeUrl={resumeUrl} editing={false} onEdit={() => toggleForm("profile")} />
+                <ResumeBlock
+                  resumeUrl={resumeUrl}
+                  editing={false}
+                  onEdit={() => toggleForm("profile")}
+                  onView={onViewFile}
+                  onDownload={onDownloadFile}
+                />
                 <Box sx={actionsSx}>
                   <Button variant="contained" onClick={() => toggleForm("profile")} sx={{ flex: { sm: 1 }, minWidth: 160 }}>
                     עדכון פרופיל

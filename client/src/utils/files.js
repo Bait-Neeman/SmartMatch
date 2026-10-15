@@ -22,7 +22,11 @@ export const getPdfFileError = (file) => {
   return "";
 };
 
-// The server returns uploaded files as signed https links (Cloudinary).
-// Anything else is never used as a link.
-export const toSafeFileUrl = (url) =>
-  typeof url === "string" && url.startsWith("https://") ? url : "";
+// Profile files are stable `/api/files/...` paths. Each open is checked again.
+// Older https links are still allowed.
+export const isAppFileUrl = (url) => typeof url === "string" && url.startsWith("/api/files/");
+
+export const toSafeFileUrl = (url) => {
+  if (isAppFileUrl(url)) return url;
+  return typeof url === "string" && url.startsWith("https://") ? url : "";
+};

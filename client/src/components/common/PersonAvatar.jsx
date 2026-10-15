@@ -1,10 +1,16 @@
+import { useId } from "react";
 import { Box } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
 
-// Head and shoulders overlap in one flat color, so there is no neck and no face.
+// The approved profile illustration: a navy bust on a light ground.
+// The same drawing is cropped to a circle for the small avatars.
 
-export default function PersonAvatar({ locked = false, size = 64, color = brand.navy, sx }) {
-  const fill = locked ? brand.mist : color;
+export default function PersonAvatar({ locked = false, size = 64, color, sx }) {
+  const rawId = useId().replace(/:/g, "");
+  const ink = color || (locked ? brand.portraitSoft : brand.portraitInk);
+  const bgTop = locked ? brand.avatarBgLocked : brand.portraitTop;
+  const bgBottom = locked ? brand.avatarBg : brand.portraitBottom;
+
   return (
     <Box
       aria-hidden
@@ -14,25 +20,39 @@ export default function PersonAvatar({ locked = false, size = 64, color = brand.
         borderRadius: "50%",
         overflow: "hidden",
         flexShrink: 0,
-        bgcolor: locked ? "#E4E9F0" : "#E7EDF4",
-        display: "grid",
-        placeItems: "center",
+        bgcolor: locked ? brand.avatarBgLocked : brand.avatarBg,
         ...sx,
       }}
     >
       <Box
         component="svg"
-        viewBox="0 0 80 80"
+        viewBox="-12 -18 124 118"
+        preserveAspectRatio="xMidYMax slice"
         sx={{
-          width: "86%",
-          height: "86%",
+          width: "100%",
+          height: "100%",
           display: "block",
           filter: locked ? "blur(4px)" : "none",
           opacity: locked ? 0.85 : 1,
         }}
       >
-        <circle cx="40" cy="28" r="16" fill={fill} />
-        <rect x="4" y="28" width="72" height="52" rx="18" fill={fill} />
+        <defs>
+          <linearGradient id={`${rawId}-bg`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={bgTop} />
+            <stop offset="1" stopColor={bgBottom} />
+          </linearGradient>
+        </defs>
+        <rect x="-20" y="-30" width="140" height="140" fill={`url(#${rawId}-bg)`} />
+        <path
+          d="M50 13C35 13 28.5 25 29 40C29.5 48 30.5 53 32.5 56.5C36 57.5 39.5 56.5 42 54.5H58C60.5 56.5 64 57.5 67.5 56.5C69.5 53 70.5 48 71 40C71.5 25 65 13 50 13Z"
+          fill={ink}
+        />
+        <path d="M20 100C20 75 32 55.5 50 55.5C68 55.5 80 75 80 100Z" fill={ink} />
+        <ellipse cx="50" cy="37" rx="12.5" ry="15" fill={ink} />
+        <path
+          d="M37.5 36C37 24 43 19.5 50.5 19.5C58 19.5 63.5 24.5 62.5 36C59 28 53 25.5 47 27C43 28 39.5 31 37.5 36Z"
+          fill={ink}
+        />
       </Box>
     </Box>
   );

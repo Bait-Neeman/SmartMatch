@@ -51,6 +51,13 @@ export const brand = {
   radiusPill: 8,
   radiusDialog: 18,
   fieldLine: "#E3E8F0",
+  // Empty-photo illustration from the approved profile page.
+  avatarBg: "#E7EDF4",
+  avatarBgLocked: "#E4E9F0",
+  portraitTop: "#EEF2F8",
+  portraitBottom: "#D9E2EE",
+  portraitInk: "#1D3557",
+  portraitSoft: "#97A6BC",
 };
 
 export const statusTones = {
