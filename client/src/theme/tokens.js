@@ -43,6 +43,14 @@ export const brand = {
   pillBlueBg: "#F0F4FA",
   pillBlueText: "#47689A",
   pillBlueLine: "#DAE3F0",
+  // .pill.teal / .pill.orange from the approved stylesheet.
+  pillTealBg: "#EDF6F5",
+  pillTealText: "#367973",
+  pillTealLine: "#CFE6E3",
+  pillOrangeBg: "#FCF1E8",
+  pillOrangeText: "#A8653C",
+  pillOrangeLine: "#F2DCC8",
+  paperSoft: "#FBFCFE",
   tabOn: "#F6EFDC",
   rowHover: "#FFFDF7",
   rowHoverBorder: "#E6D6AC",
@@ -110,4 +118,7 @@ export const statusTones = {
   locked: { background: brand.pillGrayBg, color: brand.pillGrayText, border: brand.pillGrayLine },
   sent: { background: brand.pillPurpleBg, color: brand.pillPurpleText, border: brand.pillPurpleLine },
   received: { background: brand.pillBlueBg, color: brand.pillBlueText, border: brand.pillBlueLine },
+  forwarded: { background: brand.pillTealBg, color: brand.pillTealText, border: brand.pillTealLine },
+  otherForwarded: { background: brand.pillTealBg, color: brand.pillTealText, border: brand.pillTealLine },
+  matchmaker: { background: brand.pillOrangeBg, color: brand.pillOrangeText, border: brand.pillOrangeLine },
 };

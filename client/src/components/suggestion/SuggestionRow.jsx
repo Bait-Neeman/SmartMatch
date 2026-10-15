@@ -4,8 +4,38 @@ import StatusPill from "../common/StatusPill.jsx";
 import { LockedAvatar } from "./LockedMedia.jsx";
 import { SUGGESTION_KINDS } from "../../utils/suggestionView.js";
 
-export default function SuggestionRow({ view, icon, actions, error, onOpen, reservePercent = false }) {
+export default function SuggestionRow({
+  view,
+  icon,
+  actions,
+  error,
+  onOpen,
+  reservePercent = false,
+  leading,
+  showStatus = true,
+  statusPlacement = "center",
+  percentNode,
+}) {
   const meta = SUGGESTION_KINDS[view.kind] || SUGGESTION_KINDS.new;
+  const statusBelow = statusPlacement === "below";
+  const status =
+    showStatus && meta.label ? <StatusPill tone={meta.tone} label={meta.label} icon={icon} /> : null;
+  const percent =
+    percentNode || reservePercent ? (
+      <Box
+        sx={{
+          width: percentNode ? "auto" : 64,
+          flex: "none",
+          fontWeight: 700,
+          fontSize: 15,
+          color: brand.pillGreenText,
+          textAlign: "center",
+          "@media (max-width:1280px)": percentNode ? undefined : { display: "none" },
+        }}
+      >
+        {percentNode || (view.percent == null ? "" : `${view.percent}%`)}
+      </Box>
+    ) : null;
 
   return (
     <Box sx={{ mb: 1.5 }}>
@@ -37,8 +67,8 @@ export default function SuggestionRow({ view, icon, actions, error, onOpen, rese
           },
         }}
       >
-        <LockedAvatar />
-        <Box sx={{ flex: "0 1 260px", minWidth: 0 }}>
+        {leading || <LockedAvatar />}
+        <Box sx={{ flex: statusBelow ? "0 1 auto" : "0 1 260px", minWidth: statusBelow ? "auto" : 0, maxWidth: statusBelow ? 520 : undefined }}>
           <Typography
             component="h3"
             sx={{
@@ -70,27 +100,18 @@ export default function SuggestionRow({ view, icon, actions, error, onOpen, rese
               {view.subtitle}
             </Typography>
           ) : null}
+          {statusBelow && status ? <Box sx={{ mt: "6px" }}>{status}</Box> : null}
         </Box>
 
-        {reservePercent ? (
-          <Typography
-            sx={{
-              width: 64,
-              flex: "none",
-              fontWeight: 700,
-              fontSize: 15,
-              color: brand.pillGreenText,
-              textAlign: "center",
-              "@media (max-width:1280px)": { display: "none" },
-            }}
-          >
-            {view.percent == null ? "" : `${view.percent}%`}
-          </Typography>
-        ) : null}
+        {statusBelow ? null : percent}
 
-        <Box sx={{ flex: "1 1 auto", minWidth: 0, display: "flex", justifyContent: "center" }}>
-          <StatusPill tone={meta.tone} label={meta.label} icon={icon} />
-        </Box>
+        {statusBelow ? (
+          <Box sx={{ flex: "1 1 16px" }} />
+        ) : (
+          <Box sx={{ flex: "1 1 auto", minWidth: 0, display: "flex", justifyContent: "center" }}>{status}</Box>
+        )}
+
+        {statusBelow ? percent : null}
 
         <Box
           className="suggestion-actions"

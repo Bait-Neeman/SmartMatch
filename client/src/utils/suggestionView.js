@@ -60,6 +60,30 @@ export const SUGGESTION_KINDS = {
     bannerTitle: "התקבלה התעניינות!",
     bannerText: "הצד השני שלח אלייך התעניינות. אשרי כדי לחשוף תמונה ושם לשני הצדדים.",
   },
+  accepted: {
+    tone: "accepted",
+    label: "אושרה · פרטים גלויים",
+    bannerTitle: "ההתעניינות אושרה · פרטים גלויים",
+    bannerText: "שני הצדדים אישרו. התמונה והשם נחשפו לשניכם.",
+  },
+  forwarded: {
+    tone: "forwarded",
+    label: "העברתי לשדכן · ממתין לצד השני",
+    bannerTitle: "העברתי לשדכן · ממתין לצד השני",
+    bannerText: "העברת את ההצעה לטיפול שדכן. ממתינים שהצד השני יעביר גם.",
+  },
+  "other-forwarded": {
+    tone: "otherForwarded",
+    label: "הצד השני מעוניין להתקדם לשדכן",
+    bannerTitle: "הצד השני מעוניין להתקדם לשדכן",
+    bannerText: "הצד השני העביר את ההצעה לטיפול שדכן. אפשר להעביר גם כדי שהשדכן יתחיל לטפל.",
+  },
+  matchmaker: {
+    tone: "matchmaker",
+    label: "בטיפול שדכן",
+    bannerTitle: "בטיפול שדכן",
+    bannerText: "שני הצדדים העבירו. השדכן קיבל את הפרטים ויצור קשר בקרוב.",
+  },
 };
 
 const GENDER_NOUN = { male: "בן", female: "בת" };
