@@ -7,7 +7,7 @@ import {
   Stack,
   Paper,
 } from "@mui/material";
-import { Favorite, Link as LinkIcon } from "@mui/icons-material";
+import { Link as LinkIcon } from "@mui/icons-material";
 import { brand } from "../theme/tokens.js";
 import BrandLogo from "../components/layout/BrandLogo.jsx";
 
@@ -35,7 +35,6 @@ export default function DashboardPage() {
             px: 3,
           }}
         >
-          {/* Decorative heart icons */}
           <Box component="h1" sx={{ m: 0, mb: 1 }}>
             <BrandLogo maxWidth={240} />
           </Box>
@@ -84,7 +83,6 @@ export default function DashboardPage() {
 והכל בדיסקרטיות מלאה, בקצב שלכם ובשליטה שלכם.
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, pt: 1 }}>
-                <Favorite sx={{ color: brand.gold, fontSize: 20 }} />
                 <Typography sx={{ color: brand.goldLight, fontWeight: 600, fontSize: "0.9rem" }}>
                  מפסיקים לבזבז זמן על הצעות לא רלוונטיות
 ועושים השתדלות ראויה לזיווג הגון בקרוב  
@@ -115,7 +113,7 @@ export default function DashboardPage() {
               variant="outlined"
               size="large"
               onClick={() => navigate("/login")}
-              startIcon={<Favorite />}
+              startIcon={<LinkIcon />}
               sx={{
                 px: 4,
                 py: 1.4,
