@@ -7,6 +7,8 @@ import {
   School,
   Stars,
   Payments,
+  PersonOutlined,
+  Phone,
   Work,
 } from "@mui/icons-material";
 import { brand, statusTones } from "../../theme/tokens.js";
@@ -22,12 +24,28 @@ const FIELD_ICONS = {
   institution: School,
   occupation: Work,
   financialRequirement: Payments,
+  financialDemand: Payments,
   financialParticipation: Payments,
+  maritalStatus: PersonOutlined,
+  phone: Phone,
 };
 
-export default function SuggestionDetail({ view, icon, actions, error, onBack }) {
+export default function SuggestionDetail({
+  view,
+  icon,
+  actions,
+  error,
+  onBack,
+  photo,
+  notice,
+  afterText,
+  bannerTitle,
+  bannerText,
+}) {
   const meta = SUGGESTION_KINDS[view.kind] || SUGGESTION_KINDS.new;
   const tone = statusTones[meta.tone] || statusTones.pending;
+  const heading = bannerTitle || meta.bannerTitle;
+  const subheading = bannerText ?? meta.bannerText;
 
   return (
     <Box>
@@ -86,10 +104,10 @@ export default function SuggestionDetail({ view, icon, actions, error, onBack })
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography component="b" sx={{ display: "block", fontWeight: 600, fontSize: "clamp(16px, 1.3vw, 19px)", letterSpacing: "-0.3px", color: brand.navy }}>
-            {meta.bannerTitle}
+            {heading}
           </Typography>
           <Typography component="small" sx={{ display: "block", color: "text.secondary", fontSize: 14, mt: 0.25 }}>
-            {meta.bannerText}
+            {subheading}
           </Typography>
         </Box>
         <StatusPill tone={meta.tone} label={meta.label} icon={icon} />
@@ -232,23 +250,28 @@ export default function SuggestionDetail({ view, icon, actions, error, onBack })
               </Box>
             ) : null}
 
-            <Box
-              sx={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 1,
-                mt: 2.5,
-                px: 2,
-                py: 1.25,
-                borderRadius: "999px",
-                fontSize: 14,
-                color: brand.pillGoldText,
-                bgcolor: brand.pillGoldBg,
-              }}
-            >
-              <LockOutlined sx={{ fontSize: 16 }} />
-              תמונה ושם יוצגו רק לאחר אישור הדדי
-            </Box>
+            {notice === undefined ? (
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mt: 2.5,
+                  px: 2,
+                  py: 1.25,
+                  borderRadius: "999px",
+                  fontSize: 14,
+                  color: brand.pillGoldText,
+                  bgcolor: brand.pillGoldBg,
+                }}
+              >
+                <LockOutlined sx={{ fontSize: 16 }} />
+                תמונה ושם יוצגו רק לאחר אישור הדדי
+              </Box>
+            ) : (
+              notice
+            )}
+            {afterText}
           </Box>
 
           <Box
@@ -262,7 +285,7 @@ export default function SuggestionDetail({ view, icon, actions, error, onBack })
               top: { lg: 24 },
             }}
           >
-            <LockedPhoto />
+            {photo || <LockedPhoto />}
             {actions ? (
               <Box
                 sx={{

@@ -18,8 +18,8 @@ import {
   AdminPanelSettings,
   Favorite,
   FormatListBulleted,
-  Forum,
   Group,
+  HowToReg,
   Logout,
   Menu as MenuIcon,
   PendingActions,
@@ -34,8 +34,8 @@ import PersonAvatar from "../common/PersonAvatar.jsx";
 const USER_LINKS = [
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
   { to: "/suggestions", label: "הצעות", icon: <FormatListBulleted />, end: false },
+  { to: "/active", label: "הצעות פעילות", icon: <HowToReg />, end: false },
   { to: "/matches", label: "התאמות", icon: <Favorite /> },
-  { to: "/interests", label: "התעניינויות", icon: <Forum /> },
   { to: "/settings", label: "הגדרות", icon: <Settings /> },
 ];
 

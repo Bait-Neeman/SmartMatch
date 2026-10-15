@@ -9,6 +9,8 @@ import MatchesPage from "../pages/MatchesPage";
 import InterestsPage from "../pages/InterestsPage";
 import SuggestionsPage from "../pages/SuggestionsPage.jsx";
 import SuggestionDetailPage from "../pages/SuggestionDetailPage.jsx";
+import ActiveSuggestionsPage from "../pages/ActiveSuggestionsPage.jsx";
+import ActiveSuggestionDetailPage from "../pages/ActiveSuggestionDetailPage.jsx";
 import AdminPage from "../pages/AdminPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminRoute from "../components/AdminRoute.jsx";
@@ -46,6 +48,8 @@ export default function AppRoutes() {
         <Route path="/preferences" element={<PreferencesPage />} />
         <Route path="/suggestions/:kind/:id" element={<SuggestionDetailPage />} />
         <Route path="/suggestions" element={<SuggestionsPage />} />
+        <Route path="/active/:id" element={<ActiveSuggestionDetailPage />} />
+        <Route path="/active" element={<ActiveSuggestionsPage />} />
         <Route path="/matches" element={<MatchesPage />} />
         <Route path="/interests" element={<InterestsPage />} />
       </Route>
