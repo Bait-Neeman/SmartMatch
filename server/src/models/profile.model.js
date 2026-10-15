@@ -45,8 +45,16 @@ const profileSchema = new mongoose.Schema(
 
     // Numeric pair used by matching. financialDemand is the minimum this side requires.
     // financialParticipation is what this side can give. Both are amounts, not text.
-    financialDemand: { type: Number, min: [0, "הדרישה הכספית לא יכולה להיות שלילית"] },
-    financialParticipation: { type: Number, min: [0, "ההשתתפות הכספית לא יכולה להיות שלילית"] },
+    financialDemand: {
+      type: Number,
+      min: [0, "ערך לא תקין בשדה דרישה כספית"],
+      max: [100000000, "ערך לא תקין בשדה דרישה כספית"],
+    },
+    financialParticipation: {
+      type: Number,
+      min: [0, "ערך לא תקין בשדה השתתפות כספית"],
+      max: [100000000, "ערך לא תקין בשדה השתתפות כספית"],
+    },
 
     // Cloudinary public IDs - the API returns them as signed URLs (see storage.service)
     resumePdf: { type: String },

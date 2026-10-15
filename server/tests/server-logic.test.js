@@ -52,6 +52,10 @@ describe("match percent formula", () => {
     // City differs (60). The other four shared traits stay 100. (60+400)/5 = 92.
     assert.equal(computeMatchPercent(shared, {}, otherCity, {}), 92);
 
+    const divorced = { ...shared, maritalStatus: "divorced" };
+    // Marital status differs (60). The other four shared traits stay 100. (60+400)/5 = 92.
+    assert.equal(computeMatchPercent(shared, {}, divorced, {}), 92);
+
     const withMoney = {
       ...shared,
       financialDemand: 100,
@@ -233,11 +237,27 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(card.occupation, "teacher");
     assert.equal(card.description, "about text");
     assert.equal(card.seminar, "seminar-name");
+    assert.equal(card.maritalStatus, "divorced");
     assert.equal(typeof card.matchPercent, "number");
     for (const key of IDENTITY_KEYS) {
       assert.equal(Object.hasOwn(card, key), false, key);
     }
-    assert.equal(card.maritalStatus, undefined);
+
+    const lists = await request(app).get("/api/suggestions").set(headers);
+    assert.equal(lists.status, 200, JSON.stringify(lists.body));
+    assert.equal(lists.body.newSuggestions[0].maritalStatus, "divorced");
+    assert.equal(lists.body.newSuggestions[0].name, undefined);
+    assert.equal(lists.body.newSuggestions[0].resumeSize, undefined);
+
+    const preview = await request(app).get(`/api/profile/${other._id}`).set(headers);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.body.profile.maritalStatus, "divorced");
+    assert.equal(preview.body.profile.name, undefined);
+    assert.equal(preview.body.profile.email, undefined);
+    assert.equal(preview.body.profile.phone, undefined);
+    assert.equal(preview.body.profile.image, undefined);
+    assert.equal(preview.body.profile.resumePdf, undefined);
+    assert.equal(preview.body.profile.resumeSize, undefined);
     const blob = JSON.stringify(candidates.body);
     for (const secret of ["SECRET-OTHER", "SECRET-VIEWER", "0502222222", "0501111111", "secret-other@example.test", "secret-image-other", "secret-resume-other", other.idNumber]) {
       assert.equal(blob.includes(secret), false, secret);
@@ -248,6 +268,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const incoming = await request(app).get("/api/interest/incoming").set(auth(tokenFor(other)));
     const person = incoming.body.interests[0].sender;
     assert.equal(person.lookingFor, "viewer looking");
+    assert.equal(person.maritalStatus, "single");
     assert.equal(person.financialDemand, 10);
     assert.equal(person.financialParticipation, 80);
     assert.equal(typeof person.matchPercent, "number");
@@ -546,7 +567,14 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const newLogin = await request(app).post("/api/auth/login").send({ idNumber: owner.idNumber, password: "Newpass12" });
     assert.equal(newLogin.status, 200);
 
-    const removed = await request(app).delete("/api/settings").set(auth(token));
+    const staleToken = await request(app).get("/api/settings").set(auth(token));
+    assert.equal(staleToken.status, 401);
+    assert.equal(staleToken.body.message, "פג תוקף ההתחברות, יש להתחבר מחדש");
+
+    const removed = await request(app)
+      .delete("/api/settings")
+      .set(auth(newLogin.body.token))
+      .send({ currentPassword: "Newpass12" });
     assert.equal(removed.status, 200);
     assert.equal(removed.body.message, "החשבון נמחק");
     assert.equal(await User.countDocuments({ _id: owner._id }), 0);
@@ -559,5 +587,167 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(afterFile.status, 404);
     const afterProfile = await request(app).get(`/api/profile/${owner._id}`).set(auth(otherToken));
     assert.equal(afterProfile.status, 404);
+  });
+
+  it("shows marital status before approval and lets it change the match percent", async () => {
+    const viewer = await createUser({ n: 61 });
+    const single = await createUser({ n: 62, name: "STATUS-SINGLE" });
+    const divorced = await createUser({ n: 63, name: "STATUS-DIVORCED" });
+    const traits = { city: "Haifa", style: "modern", appearance: "average", ethnicity: "ashkenazi" };
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female", age: 25, maritalStatus: "single", financialDemand: 100, financialParticipation: 200, ...traits }) },
+      { user: single._id, ...baseProfile({ gender: "male", age: 28, maritalStatus: "single", financialDemand: 50, financialParticipation: 150, ...traits }) },
+      { user: divorced._id, ...baseProfile({ gender: "male", age: 28, maritalStatus: "divorced", financialDemand: 50, financialParticipation: 150, ...traits }) },
+    ]);
+
+    const listed = await request(app).get("/api/match/candidates").set(auth(tokenFor(viewer)));
+    assert.equal(listed.status, 200, JSON.stringify(listed.body));
+    const singleCard = listed.body.candidates.find((card) => String(card._id) === String(single._id));
+    const divorcedCard = listed.body.candidates.find((card) => String(card._id) === String(divorced._id));
+    assert.ok(singleCard);
+    assert.ok(divorcedCard);
+    assert.equal(singleCard.maritalStatus, "single");
+    assert.equal(divorcedCard.maritalStatus, "divorced");
+    assert.equal(singleCard.name, undefined);
+    assert.ok(singleCard.matchPercent > divorcedCard.matchPercent);
+  });
+
+  it("tells a paused user why a new interest is blocked, and still accepts a reply", async () => {
+    const paused = await createUser({ n: 71, name: "PAUSED-SENDER" });
+    const target = await createUser({ n: 72, name: "OPEN-TARGET" });
+    const stranger = await createUser({ n: 75, name: "OPEN-STRANGER" });
+    const traits = { city: "Haifa", style: "modern", appearance: "average", ethnicity: "ashkenazi" };
+    await Profile.create([
+      { user: paused._id, ...baseProfile({ gender: "female", age: 25, maritalStatus: "single", financialDemand: 50, financialParticipation: 150, ...traits }) },
+      { user: target._id, ...baseProfile({ gender: "male", age: 28, maritalStatus: "single", financialDemand: 50, financialParticipation: 150, ...traits }) },
+      { user: stranger._id, ...baseProfile({ gender: "male", age: 27, maritalStatus: "single", financialDemand: 50, financialParticipation: 150, ...traits }) },
+    ]);
+
+    const incoming = await request(app)
+      .post("/api/interest")
+      .set(auth(tokenFor(target)))
+      .send({ receiverId: String(paused._id) });
+    assert.equal(incoming.status, 201, JSON.stringify(incoming.body));
+
+    await User.updateOne({ _id: paused._id }, { pauseSuggestions: true });
+
+    const blocked = await request(app)
+      .post("/api/interest")
+      .set(auth(tokenFor(paused)))
+      .send({ receiverId: String(stranger._id) });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.message, "קבלת ההצעות מושהית. בטלו את ההשהיה כדי לשלוח התעניינות חדשה");
+    assert.equal(await Interest.countDocuments({ sender: paused._id }), 0);
+
+    const reply = await request(app)
+      .post("/api/interest")
+      .set(auth(tokenFor(paused)))
+      .send({ receiverId: String(target._id) });
+    assert.equal(reply.status, 201, JSON.stringify(reply.body));
+    assert.equal(reply.body.interest.status, "accepted");
+
+    const choosy = await createUser({ n: 73, minMatchPercent: 100 });
+    const weak = await createUser({ n: 74, name: "WEAK-MATCH" });
+    await Profile.create([
+      { user: choosy._id, ...baseProfile({ gender: "female", age: 25, ...traits }) },
+      { user: weak._id, ...baseProfile({ gender: "male", age: 28, city: "Elad", style: "conservative", appearance: "slim", ethnicity: "sephardic" }) },
+    ]);
+    const hidden = await request(app)
+      .post("/api/interest")
+      .set(auth(tokenFor(choosy)))
+      .send({ receiverId: String(weak._id) });
+    assert.equal(hidden.status, 404);
+    assert.equal(hidden.body.message, "המשתמש לא נמצא");
+  });
+
+  it("requires the current password to change email or delete the account", async () => {
+    const owner = await createUser({ n: 81, email: "keep-me@example.test" });
+    const token = tokenFor(owner);
+
+    const missing = await request(app).patch("/api/settings").set(auth(token)).send({ email: "next@example.test" });
+    assert.equal(missing.status, 400);
+    assert.equal(missing.body.message, "יש להזין את הסיסמה הנוכחית");
+
+    const wrong = await request(app)
+      .patch("/api/settings")
+      .set(auth(token))
+      .send({ email: "next@example.test", currentPassword: "Wrongpass1" });
+    assert.equal(wrong.status, 400);
+    assert.equal(wrong.body.message, "הסיסמה הנוכחית שגויה");
+
+    const cleared = await request(app).patch("/api/settings").set(auth(token)).send({ email: "" });
+    assert.equal(cleared.status, 400);
+    assert.equal(cleared.body.message, "לא ניתן למחוק את כתובת האימייל");
+    const nulled = await request(app).patch("/api/settings").set(auth(token)).send({ email: null });
+    assert.equal(nulled.status, 400);
+    assert.equal(nulled.body.message, "לא ניתן למחוק את כתובת האימייל");
+
+    const changed = await request(app)
+      .patch("/api/settings")
+      .set(auth(token))
+      .send({ email: "next@example.test", currentPassword: PASSWORD });
+    assert.equal(changed.status, 200, JSON.stringify(changed.body));
+    assert.equal(changed.body.settings.email, "next@example.test");
+
+    const same = await request(app).patch("/api/settings").set(auth(token)).send({ email: "next@example.test", phone: "0506666666" });
+    assert.equal(same.status, 200, JSON.stringify(same.body));
+    assert.equal(same.body.settings.phone, "0506666666");
+
+    const deleteMissing = await request(app).delete("/api/settings").set(auth(token));
+    assert.equal(deleteMissing.status, 400);
+    assert.equal(deleteMissing.body.message, "יש להזין את הסיסמה הנוכחית");
+    const deleteWrong = await request(app).delete("/api/settings").set(auth(token)).send({ currentPassword: "Wrongpass1" });
+    assert.equal(deleteWrong.status, 400);
+    assert.equal(deleteWrong.body.message, "הסיסמה הנוכחית שגויה");
+    assert.equal(await User.countDocuments({ _id: owner._id }), 1);
+
+    const removed = await request(app).delete("/api/settings").set(auth(token)).send({ currentPassword: PASSWORD });
+    assert.equal(removed.status, 200);
+    assert.equal(await User.countDocuments({ _id: owner._id }), 0);
+  });
+
+  it("rejects money and age values outside their limits", async () => {
+    const user = await createUser({ n: 91 });
+    const token = tokenFor(user);
+    const headers = auth(token);
+
+    const tooMuch = await request(app)
+      .post("/api/profile")
+      .set(headers)
+      .send(baseProfile({ financialDemand: 100000001, financialParticipation: 10 }));
+    assert.equal(tooMuch.status, 400);
+    assert.equal(tooMuch.body.message, "ערך לא תקין בשדה דרישה כספית");
+
+    const negative = await request(app)
+      .post("/api/profile")
+      .set(headers)
+      .send(baseProfile({ financialDemand: 10, financialParticipation: -1 }));
+    assert.equal(negative.status, 400);
+    assert.equal(negative.body.message, "ערך לא תקין בשדה השתתפות כספית");
+
+    const saved = await request(app)
+      .post("/api/profile")
+      .set(headers)
+      .send(baseProfile({ financialDemand: 100000000, financialParticipation: 0 }));
+    assert.equal(saved.status, 201, JSON.stringify(saved.body));
+    assert.equal(saved.body.profile.financialDemand, 100000000);
+    assert.equal(saved.body.profile.financialParticipation, 0);
+
+    const young = await request(app).post("/api/preference").set(headers).send({ ageMin: 17, ageMax: 30 });
+    assert.equal(young.status, 400);
+    assert.equal(young.body.message, "ערך לא תקין בשדה גיל מינימלי");
+
+    const old = await request(app).post("/api/preference").set(headers).send({ ageMin: 20, ageMax: 100 });
+    assert.equal(old.status, 400);
+    assert.equal(old.body.message, "ערך לא תקין בשדה גיל מקסימלי");
+
+    const backwards = await request(app).post("/api/preference").set(headers).send({ ageMin: 40, ageMax: 30 });
+    assert.equal(backwards.status, 400);
+    assert.equal(backwards.body.message, "הערך המינימלי של הגיל גדול מהערך המקסימלי");
+
+    const ages = await request(app).post("/api/preference").set(headers).send({ ageMin: 18, ageMax: 99 });
+    assert.equal(ages.status, 201, JSON.stringify(ages.body));
+    assert.equal(ages.body.preferences.ageMin, 18);
+    assert.equal(ages.body.preferences.ageMax, 99);
   });
 });

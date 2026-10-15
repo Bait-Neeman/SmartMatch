@@ -21,7 +21,7 @@ const updatePassword = async (req, res) => {
 };
 
 const removeAccount = async (req, res) => {
-  await deleteAccount(req.user.userId);
+  await deleteAccount(req.user.userId, req.body || {});
   res.status(200).json({ message: "החשבון נמחק" });
 };
 

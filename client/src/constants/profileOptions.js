@@ -26,6 +26,12 @@ export const appearanceOptions = [
   { value: "chubby", label: "רחב" },
 ];
 
+export const maritalStatusOptions = [
+  { value: "single", label: "רווק/ה" },
+  { value: "divorced", label: "גרוש/ה" },
+  { value: "widowed", label: "אלמן/ה" },
+];
+
 const ROLE_LABELS = { user: "משתמש", admin: "מנהל" };
 
 // The Hebrew label of a stored value ("" when there is no value)

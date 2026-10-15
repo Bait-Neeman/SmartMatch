@@ -9,8 +9,8 @@ const { fileAccessPath } = require("./storage.service");
 //   השתתפות כספית (financialContribution) field; this is the other stored figure.
 // - financialStatus is one number for the existing preference range, not that pair.
 // yeshiva and seminar are the learning institution (מוסד).
-// lookingFor, financialDemand, and financialParticipation are visible before approval.
-// maritalStatus is not: it is returned to the owner and only after mutual approval.
+// lookingFor, maritalStatus, financialDemand, and financialParticipation are
+// visible before approval, the same as age, city, and the other public fields.
 const PUBLIC_PROFILE_FIELDS = [
   "age",
   "height",
@@ -22,6 +22,7 @@ const PUBLIC_PROFILE_FIELDS = [
   "occupation",
   "description",
   "lookingFor",
+  "maritalStatus",
   "yeshiva",
   "seminar",
   "financialRequirement",
@@ -36,6 +37,7 @@ const PUBLIC_PROFILE_FIELDS = [
 const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber"]);
 
 // Identifying keys removed from every suggestion until mutual approval.
+// maritalStatus is not one of them: it is a public profile field.
 const IDENTITY_KEYS = new Set([
   "name",
   "email",
@@ -109,7 +111,6 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
     person.name = plainUser?.name ?? null;
     person.email = plainUser?.email ?? null;
     if (plainUser?.phone) person.phone = plainUser.phone;
-    if (plainProfile?.maritalStatus) person.maritalStatus = plainProfile.maritalStatus;
     // Stable file paths. Opening them checks that the match is still accepted.
     person.image = fileAccessPath(id, "image", plainProfile?.image);
     person.resumePdf = fileAccessPath(id, "resumePdf", plainProfile?.resumePdf);

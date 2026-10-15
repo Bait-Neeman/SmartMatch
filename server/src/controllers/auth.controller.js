@@ -4,11 +4,11 @@ const { generateToken } = require("../config/jwt");
 // Errors thrown here are sent by the error middleware (Express 5 forwards async errors).
 
 const register = async (req, res) => {
-  const user = await registerUser(req.body || {});
+  const { tokenVersion, ...user } = await registerUser(req.body || {});
 
   res.status(201).json({
     message: "ההרשמה בוצעה בהצלחה",
-    token: generateToken(user._id, user.role),
+    token: generateToken(user._id, user.role, tokenVersion),
     user,
   });
 };

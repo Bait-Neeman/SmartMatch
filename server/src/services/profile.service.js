@@ -39,6 +39,7 @@ const EDITABLE_FIELDS = {
 };
 const NUMBER_FIELDS = new Set(["age", "height", "financialStatus", "financialDemand", "financialParticipation"]);
 const NON_NEGATIVE_FIELDS = new Set(["financialDemand", "financialParticipation"]);
+const MONEY_MAX = 100000000;
 const REQUIRED_FIELDS = ["gender", "age"];
 const FILE_FIELDS = ["image", "resumePdf"];
 
@@ -67,7 +68,7 @@ const pickProfileFields = (body = {}) => {
       if (typeof value !== "number" || !Number.isFinite(value)) {
         throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
       }
-      if (NON_NEGATIVE_FIELDS.has(field) && value < 0) {
+      if (NON_NEGATIVE_FIELDS.has(field) && (value < 0 || value > MONEY_MAX)) {
         throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
       }
     } else if (typeof value !== "string") {

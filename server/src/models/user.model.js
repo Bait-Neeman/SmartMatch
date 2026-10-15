@@ -40,6 +40,10 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    // Bumped on password change. Tokens carry the version they were issued with,
+    // and auth rejects a token whose version is older.
+    tokenVersion: { type: Number, default: 0, select: false },
+
     role: {
       type: String,
       enum: ["admin", "user"],

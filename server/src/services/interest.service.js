@@ -10,6 +10,7 @@ const { getCandidatesForUser, computeMatchPercent } = require('./match.service')
 
 const RESPONSE_STATUSES = ['accepted', 'rejected'];
 const USER_NOT_FOUND = 'המשתמש לא נמצא';
+const SUGGESTIONS_PAUSED = 'קבלת ההצעות מושהית. בטלו את ההשהיה כדי לשלוח התעניינות חדשה';
 
 const isDuplicateKey = (error) => error?.code === 11000 || error?.cause?.code === 11000;
 
@@ -140,6 +141,14 @@ const sendInterest = async (senderId, receiverId) => {
     // The other request may have created the row while candidates were loaded.
     const recovered = await open();
     if (recovered) return recovered;
+    // A paused account cannot start a new interest. Replies still pass mayStartInterest
+    // because an incoming interest returns true before this branch. A target below the
+    // viewer's own minimum percent stays a generic not-found, so the response does not
+    // reveal that the person exists.
+    const sender = await User.findById(senderId).select('pauseSuggestions').lean();
+    if (sender?.pauseSuggestions) {
+      throw new HttpError(403, SUGGESTIONS_PAUSED);
+    }
     throw new HttpError(404, USER_NOT_FOUND);
   }
 

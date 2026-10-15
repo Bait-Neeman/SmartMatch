@@ -51,6 +51,16 @@ const toSettings = (user) => {
   };
 };
 
+const assertCurrentPassword = async (user, currentPassword) => {
+  if (typeof currentPassword !== "string" || !currentPassword) {
+    throw new HttpError(400, "יש להזין את הסיסמה הנוכחית");
+  }
+  const matches = await comparePassword(currentPassword, user.password);
+  if (!matches) {
+    throw new HttpError(400, "הסיסמה הנוכחית שגויה");
+  }
+};
+
 const getSettingsForUser = async (userId) => {
   const user = await User.findById(userId).lean();
   if (!user) {
@@ -60,7 +70,7 @@ const getSettingsForUser = async (userId) => {
 };
 
 const updateSettingsForUser = async (userId, body = {}) => {
-  const user = await User.findById(userId);
+  const user = await User.findById(userId).select("+password");
   if (!user) {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
@@ -76,19 +86,20 @@ const updateSettingsForUser = async (userId, body = {}) => {
   }
 
   if (body.email !== undefined) {
-    if (body.email === null || body.email === "") {
-      user.email = undefined;
-    } else if (typeof body.email !== "string" || !validateEmail(body.email.trim().toLowerCase())) {
+    if (body.email === null || typeof body.email !== "string" || body.email.trim() === "") {
+      throw new HttpError(400, "לא ניתן למחוק את כתובת האימייל");
+    }
+    if (!validateEmail(body.email.trim().toLowerCase())) {
       throw new HttpError(400, "כתובת האימייל אינה תקינה");
-    } else {
-      const email = body.email.trim().toLowerCase();
-      if (email !== user.email) {
-        const taken = await User.exists({ email, _id: { $ne: user._id } });
-        if (taken) {
-          throw new HttpError(409, "לא ניתן לעדכן את כתובת האימייל");
-        }
-        user.email = email;
+    }
+    const email = body.email.trim().toLowerCase();
+    if (email !== user.email) {
+      await assertCurrentPassword(user, body.currentPassword);
+      const taken = await User.exists({ email, _id: { $ne: user._id } });
+      if (taken) {
+        throw new HttpError(409, "לא ניתן לעדכן את כתובת האימייל");
       }
+      user.email = email;
     }
   }
 
@@ -148,7 +159,7 @@ const changePassword = async (userId, body = {}) => {
     throw new HttpError(400, "הסיסמה חייבת להכיל לפחות 8 תווים ולפחות אות אחת באנגלית");
   }
 
-  const user = await User.findById(userId).select("+password");
+  const user = await User.findById(userId).select("+password +tokenVersion");
   if (!user) {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
@@ -158,14 +169,16 @@ const changePassword = async (userId, body = {}) => {
   }
 
   user.password = newPassword;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
   await user.save();
 };
 
-const deleteAccount = async (userId) => {
-  const user = await User.findById(userId);
+const deleteAccount = async (userId, body = {}) => {
+  const user = await User.findById(userId).select("+password");
   if (!user) {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
+  await assertCurrentPassword(user, body.currentPassword);
 
   const profile = await Profile.findOne({ user: userId });
   if (profile) {

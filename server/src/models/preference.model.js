@@ -2,13 +2,18 @@ const mongoose = require("mongoose");
 const { STYLES, APPEARANCES, MARITAL_STATUSES, textField, choiceField } = require("./options");
 
 const rangeField = (label) => ({ type: Number, min: [0, `ערך לא תקין בשדה ${label}`] });
+const ageField = (label) => ({
+  type: Number,
+  min: [18, `ערך לא תקין בשדה ${label}`],
+  max: [99, `ערך לא תקין בשדה ${label}`],
+});
 
 const preferenceSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
 
-    ageMin: rangeField("גיל מינימלי"),
-    ageMax: rangeField("גיל מקסימלי"),
+    ageMin: ageField("גיל מינימלי"),
+    ageMax: ageField("גיל מקסימלי"),
 
     city: textField(100, "עיר"),
 

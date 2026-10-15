@@ -47,6 +47,9 @@ const parsePreferences = (body = {}) => {
       if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
         throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
       }
+      if ((field === "ageMin" || field === "ageMax") && (value < 18 || value > 99)) {
+        throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+      }
     } else if (typeof value !== "string") {
       throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
     }

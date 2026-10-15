@@ -1,6 +1,7 @@
 import { Alert, Box, Typography } from "@mui/material";
 import {
   ArrowForward,
+  FavoriteBorder,
   Height,
   LockOutlined,
   Place,
@@ -17,6 +18,7 @@ import { SUGGESTION_KINDS } from "../../utils/suggestionView.js";
 
 const FIELD_ICONS = {
   height: Height,
+  maritalStatus: FavoriteBorder,
   community: Stars,
   city: Place,
   institution: School,
