@@ -1,4 +1,5 @@
 import { createTheme } from "@mui/material/styles";
+import { buttonClasses } from "@mui/material/Button";
 import { brand } from "./tokens.js";
 
 const heading = {
@@ -105,6 +106,22 @@ const theme = createTheme({
           padding: "0 18px",
           boxShadow: "none",
           letterSpacing: 0,
+          // MUI 9 does not apply styleOverrides.containedPrimary. Gold contained
+          // buttons are styled here so the selector wins over disableElevation.
+          [`&.${buttonClasses.contained}.${buttonClasses.colorPrimary}`]: {
+            color: brand.paper,
+            backgroundColor: "transparent",
+            backgroundImage: brand.goldButton,
+            boxShadow: brand.goldButtonShadow,
+            "&:hover": {
+              backgroundColor: "transparent",
+              backgroundImage: brand.goldButtonHover,
+              boxShadow: brand.goldButtonShadow,
+            },
+            "&:active, &:focus-visible": {
+              boxShadow: brand.goldButtonShadow,
+            },
+          },
         },
         sizeSmall: {
           minHeight: 34,
@@ -115,15 +132,6 @@ const theme = createTheme({
           minHeight: 44,
           padding: "0 22px",
           fontSize: "15px",
-        },
-        containedPrimary: {
-          color: brand.paper,
-          background: brand.goldButton,
-          boxShadow: brand.goldButtonShadow,
-          "&:hover": {
-            background: brand.goldButtonHover,
-            boxShadow: brand.goldButtonShadow,
-          },
         },
         containedSecondary: {
           color: brand.paper,

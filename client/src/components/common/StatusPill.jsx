@@ -1,7 +1,7 @@
 import { Box } from "@mui/material";
 import { statusTones } from "../../theme/tokens.js";
 
-export default function StatusPill({ tone = "neutral", label, children }) {
+export default function StatusPill({ tone = "neutral", label, children, icon }) {
   const colors = statusTones[tone] || statusTones.neutral;
   const text = label ?? children;
 
@@ -12,7 +12,9 @@ export default function StatusPill({ tone = "neutral", label, children }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
+        gap: "6px",
         px: 1.5,
+        maxWidth: "100%",
         height: 30,
         borderRadius: "8px",
         bgcolor: colors.background,
@@ -22,8 +24,10 @@ export default function StatusPill({ tone = "neutral", label, children }) {
         fontSize: "13px",
         lineHeight: 1,
         whiteSpace: "nowrap",
+        "& svg": { fontSize: 14 },
       }}
     >
+      {icon}
       {text}
     </Box>
   );
