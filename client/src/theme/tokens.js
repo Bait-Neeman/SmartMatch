@@ -100,6 +100,9 @@ export const brand = {
   radiusPill: 8,
   radiusDialog: 18,
   fieldLine: "#E3E8F0",
+  // Profile creation upload (.drop border, .rcard / .drop radius) from the approved stylesheet.
+  goldDash: "#D6C08A",
+  radiusResume: 14,
   // Empty-photo illustration from the approved profile page.
   portraitTop: "#EEF2F8",
   portraitBottom: "#D9E2EE",
