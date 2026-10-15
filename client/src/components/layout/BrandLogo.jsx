@@ -1,12 +1,12 @@
 import { Box } from "@mui/material";
-import logo160 from "../../assets/brand/logo-shiny-160.png";
-import logo320 from "../../assets/brand/logo-shiny-320.png";
-import logo200 from "../../assets/brand/logo-shiny-200.png";
-import logo400 from "../../assets/brand/logo-shiny-400.png";
-import logo240 from "../../assets/brand/logo-shiny-240.png";
-import logo480 from "../../assets/brand/logo-shiny-480.png";
+import logo160 from "../../assets/brand/logo-transparent-160.png";
+import logo320 from "../../assets/brand/logo-transparent-320.png";
+import logo200 from "../../assets/brand/logo-transparent-200.png";
+import logo400 from "../../assets/brand/logo-transparent-400.png";
+import logo240 from "../../assets/brand/logo-transparent-240.png";
+import logo480 from "../../assets/brand/logo-transparent-480.png";
 
-// Lanczos downsamples of logo-transparent.png (1254, alpha kept). Each slot has a 1x file and a 2x file.
+// Straight Lanczos cuts of logo-transparent.png. Alpha is the file's own alpha.
 const sources = {
   160: { one: logo160, two: logo320 },
   200: { one: logo200, two: logo400 },
@@ -34,8 +34,6 @@ export default function BrandLogo({ maxWidth = 160 }) {
         height: "auto",
         mx: "auto",
         bgcolor: "transparent",
-        imageRendering: "auto",
-        userSelect: "none",
       }}
     />
   );
