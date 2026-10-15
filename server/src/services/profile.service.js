@@ -19,6 +19,8 @@ const EDITABLE_FIELDS = {
   yeshiva: "ישיבה",
   seminar: "סמינר",
   occupation: "עיסוק",
+  // financialRequirement is דרישה כספית (financialDemand): a minimum.
+  // financialCapabilities is יכולת כספית. There is no השתתפות כספית (financialContribution) field.
   financialRequirement: "דרישה כספית",
   financialCapabilities: "יכולת כספית",
   financialStatus: "מדד כספי",

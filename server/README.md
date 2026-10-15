@@ -83,7 +83,7 @@ those links expire after one hour.
 
 ## Access Control
 
-Until both sides have an accepted interest, suggestions, incoming and outgoing interests, and another user's profile return only non-identifying details: age, height, community (`ethnicity`), residence (`city`), occupation, and the free-text description (plus the same kind of non-identifying categories already used for matching, such as style). Name, photo URL, resume URL, email, school or seminary names, and other identifying fields are omitted.
+Until both sides have an accepted interest, suggestions, incoming and outgoing interests, and another user's profile omit name, email, photo URL, resume URL, and other contact or identity details. They do include age, height, community (`ethnicity`), residence (`city`), occupation, the free-text description, the learning institution (`yeshiva`, `seminar`), and the stored money figures: `financialRequirement` (דרישה כספית, a minimum demand), `financialCapabilities` (יכולת כספית; there is no separate השתתפות כספית field), and `financialStatus` (the numeric preference scale).
 
 After mutual approval, name, email, photo URL, and resume URL are included. If both users send interest at the same time, that is mutual approval (`accepted`), not a conflict.
 

@@ -26,7 +26,11 @@ const VIEWER = {
   resumePdf: "leak-resume-id-viewer",
   yeshiva: "LEAK-YESHIVA-VIEWER",
   seminar: "LEAK-SEMINAR-VIEWER",
-  financialRequirement: "LEAK-FINANCIAL-VIEWER",
+  // דרישה כספית (financialDemand): a minimum. The other side may participate with more.
+  financialRequirement: "viewer-demand-100",
+  // יכולת כספית — the stored figure closest to השתתפות כספית (financialContribution).
+  financialCapabilities: "viewer-participation-80",
+  financialStatus: 4,
   city: "Tel Aviv",
   occupation: "engineer",
   description: "viewer public text",
@@ -40,8 +44,8 @@ const RIVKA = {
   resumePdf: "leak-resume-id-rivka",
   yeshiva: "LEAK-YESHIVA-RIVKA",
   seminar: "LEAK-SEMINAR-BEIT-YAAKOV",
-  financialRequirement: "LEAK-FINANCIAL-NOTE",
-  financialCapabilities: "LEAK-CAPABILITIES-NOTE",
+  financialRequirement: "rivka-demand-90",
+  financialCapabilities: "rivka-participation-150",
   city: "Haifa",
   occupation: "teacher",
   description: "public about text",
@@ -55,18 +59,11 @@ const SECRET_MARKERS = [
   VIEWER.idNumber,
   VIEWER.image,
   VIEWER.resumePdf,
-  VIEWER.yeshiva,
-  VIEWER.seminar,
-  VIEWER.financialRequirement,
   RIVKA.name,
   RIVKA.email,
   RIVKA.idNumber,
   RIVKA.image,
   RIVKA.resumePdf,
-  RIVKA.yeshiva,
-  RIVKA.seminar,
-  RIVKA.financialRequirement,
-  RIVKA.financialCapabilities,
   "LEAK-NAME-EXCLUDED",
   "LEAK-NAME-PREFERENCE",
   "LEAK-NAME-ADMIN",
@@ -92,11 +89,6 @@ const IDENTITY_KEYS = [
   "photoUrl",
   "resumeUrl",
   "imageUrl",
-  "yeshiva",
-  "seminar",
-  "financialRequirement",
-  "financialCapabilities",
-  "financialStatus",
 ];
 
 const CANDIDATE_KEYS = new Set([
@@ -110,7 +102,23 @@ const CANDIDATE_KEYS = new Set([
   "gender",
   "occupation",
   "description",
+  "yeshiva",
+  "seminar",
+  "financialRequirement",
+  "financialCapabilities",
+  "financialStatus",
 ]);
+
+// Institution plus both stored money figures. financialRequirement is דרישה כספית
+// (financialDemand). financialCapabilities is יכולת כספית, not a separate
+// השתתפות כספית (financialContribution) field.
+const assertMoneyAndInstitution = (person, source) => {
+  assert.equal(person.yeshiva, source.yeshiva);
+  assert.equal(person.seminar, source.seminar);
+  assert.equal(person.financialRequirement, source.financialRequirement);
+  assert.equal(person.financialCapabilities, source.financialCapabilities);
+  assert.equal(person.financialStatus, source.financialStatus);
+};
 
 const collectKeys = (value, keys = new Set()) => {
   if (!value || typeof value !== "object") return keys;
@@ -231,6 +239,8 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
         yeshiva: VIEWER.yeshiva,
         seminar: VIEWER.seminar,
         financialRequirement: VIEWER.financialRequirement,
+        financialCapabilities: VIEWER.financialCapabilities,
+        financialStatus: VIEWER.financialStatus,
         image: VIEWER.image,
         resumePdf: VIEWER.resumePdf,
       },
@@ -327,7 +337,6 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
 
   it("returns only non-identifying suggestion fields before any interest", async () => {
     const fixture = await seed();
-    const markers = secretMarkersFor(fixture);
     const headers = auth(tokenFor(fixture.viewer));
 
     const candidates = await request(app).get("/api/match/candidates").set(headers);
@@ -345,6 +354,7 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(card.occupation, RIVKA.occupation);
     assert.equal(card.description, RIVKA.description);
     assert.equal(card.style, "modern");
+    assertMoneyAndInstitution(card, RIVKA);
     for (const key of Object.keys(card)) {
       assert.ok(CANDIDATE_KEYS.has(key), `unexpected candidate field ${key}`);
     }
@@ -361,6 +371,7 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(profile.body.profile.occupation, RIVKA.occupation);
     assert.equal(profile.body.profile.description, RIVKA.description);
     assert.equal(profile.body.profile.age, 24);
+    assertMoneyAndInstitution(profile.body.profile, RIVKA);
 
     const incoming = await request(app).get("/api/interest/incoming").set(headers);
     const outgoing = await request(app).get("/api/interest/outgoing").set(headers);
@@ -405,10 +416,12 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(seenByViewer.occupation, RIVKA.occupation);
     assert.equal(seenByViewer.description, RIVKA.description);
     assert.equal(seenByViewer.city, RIVKA.city);
+    assertMoneyAndInstitution(seenByViewer, RIVKA);
     assert.equal(String(seenByRivka._id), String(fixture.viewer._id));
     assert.equal(seenByRivka.occupation, VIEWER.occupation);
     assert.equal(seenByRivka.description, VIEWER.description);
     assert.equal(seenByRivka.city, VIEWER.city);
+    assertMoneyAndInstitution(seenByRivka, VIEWER);
 
     for (const key of Object.keys(seenByViewer)) {
       assert.ok(CANDIDATE_KEYS.has(key), `unexpected interest field ${key}`);
@@ -418,6 +431,7 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(profileOfSender.status, 200);
     assertAnonymous(profileOfSender.body);
     assert.equal(profileOfSender.body.profile.occupation, VIEWER.occupation);
+    assertMoneyAndInstitution(profileOfSender.body.profile, VIEWER);
 
     const stillCandidates = await request(app).get("/api/match/candidates").set(viewerHeaders);
     assertAnonymous(stillCandidates.body);

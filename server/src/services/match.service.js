@@ -60,8 +60,10 @@ const meetsPreference = (profile, preference) => {
   if (preference.preferredAppearance && profile.appearance !== preference.preferredAppearance) return false;
   if (preference.city && profile.city !== preference.city) return false;
 
-  // Financial status is optional and older profiles never collected it,
-  // so a profile without it is not excluded by a financial range
+  // Existing filter only. financialStatus must fall inside the other side's
+  // [financialMin, financialMax]: a range, not an exact match. It does not compare
+  // דרישה כספית (financialRequirement, a minimum) with participation. A profile
+  // that never stored financialStatus is not excluded by this range.
   if (
     profile.financialStatus != null &&
     isOutOfRange(profile.financialStatus, preference.financialMin, preference.financialMax)

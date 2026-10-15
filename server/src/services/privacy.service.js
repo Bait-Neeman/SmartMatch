@@ -1,7 +1,14 @@
 const { getFileUrl } = require("./storage.service");
 
-// Shown before both sides have accepted. These are coarse traits and free text the
-// person wrote for a suggestion — not a name, a photo, a resume, or a way to contact them.
+// Shown before both sides have accepted. Name, photo, resume, and contact details are not.
+//
+// Money fields keep the names already stored on the profile, for either side:
+// - financialRequirement is דרישה כספית (financialDemand): a minimum. The other
+//   side's participation may be higher and still compatible.
+// - financialCapabilities is יכולת כספית. The profile has no separate
+//   השתתפות כספית (financialContribution) field; this is the other stored figure.
+// - financialStatus is one number for the existing preference range, not that pair.
+// yeshiva and seminar are the learning institution (מוסד).
 const PUBLIC_PROFILE_FIELDS = [
   "age",
   "height",
@@ -12,10 +19,6 @@ const PUBLIC_PROFILE_FIELDS = [
   "gender",
   "occupation",
   "description",
-];
-
-// Returned only after mutual approval, together with name, email, and file URLs.
-const PRIVATE_PROFILE_FIELDS = [
   "yeshiva",
   "seminar",
   "financialRequirement",
@@ -41,11 +44,6 @@ const IDENTITY_KEYS = new Set([
   "photoUrl",
   "resumeUrl",
   "imageUrl",
-  "yeshiva",
-  "seminar",
-  "financialRequirement",
-  "financialCapabilities",
-  "financialStatus",
 ]);
 
 const asPlain = (value) => {
@@ -104,7 +102,6 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
     person.email = plainUser?.email ?? null;
     person.image = getFileUrl("image", plainProfile?.image);
     person.resumePdf = getFileUrl("resumePdf", plainProfile?.resumePdf);
-    Object.assign(person, copyFields(plainProfile, PRIVATE_PROFILE_FIELDS));
   }
 
   return redactIdentity(person, { revealIdentity });
