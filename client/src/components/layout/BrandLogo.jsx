@@ -1,16 +1,16 @@
 import { Box } from "@mui/material";
-import logo160 from "../../assets/brand/logo-transparent-160.png";
-import logo320 from "../../assets/brand/logo-transparent-320.png";
-import logo200 from "../../assets/brand/logo-transparent-200.png";
-import logo400 from "../../assets/brand/logo-transparent-400.png";
-import logo240 from "../../assets/brand/logo-transparent-240.png";
-import logo480 from "../../assets/brand/logo-transparent-480.png";
+import logo160 from "../../assets/brand/logo-transparent-new-160.png";
+import logo320 from "../../assets/brand/logo-transparent-new-320.png";
+import logo200 from "../../assets/brand/logo-transparent-new-200.png";
+import logo400 from "../../assets/brand/logo-transparent-new-400.png";
+import logo240 from "../../assets/brand/logo-transparent-new-240.png";
+import logo480 from "../../assets/brand/logo-transparent-new-480.png";
 
-// Straight Lanczos cuts of logo-transparent.png. Alpha is the file's own alpha.
+// Lanczos cuts of logo-transparent-new.png (1565×1005). Height follows that ratio.
 const sources = {
-  160: { one: logo160, two: logo320 },
-  200: { one: logo200, two: logo400 },
-  240: { one: logo240, two: logo480 },
+  160: { one: logo160, two: logo320, height: 103 },
+  200: { one: logo200, two: logo400, height: 128 },
+  240: { one: logo240, two: logo480, height: 154 },
 };
 
 export default function BrandLogo({ maxWidth = 160 }) {
@@ -25,7 +25,7 @@ export default function BrandLogo({ maxWidth = 160 }) {
       srcSet={`${pair.one} 1x, ${pair.two} 2x`}
       alt="בית נאמן"
       width={width}
-      height={width}
+      height={pair.height}
       draggable={false}
       sx={{
         display: "block",
