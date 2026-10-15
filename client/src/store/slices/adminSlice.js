@@ -4,28 +4,32 @@ import {
   getAdminUserProfile,
   getPendingMatches,
   removePendingMatch as removePendingMatchApi,
+  getAdminSummary,
+  getAdminCases,
+  updateAdminCase as updateAdminCaseApi,
+  getAdminSettings,
+  updateAdminSettings as updateAdminSettingsApi,
+  updateAdminAccount as updateAdminAccountApi,
 } from "../../services/admin.service.js";
 
-export const fetchAdminUsers = createAsyncThunk(
-  "admin/fetchAdminUsers",
-  async (_, { rejectWithValue }) => {
-    try {
-      const data = await getAdminUsers();
-      return data?.users || data?.data || [];
-    } catch (error) {
-      return rejectWithValue(error?.message || "לא הצלחנו לטעון משתמשים");
-    }
+const messageOf = (error, fallback) => error?.message || fallback;
+
+export const fetchAdminUsers = createAsyncThunk("admin/fetchAdminUsers", async (_, { rejectWithValue }) => {
+  try {
+    const data = await getAdminUsers();
+    return data?.users || [];
+  } catch (error) {
+    return rejectWithValue(messageOf(error, "לא הצלחנו לטעון משתמשים"));
   }
-);
+});
 
 export const fetchAdminUserProfile = createAsyncThunk(
   "admin/fetchAdminUserProfile",
   async (userId, { rejectWithValue }) => {
     try {
-      const data = await getAdminUserProfile(userId);
-      return data;
+      return await getAdminUserProfile(userId);
     } catch (error) {
-      return rejectWithValue(error?.message || "לא הצלחנו לטעון פרופיל");
+      return rejectWithValue(messageOf(error, "לא הצלחנו לטעון פרופיל"));
     }
   }
 );
@@ -37,7 +41,7 @@ export const fetchPendingMatches = createAsyncThunk(
       const data = await getPendingMatches();
       return data?.matches || data?.data || [];
     } catch (error) {
-      return rejectWithValue(error?.message || "לא הצלחנו לטעון הצעות");
+      return rejectWithValue(messageOf(error, "לא הצלחנו לטעון הצעות"));
     }
   }
 );
@@ -49,7 +53,68 @@ export const removePendingMatch = createAsyncThunk(
       await removePendingMatchApi({ senderId, receiverId });
       return { senderId, receiverId };
     } catch (error) {
-      return rejectWithValue(error?.message || "לא הצלחנו להסיר את ההצעה");
+      return rejectWithValue(messageOf(error, "לא הצלחנו להסיר את ההצעה"));
+    }
+  }
+);
+
+export const fetchAdminSummary = createAsyncThunk("admin/fetchAdminSummary", async (_, { rejectWithValue }) => {
+  try {
+    return await getAdminSummary();
+  } catch (error) {
+    return rejectWithValue(messageOf(error, "לא הצלחנו לטעון את הדשבורד"));
+  }
+});
+
+export const fetchAdminCases = createAsyncThunk("admin/fetchAdminCases", async (_, { rejectWithValue }) => {
+  try {
+    return await getAdminCases();
+  } catch (error) {
+    return rejectWithValue(messageOf(error, "לא הצלחנו לטעון תיקים"));
+  }
+});
+
+export const saveAdminCase = createAsyncThunk(
+  "admin/saveAdminCase",
+  async ({ id, status, note }, { rejectWithValue }) => {
+    try {
+      const payload = {};
+      if (status !== undefined) payload.status = status;
+      if (note !== undefined) payload.note = note;
+      const data = await updateAdminCaseApi(id, payload);
+      return data?.case;
+    } catch (error) {
+      return rejectWithValue(messageOf(error, "לא הצלחנו לעדכן את התיק"));
+    }
+  }
+);
+
+export const fetchAdminSettings = createAsyncThunk("admin/fetchAdminSettings", async (_, { rejectWithValue }) => {
+  try {
+    return await getAdminSettings();
+  } catch (error) {
+    return rejectWithValue(messageOf(error, "לא הצלחנו לטעון הגדרות"));
+  }
+});
+
+export const saveAdminSettings = createAsyncThunk(
+  "admin/saveAdminSettings",
+  async (payload, { rejectWithValue }) => {
+    try {
+      return await updateAdminSettingsApi(payload);
+    } catch (error) {
+      return rejectWithValue(messageOf(error, "לא הצלחנו לשמור הגדרות"));
+    }
+  }
+);
+
+export const saveAdminAccount = createAsyncThunk(
+  "admin/saveAdminAccount",
+  async (payload, { rejectWithValue }) => {
+    try {
+      return await updateAdminAccountApi(payload);
+    } catch (error) {
+      return rejectWithValue(messageOf(error, "לא הצלחנו לשמור את הפרופיל"));
     }
   }
 );
@@ -57,19 +122,36 @@ export const removePendingMatch = createAsyncThunk(
 const initialState = {
   users: [],
   pendingMatches: [],
+  cases: [],
+  revealIdentity: true,
+  summary: null,
+  settings: null,
+  account: null,
+  team: [],
   selectedProfile: null,
   loadingUsers: false,
-  loadingProfile: false,
   loadingPendingMatches: false,
+  loadingCases: false,
+  loadingSummary: false,
+  loadingSettings: false,
+  loadingProfile: false,
   errorUsers: null,
-  errorProfile: null,
   errorPendingMatches: null,
+  errorCases: null,
+  errorSummary: null,
+  errorSettings: null,
+  errorProfile: null,
 };
 
 const adminSlice = createSlice({
   name: "admin",
   initialState,
-  reducers: {},
+  reducers: {
+    clearAdminProfile(state) {
+      state.selectedProfile = null;
+      state.errorProfile = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchAdminUsers.pending, (state) => {
@@ -117,18 +199,104 @@ const adminSlice = createSlice({
       })
       .addCase(removePendingMatch.rejected, (state, action) => {
         state.errorPendingMatches = action.payload || action.error.message;
+      })
+      .addCase(fetchAdminSummary.pending, (state) => {
+        state.loadingSummary = true;
+        state.errorSummary = null;
+      })
+      .addCase(fetchAdminSummary.fulfilled, (state, action) => {
+        state.summary = action.payload;
+        state.revealIdentity = action.payload?.revealIdentity !== false;
+        state.loadingSummary = false;
+      })
+      .addCase(fetchAdminSummary.rejected, (state, action) => {
+        state.loadingSummary = false;
+        state.errorSummary = action.payload || action.error.message;
+      })
+      .addCase(fetchAdminCases.pending, (state) => {
+        state.loadingCases = true;
+        state.errorCases = null;
+      })
+      .addCase(fetchAdminCases.fulfilled, (state, action) => {
+        state.cases = action.payload?.cases || [];
+        state.revealIdentity = action.payload?.revealIdentity !== false;
+        state.loadingCases = false;
+      })
+      .addCase(fetchAdminCases.rejected, (state, action) => {
+        state.loadingCases = false;
+        state.errorCases = action.payload || action.error.message;
+      })
+      .addCase(saveAdminCase.fulfilled, (state, action) => {
+        const saved = action.payload;
+        if (!saved) return;
+        state.cases = state.cases.map((item) => (String(item._id) === String(saved._id) ? saved : item));
+        if (state.summary?.recent) {
+          state.summary.recent = state.summary.recent.map((item) =>
+            String(item._id) === String(saved._id) ? saved : item
+          );
+        }
+      })
+      .addCase(saveAdminCase.rejected, (state, action) => {
+        state.errorCases = action.payload || action.error.message;
+      })
+      .addCase(fetchAdminSettings.pending, (state) => {
+        state.loadingSettings = true;
+        state.errorSettings = null;
+      })
+      .addCase(fetchAdminSettings.fulfilled, (state, action) => {
+        state.settings = action.payload?.settings || null;
+        state.account = action.payload?.account || null;
+        state.team = action.payload?.team || [];
+        state.revealIdentity = action.payload?.settings?.revealIdentity !== false;
+        state.loadingSettings = false;
+      })
+      .addCase(fetchAdminSettings.rejected, (state, action) => {
+        state.loadingSettings = false;
+        state.errorSettings = action.payload || action.error.message;
+      })
+      .addCase(saveAdminSettings.fulfilled, (state, action) => {
+        state.settings = action.payload?.settings || state.settings;
+        state.account = action.payload?.account || state.account;
+        state.team = action.payload?.team || state.team;
+        state.revealIdentity = action.payload?.settings?.revealIdentity !== false;
+      })
+      .addCase(saveAdminSettings.rejected, (state, action) => {
+        state.errorSettings = action.payload || action.error.message;
+      })
+      .addCase(saveAdminAccount.fulfilled, (state, action) => {
+        state.account = { ...state.account, ...action.payload?.account };
+        if (state.settings && action.payload?.account?.activityArea != null) {
+          state.settings.activityArea = action.payload.account.activityArea;
+        }
+      })
+      .addCase(saveAdminAccount.rejected, (state, action) => {
+        state.errorSettings = action.payload || action.error.message;
       });
   },
 });
+
+export const { clearAdminProfile } = adminSlice.actions;
 
 export const selectAdminUsers = (state) => state.admin.users;
 export const selectAdminUserProfile = (state) => state.admin.selectedProfile;
 export const selectAdminUsersLoading = (state) => state.admin.loadingUsers;
 export const selectAdminProfileLoading = (state) => state.admin.loadingProfile;
-export const selectAdminPendingMatches = (state) => state.admin.pendingMatches;
-export const selectAdminPendingMatchesLoading = (state) => state.admin.loadingPendingMatches;
 export const selectAdminUsersError = (state) => state.admin.errorUsers;
 export const selectAdminProfileError = (state) => state.admin.errorProfile;
+export const selectAdminPendingMatches = (state) => state.admin.pendingMatches;
+export const selectAdminPendingMatchesLoading = (state) => state.admin.loadingPendingMatches;
 export const selectAdminPendingMatchesError = (state) => state.admin.errorPendingMatches;
+export const selectAdminSummary = (state) => state.admin.summary;
+export const selectAdminSummaryLoading = (state) => state.admin.loadingSummary;
+export const selectAdminSummaryError = (state) => state.admin.errorSummary;
+export const selectAdminCases = (state) => state.admin.cases;
+export const selectAdminCasesLoading = (state) => state.admin.loadingCases;
+export const selectAdminCasesError = (state) => state.admin.errorCases;
+export const selectAdminRevealIdentity = (state) => state.admin.revealIdentity;
+export const selectAdminSettings = (state) => state.admin.settings;
+export const selectAdminAccount = (state) => state.admin.account;
+export const selectAdminTeam = (state) => state.admin.team;
+export const selectAdminSettingsLoading = (state) => state.admin.loadingSettings;
+export const selectAdminSettingsError = (state) => state.admin.errorSettings;
 
 export default adminSlice.reducer;

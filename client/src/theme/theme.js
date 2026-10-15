@@ -337,6 +337,58 @@ const theme = createTheme({
         },
       },
     },
+    MuiSwitch: {
+      styleOverrides: {
+        root: {
+          width: 42,
+          height: 24,
+          padding: 0,
+          overflow: "visible",
+          flexShrink: 0,
+          "& .MuiSwitch-switchBase": {
+            padding: 3,
+            top: 0,
+          },
+          "& .MuiSwitch-switchBase.Mui-checked": {
+            transform: "translateX(18px)",
+          },
+          "& .MuiSwitch-thumb": {
+            width: 18,
+            height: 18,
+          },
+          "& .MuiSwitch-track": {
+            width: 42,
+            height: 24,
+            borderRadius: 12,
+          },
+        },
+        switchBase: {
+          padding: 3,
+          color: brand.paper,
+          "&.Mui-checked": {
+            transform: "translateX(18px)",
+            color: brand.paper,
+            "& + .MuiSwitch-track": {
+              backgroundImage: brand.goldButton,
+              backgroundColor: brand.gold,
+              opacity: 1,
+            },
+          },
+        },
+        track: {
+          width: 42,
+          height: 24,
+          borderRadius: 12,
+          backgroundColor: brand.inputLine,
+          opacity: 1,
+        },
+        thumb: {
+          width: 18,
+          height: 18,
+          boxShadow: brand.toastShadow,
+        },
+      },
+    },
   },
 });
 

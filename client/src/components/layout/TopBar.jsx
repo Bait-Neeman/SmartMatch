@@ -120,7 +120,7 @@ const rowSx = {
   "&:hover": { bgcolor: brand.navyWash },
 };
 
-export default function TopBar({ isAdmin = false, name = "" }) {
+export default function TopBar({ isAdmin = false, name = "", searchSlot = null }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const searchId = useId();
@@ -200,6 +200,7 @@ export default function TopBar({ isAdmin = false, name = "" }) {
   };
 
   useEffect(() => {
+    if (searchSlot) return undefined;
     const onKey = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -209,7 +210,7 @@ export default function TopBar({ isAdmin = false, name = "" }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [searchSlot]);
 
   useEffect(() => {
     const onPointer = (event) => {
@@ -256,6 +257,11 @@ export default function TopBar({ isAdmin = false, name = "" }) {
 
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+      {searchSlot ? (
+        <Box sx={{ position: "relative", flex: { xs: 1, lg: "0 1 auto" }, minWidth: 0, maxWidth: 380, width: "100%" }}>
+          {searchSlot}
+        </Box>
+      ) : (
       <Box ref={searchRef} sx={{ position: "relative", flex: { xs: 1, lg: "0 1 auto" }, minWidth: 0, maxWidth: 380 }}>
         <Box
           sx={{
@@ -351,6 +357,7 @@ export default function TopBar({ isAdmin = false, name = "" }) {
           </Box>
         )}
       </Box>
+      )}
 
       <Box sx={{ flex: 1 }} />
 

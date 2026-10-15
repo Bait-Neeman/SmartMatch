@@ -10,18 +10,18 @@ import {
   ListItemIcon,
   ListItemText,
   Toolbar,
+  Typography,
   useMediaQuery,
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import {
-  AdminPanelSettings,
+  FolderOutlined,
   FormatListBulleted,
-  Group,
+  GroupsOutlined,
+  HomeOutlined,
   HowToReg,
   Logout,
   Menu as MenuIcon,
-  Folder,
-  PendingActions,
   PeopleAlt,
   Person,
   Settings,
@@ -30,6 +30,8 @@ import { getSession, logout } from "../../utils/session.js";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
 import TopBar from "./TopBar.jsx";
+import PersonAvatar from "../common/PersonAvatar.jsx";
+import AdminSearch from "../admin/AdminSearch.jsx";
 
 const USER_LINKS = [
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
@@ -40,10 +42,11 @@ const USER_LINKS = [
 ];
 
 const ADMIN_LINKS = [
-  { to: "/admin", label: "ניהול", icon: <AdminPanelSettings /> },
-  { to: "/admin/users", label: "משתמשים", icon: <Group /> },
-  { to: "/admin/pending-matches", label: "הצעות ממתינות", icon: <PendingActions /> },
-  { to: "/admin/matchmaker", label: "הצעות בטיפול", icon: <Folder /> },
+  { to: "/admin", label: "דשבורד", icon: <HomeOutlined />, end: true },
+  { to: "/admin/boys", label: "בחורים", icon: <GroupsOutlined /> },
+  { to: "/admin/girls", label: "בחורות", icon: <GroupsOutlined /> },
+  { to: "/admin/cases", label: "הצעות בטיפול", icon: <FolderOutlined /> },
+  { to: "/admin/settings", label: "הגדרות", icon: <Settings /> },
 ];
 
 const navItemSx = {
@@ -79,12 +82,34 @@ const navItemSx = {
   },
 };
 
-function SideNav({ links, onNavigate }) {
+function SideNav({ links, onNavigate, identity, logoutLabel = "התנתקות" }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: brand.navy, px: "12px", py: "18px" }}>
       <Box sx={{ px: "4px", pt: "8px", pb: "4px", mb: "8px" }}>
         <BrandLogo maxWidth={190} />
       </Box>
+      {identity ? (
+        <Box
+          sx={{
+            display: "flex",
+            gap: "10px",
+            alignItems: "center",
+            px: "6px",
+            py: "12px",
+            mb: "12px",
+            borderTop: `1px solid ${brand.whiteLine}`,
+            borderBottom: `1px solid ${brand.whiteLine}`,
+          }}
+        >
+          <PersonAvatar size={36} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography noWrap sx={{ color: brand.paper, fontWeight: 600, fontSize: 15, lineHeight: 1.2 }}>
+              {identity.name}
+            </Typography>
+            <Typography sx={{ color: brand.goldLight, fontSize: 12 }}>{identity.subtitle}</Typography>
+          </Box>
+        </Box>
+      ) : null}
       <List sx={{ px: 0.5, py: 0.5 }}>
         {links.map((link) => (
           <ListItemButton key={link.to} component={NavLink} to={link.to} end={link.end !== false} onClick={onNavigate} sx={navItemSx}>
@@ -99,7 +124,7 @@ function SideNav({ links, onNavigate }) {
             <ListItemIcon>
               <Logout />
             </ListItemIcon>
-            <ListItemText primary="התנתקות" />
+            <ListItemText primary={logoutLabel} />
           </ListItemButton>
         </List>
       </Box>
@@ -114,6 +139,8 @@ export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, isAdmin } = getSession();
   const links = isAdmin ? ADMIN_LINKS : USER_LINKS;
+  const identity = isAdmin ? { name: user?.name || "מנהל", subtitle: "שדכן · מנהל מערכת" } : null;
+  const logoutLabel = isAdmin ? "יציאה" : "התנתקות";
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -136,7 +163,7 @@ export default function AppLayout() {
             borderInlineEnd: `1px solid ${brand.navyEdge}`,
           }}
         >
-          <SideNav links={links} />
+          <SideNav links={links} identity={identity} logoutLabel={logoutLabel} />
         </Box>
       )}
 
@@ -164,7 +191,11 @@ export default function AppLayout() {
                 <MenuIcon />
               </IconButton>
             )}
-            <TopBar isAdmin={isAdmin} name={user?.name || ""} />
+            <TopBar
+              isAdmin={isAdmin}
+              name={user?.name || ""}
+              searchSlot={isAdmin ? <AdminSearch /> : null}
+            />
             {isCompact && (
               <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: brand.paper }}>
                 <Logout />
@@ -187,7 +218,7 @@ export default function AppLayout() {
             },
           }}
         >
-          <SideNav links={links} onNavigate={() => setMenuOpen(false)} />
+          <SideNav links={links} identity={identity} logoutLabel={logoutLabel} onNavigate={() => setMenuOpen(false)} />
         </Drawer>
 
         <Box

@@ -91,6 +91,8 @@ export const brand = {
   blueShadow: "0 6px 20px rgba(31, 63, 149, 0.15)",
   goldLineSoft: "rgba(232, 213, 163, 0.28)",
   goldWash: "rgba(196, 162, 79, 0.12)",
+  goldGlow: "rgba(230, 199, 122, 0.22)",
+  heroEnd: "#FBFAF6",
   fontFamily: '"Rubik", sans-serif',
   sidebarWidth: "clamp(230px, 17vw, 252px)",
   topBarHeight: 64,
@@ -126,4 +128,5 @@ export const statusTones = {
   forwarded: { background: brand.pillTealBg, color: brand.pillTealText, border: brand.pillTealLine },
   otherForwarded: { background: brand.pillTealBg, color: brand.pillTealText, border: brand.pillTealLine },
   matchmaker: { background: brand.pillOrangeBg, color: brand.pillOrangeText, border: brand.pillOrangeLine },
+  progress: { background: brand.pillOrangeBg, color: brand.pillOrangeText, border: brand.pillOrangeLine },
 };
