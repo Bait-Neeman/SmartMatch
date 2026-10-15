@@ -8,6 +8,7 @@ const preferenceRoutes = require("./src/routes/preference.routes");
 const interestRoutes = require("./src/routes/interest.routes");
 const matchRoutes = require("./src/routes/match.routes");
 const adminRoutes = require("./src/routes/admin.routes");
+const fileRoutes = require("./src/routes/file.routes");
 const { apiLimiter } = require("./src/middleware/rateLimit.middleware");
 const { notFound, errorHandler } = require("./src/middleware/error.middleware");
 
@@ -60,6 +61,7 @@ app.use("/api/preference", preferenceRoutes);
 app.use("/api/interest", interestRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/files", fileRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

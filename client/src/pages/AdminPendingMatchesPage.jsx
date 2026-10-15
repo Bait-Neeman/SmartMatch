@@ -24,6 +24,8 @@ import {
   selectAdminUserProfile,
 } from "../store/slices/adminSlice.js";
 import { toSafeFileUrl } from "../utils/files.js";
+import ProtectedImage from "../components/common/ProtectedFile.jsx";
+import { openProtectedFile } from "../utils/protectedFile.js";
 import { appearanceOptions, labelOf, roleLabel, styleOptions } from "../constants/profileOptions.js";
 
 const AdminPendingMatchesPage = () => {
@@ -152,9 +154,9 @@ const AdminPendingMatchesPage = () => {
 
             {profile?.image && (
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                <Box
-                  component="img"
-                  src={toSafeFileUrl(profile.image)}
+                <ProtectedImage
+                  key={toSafeFileUrl(profile.image)}
+                  url={toSafeFileUrl(profile.image)}
                   alt="תמונת פרופיל"
                   sx={{
                     width: "100%",
@@ -166,9 +168,7 @@ const AdminPendingMatchesPage = () => {
                 />
                 <Button
                   variant="outlined"
-                  href={toSafeFileUrl(profile.image)}
-                  target="_blank"
-                  rel="noreferrer"
+                  onClick={() => openProtectedFile(toSafeFileUrl(profile.image))}
                 >
                   צפייה בתמונה
                 </Button>
@@ -178,9 +178,7 @@ const AdminPendingMatchesPage = () => {
             {profile?.resumePdf && (
               <Button
                 variant="outlined"
-                href={toSafeFileUrl(profile.resumePdf)}
-                target="_blank"
-                rel="noreferrer"
+                onClick={() => openProtectedFile(toSafeFileUrl(profile.resumePdf))}
               >
                 צפייה בקובץ PDF
               </Button>

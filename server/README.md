@@ -55,7 +55,7 @@ The server will run on http://localhost:3000
 - `POST /api/interest` - Send interest to user
 - `GET /api/interest/incoming` - Get incoming interests
 - `GET /api/interest/outgoing` - Get outgoing interests
-- `PUT /api/interest/respond` - Respond to interest (accept/reject)
+- `PUT /api/interest/respond` - Accept a pending interest (the receiver), or decline a pending or accepted interest (either person)
 - `POST /api/interest/send-to-manager` - Approve interest to send to manager
 
 ### Match
@@ -68,6 +68,10 @@ The server will run on http://localhost:3000
 - `GET /api/admin/users` - Get all users
 - `GET /api/admin/users/:userId/profile` - Get a user's profile
 
+### Files
+- `GET /api/files/:userId/image` - Open a profile photo (login required; checked on every request)
+- `GET /api/files/:userId/resume` - Open a resume PDF (login required; checked on every request)
+
 ## File Upload
 
 Files are stored only in Cloudinary - never on the server's disk.
@@ -76,21 +80,24 @@ Files are stored only in Cloudinary - never on the server's disk.
 - Maximum file size: 10MB
 - The real file type is checked from the file's content, not only from the type the browser declares.
 
-Files are uploaded as private ("authenticated") assets. The API returns a signed URL with no expiry time.
-Anyone who has that link can open it later, including after a decline. The API still hands the link out
-only to eligible users, and only after mutual approval (or to the owner and to admins).
+Files are uploaded as private ("authenticated") assets. API responses do not contain a Cloudinary link.
+They contain a stable path such as `/api/files/:userId/image`. That path does not expire. Each open
+checks that the caller is the owner, an admin, or currently mutually accepted with the owner, then
+the server reads the file with a short-lived Cloudinary download URL and streams the bytes.
+A decline removes that access on the next open. A copy already saved or cached by the other person
+cannot be taken back. The short-lived storage URL is not returned to the client.
 
 ## Access Control
 
 Until both sides have an accepted interest, suggestions, incoming and outgoing interests, and another user's profile omit name, email, photo URL, resume URL, and other contact or identity details. They do include age, height, community (`ethnicity`), residence (`city`), occupation, the free-text description, the learning institution (`yeshiva`, `seminar`), and the stored money figures: `financialRequirement` (דרישה כספית, a minimum demand), `financialCapabilities` (יכולת כספית; there is no separate השתתפות כספית field), and `financialStatus` (the numeric preference scale).
 
-After mutual approval, name, email, photo URL, and resume URL are included. If both users send interest at the same time, that is mutual approval (`accepted`), not a conflict.
+After mutual approval, name, email, and the stable photo and resume paths are included. If both users send interest at the same time, that is mutual approval (`accepted`), not a conflict. Either person can decline a pending or an accepted interest. A decline is final: it is not overwritten by a later accept, and name, email, photo, and resume are no longer returned.
 
 The national ID number is still returned only to the user themselves and to admins.
 
-`GET /api/profile/:userId` is limited to the profile owner, an admin, or a logged-in user for whom that person is a current suggestion or an existing interest. Anyone else, and an unknown id, get the same not-found response. A request without a login token is rejected as unauthorized.
+`GET /api/profile/:userId` is limited to the profile owner, an admin, a logged-in user for whom that person is a current suggestion, or a pair with a still-pending or accepted interest. A declined pair, anyone else, and an unknown id get the same not-found response. A request without a login token is rejected as unauthorized.
 
-Profile files are stored as private Cloudinary assets. Photo and resume URLs are permanent signed links. They are issued only to the owner, an admin, or a user with a mutual accepted interest.
+Photo and resume bytes are served only from `GET /api/files/:userId/image` and `GET /api/files/:userId/resume`, and only to the owner, an admin, or a pair whose interest is accepted at the moment of the request. An unknown file and a caller who is not allowed get the same not-found response.
 
 ## Security
 

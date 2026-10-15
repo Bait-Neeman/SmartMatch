@@ -93,27 +93,88 @@ const deleteProfileFile = async (kind, publicId) => {
   }
 };
 
-// Permanent signed URL, or null when there is no (available) file.
-// No expires_at: a link keeps working for anyone who has it, including after a later decline.
-// The API still returns these URLs only to eligible users, and only after mutual approval.
-const getFileUrl = (kind, publicId) => {
-  if (!configured || !isStoredFileId(publicId)) {
+// How long the server may use a Cloudinary download URL. Callers never receive this URL.
+const READ_URL_TTL_SECONDS = 60;
+
+const ROUTE_KIND = {
+  image: "image",
+  resumePdf: "resume",
+};
+
+// Stable path the client keeps. It does not expire; every open is checked again.
+const fileAccessPath = (userId, kind, publicId) => {
+  const routeKind = ROUTE_KIND[kind];
+  if (userId == null || !routeKind || !isStoredFileId(publicId)) {
     return null;
   }
+  const id = userId._id || userId;
+  return `/api/files/${id}/${routeKind}`;
+};
 
-  const { resourceType } = FILE_KINDS[kind];
+const formatFor = (kind, publicId) => {
+  if (kind === "resumePdf") return "pdf";
+  const extension = String(publicId).match(/\.([a-z0-9]+)$/i);
+  return extension ? extension[1] : "jpg";
+};
 
-  return cloudinary.url(publicId, {
-    resource_type: resourceType,
+// Signed Cloudinary download URL used only while this server fetches the bytes.
+const createShortLivedReadUrl = (kind, publicId) => {
+  const fileKind = FILE_KINDS[kind];
+  const expiresAt = Math.floor(Date.now() / 1000) + READ_URL_TTL_SECONDS;
+  const url = cloudinary.utils.private_download_url(publicId, formatFor(kind, publicId), {
+    resource_type: fileKind.resourceType,
     type: DELIVERY_TYPE,
-    sign_url: true,
-    secure: true,
+    expires_at: expiresAt,
+    attachment: false,
   });
+  return { url, expiresAt };
+};
+
+const defaultContentType = {
+  image: "image/jpeg",
+  resumePdf: "application/pdf",
+};
+
+const defaultFilename = {
+  image: "photo.jpg",
+  resumePdf: "resume.pdf",
+};
+
+// Tests substitute this so a fake Cloudinary account is not contacted.
+let readFileOverride = null;
+
+const setStoredFileReader = (reader) => {
+  readFileOverride = reader;
+};
+
+const readStoredFile = async (kind, publicId) => {
+  if (readFileOverride) {
+    return readFileOverride(kind, publicId);
+  }
+  if (!configured || !isStoredFileId(publicId)) {
+    throw new HttpError(404, "הקובץ לא נמצא");
+  }
+
+  const { url } = createShortLivedReadUrl(kind, publicId);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new HttpError(502, "לא ניתן לפתוח את הקובץ כרגע");
+  }
+
+  return {
+    body: Buffer.from(await response.arrayBuffer()),
+    contentType: response.headers.get("content-type") || defaultContentType[kind],
+    filename: defaultFilename[kind],
+  };
 };
 
 module.exports = {
   isStorageConfigured,
   uploadProfileFile,
   deleteProfileFile,
-  getFileUrl,
+  fileAccessPath,
+  createShortLivedReadUrl,
+  setStoredFileReader,
+  readStoredFile,
+  READ_URL_TTL_SECONDS,
 };

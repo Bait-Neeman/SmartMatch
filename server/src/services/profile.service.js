@@ -3,7 +3,7 @@ const Interest = require("../models/interest.model");
 const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
-const { uploadProfileFile, deleteProfileFile, getFileUrl } = require("./storage.service");
+const { uploadProfileFile, deleteProfileFile, fileAccessPath } = require("./storage.service");
 const { toPublicPerson } = require("./privacy.service");
 const { getCandidatesForUser } = require("./match.service");
 
@@ -73,7 +73,7 @@ const pickProfileFields = (body = {}) => {
 const toProfileResponse = (profile, { includeFiles = true } = {}) => {
   const data = typeof profile.toObject === "function" ? profile.toObject() : { ...profile };
   for (const field of FILE_FIELDS) {
-    data[field] = includeFiles ? getFileUrl(field, data[field]) : null;
+    data[field] = includeFiles ? fileAccessPath(data.user, field, data[field]) : null;
   }
   return data;
 };
@@ -174,8 +174,8 @@ const deleteProfileByUserId = async (userId) => {
   await deleteFiles({ image: profile.image, resumePdf: profile.resumePdf });
 };
 
-const interestBetween = (userA, userB) =>
-  Interest.findOne({
+const interestsBetween = (userA, userB) =>
+  Interest.find({
     $or: [
       { sender: userA, receiver: userB },
       { sender: userB, receiver: userA },
@@ -195,20 +195,22 @@ const isCurrentCandidate = async (viewerId, targetUserId) => {
   }
 };
 
-// The owner and an admin see the stored profile. Another registered user sees it
-// only when that person is a current suggestion or there is already an interest
-// between them: anonymized until the interest is accepted, then with name, contact,
-// photo, and resume. Everyone else gets the same not-found response.
+// The owner and an admin see the stored profile. Another registered user sees the
+// anonymized profile when that person is a current suggestion or a still-pending
+// interest, and name, contact, photo, and resume only while an interest is accepted.
+// A decline at any stage, a stranger, and an unknown id all get the same not-found response.
 const getProfileForViewer = async (viewer, targetUserId) => {
   assertObjectId(targetUserId);
 
   const isSelf = viewer.userId === String(targetUserId);
   const isAdmin = viewer.role === "admin";
-  const interest = isSelf || isAdmin ? null : await interestBetween(viewer.userId, targetUserId);
+  const interests = isSelf || isAdmin ? [] : await interestsBetween(viewer.userId, targetUserId);
+  const accepted = interests.some((interest) => interest.status === "accepted");
+  const pending = interests.some((interest) => interest.status === "pending");
   const offered =
-    !isSelf && !isAdmin && !interest && (await isCurrentCandidate(viewer.userId, targetUserId));
+    !isSelf && !isAdmin && !accepted && !pending && (await isCurrentCandidate(viewer.userId, targetUserId));
 
-  if (!isSelf && !isAdmin && !interest && !offered) {
+  if (!isSelf && !isAdmin && !accepted && !pending && !offered) {
     throw new HttpError(404, PROFILE_NOT_FOUND);
   }
 
@@ -221,12 +223,11 @@ const getProfileForViewer = async (viewer, targetUserId) => {
     return toProfileResponse(profile, { includeFiles: true });
   }
 
-  const revealIdentity = interest?.status === "accepted";
-  const user = revealIdentity
+  const user = accepted
     ? await User.findById(targetUserId).select("name email").lean()
     : { _id: targetUserId };
 
-  return toPublicPerson(user, profile, { revealIdentity });
+  return toPublicPerson(user, profile, { revealIdentity: accepted });
 };
 
 module.exports = {

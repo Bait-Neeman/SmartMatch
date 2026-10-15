@@ -158,28 +158,51 @@ const sendInterest = async (senderId, receiverId) => {
   throw new HttpError(409, 'כבר שלחת פנייה למשתמש זה');
 };
 
-const respondInterest = async (receiverId, senderId, status) => {
+const pairFilter = (userA, userB) => ({
+  $or: [
+    { sender: userA, receiver: userB },
+    { sender: userB, receiver: userA },
+  ],
+});
+
+// Either person may decline a pending or accepted interest. Run twice so an accept
+// that lands between the two updates is still turned into a rejection.
+const rejectPair = async (userId, otherUserId) => {
+  const filter = { ...pairFilter(userId, otherUserId), status: { $in: ['pending', 'accepted'] } };
+  const update = {
+    $set: {
+      status: 'rejected',
+      senderApprovedToManager: false,
+      receiverApprovedToManager: false,
+    },
+  };
+  const first = await Interest.updateMany(filter, update);
+  const second = await Interest.updateMany(filter, update);
+  return first.matchedCount + second.matchedCount;
+};
+
+const respondInterest = async (userId, otherUserId, status) => {
   if (!RESPONSE_STATUSES.includes(status)) {
     throw new HttpError(400, 'סטטוס לא תקין');
   }
-  assertObjectId(senderId);
+  assertObjectId(otherUserId);
 
-  const update = { status };
   if (status === 'rejected') {
-    // A rejected match must not stay waiting for the manager
-    update.senderApprovedToManager = false;
-    update.receiverApprovedToManager = false;
+    const matched = await rejectPair(userId, otherUserId);
+    if (matched > 0) {
+      return Interest.findOne(pairFilter(userId, otherUserId)).sort({ createdAt: 1, _id: 1 });
+    }
+  } else {
+    // Only the receiver can accept, and only while the interest is still pending.
+    const interest = await Interest.findOneAndUpdate(
+      { sender: otherUserId, receiver: userId, status: 'pending' },
+      { $set: { status: 'accepted' } },
+      { returnDocument: 'after' }
+    );
+    if (interest) return interest;
   }
 
-  // Only a pending interest can change. Accepted and rejected rows stay as they are.
-  const interest = await Interest.findOneAndUpdate(
-    { sender: senderId, receiver: receiverId, status: 'pending' },
-    { $set: update },
-    { returnDocument: 'after' }
-  );
-  if (interest) return interest;
-
-  const existing = await Interest.findOne({ sender: senderId, receiver: receiverId }).select('_id').lean();
+  const existing = await Interest.findOne(pairFilter(userId, otherUserId)).select('_id').lean();
   if (!existing) {
     throw new HttpError(404, 'הפנייה לא נמצאה');
   }

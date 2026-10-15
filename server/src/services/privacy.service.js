@@ -1,4 +1,4 @@
-const { getFileUrl } = require("./storage.service");
+const { fileAccessPath } = require("./storage.service");
 
 // Shown before both sides have accepted. Name, photo, resume, and contact details are not.
 //
@@ -100,8 +100,9 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
   if (revealIdentity) {
     person.name = plainUser?.name ?? null;
     person.email = plainUser?.email ?? null;
-    person.image = getFileUrl("image", plainProfile?.image);
-    person.resumePdf = getFileUrl("resumePdf", plainProfile?.resumePdf);
+    // Stable file paths. Opening them checks that the match is still accepted.
+    person.image = fileAccessPath(id, "image", plainProfile?.image);
+    person.resumePdf = fileAccessPath(id, "resumePdf", plainProfile?.resumePdf);
   }
 
   return redactIdentity(person, { revealIdentity });

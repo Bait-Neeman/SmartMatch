@@ -45,6 +45,7 @@ import {
   IMAGE_ACCEPT,
   toSafeFileUrl,
 } from "../utils/files.js";
+import { openProtectedFile } from "../utils/protectedFile.js";
 import {
   appearanceOptions,
   ethnicityOptions,
@@ -561,7 +562,7 @@ export default function PersonalAreaPage() {
           <SectionCard title="קבצים" icon={<UploadFile />}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               {imageUrl ? (
-                <Button variant="outlined" startIcon={<ImageIcon />} href={imageUrl} target="_blank" rel="noreferrer">
+                <Button variant="outlined" startIcon={<ImageIcon />} onClick={() => openProtectedFile(imageUrl)}>
                   צפייה בתמונה
                 </Button>
               ) : (
@@ -570,7 +571,7 @@ export default function PersonalAreaPage() {
                 </Typography>
               )}
               {resumeUrl ? (
-                <Button variant="outlined" startIcon={<PictureAsPdf />} href={resumeUrl} target="_blank" rel="noreferrer">
+                <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={() => openProtectedFile(resumeUrl)}>
                   צפייה בקובץ PDF
                 </Button>
               ) : (
@@ -580,7 +581,7 @@ export default function PersonalAreaPage() {
               )}
             </Stack>
             <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
-              התמונה וקורות החיים גלויים רק לך, למנהל ולמי שיש לך איתו התאמה הדדית.
+              התמונה וקורות החיים גלויים רק לך, למנהל, ולמי שההתאמה איתו מאושרת כרגע.
             </Typography>
           </SectionCard>
         </Box>
