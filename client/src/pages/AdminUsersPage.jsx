@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { brand } from "../theme/tokens.js";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Alert,
@@ -68,7 +69,7 @@ const AdminUsersPage = () => {
         sx={{
           mb: 5,
           textAlign: "center",
-          color: "#1f3f95",
+          color: brand.navy,
           fontWeight: 700,
           letterSpacing: 0.5,
         }}
@@ -93,13 +94,13 @@ const AdminUsersPage = () => {
           sx={{
             p: 4,
             textAlign: "center",
-            bgcolor: "#f8fbff",
+            bgcolor: brand.background,
             border: "1px solid rgba(31,63,149,0.12)",
             borderRadius: 2,
           }}
           elevation={2}
         >
-          <Typography sx={{ color: "#666" }}>אין משתמשים להצגה</Typography>
+          <Typography sx={{ color: brand.mistDeep }}>אין משתמשים להצגה</Typography>
         </Paper>
       ) : (
         <Stack spacing={2.5} sx={{ mb: 3 }}>
@@ -129,11 +130,11 @@ const AdminUsersPage = () => {
                     width: "fit-content",
                     fontSize: "1.1rem",
                     fontWeight: 600,
-                    color: "#1f3f95",
+                    color: brand.navy,
                     textTransform: "none",
                     padding: 0,
                     "&:hover": {
-                      color: "#1f4aac",
+                      color: brand.navy,
                       textDecoration: "underline",
                     },
                   }}
@@ -142,11 +143,11 @@ const AdminUsersPage = () => {
                 </Button>
 
                 <Stack spacing={0.5} sx={{ alignItems: "center" }}>
-                  <Typography sx={{ color: "#666", fontSize: "0.95rem" }}>
-                    <span style={{ fontWeight: 600, color: "#1f3f95" }}>מספר מזהה:</span> {userItem.idNumber || "לא צוין"}
+                  <Typography sx={{ color: brand.mistDeep, fontSize: "0.95rem" }}>
+                    <span style={{ fontWeight: 600, color: brand.navy }}>מספר מזהה:</span> {userItem.idNumber || "לא צוין"}
                   </Typography>
-                  <Typography sx={{ color: "#666", fontSize: "0.95rem" }}>
-                    <span style={{ fontWeight: 600, color: "#1f3f95" }}>תפקיד:</span> {roleLabel(userItem.role) || "לא צוין"}
+                  <Typography sx={{ color: brand.mistDeep, fontSize: "0.95rem" }}>
+                    <span style={{ fontWeight: 600, color: brand.navy }}>תפקיד:</span> {roleLabel(userItem.role) || "לא צוין"}
                   </Typography>
                 </Stack>
               </Stack>
@@ -163,15 +164,15 @@ const AdminUsersPage = () => {
         PaperProps={{
           sx: {
             borderRadius: 3,
-            bgcolor: "#f8fbff",
+            bgcolor: brand.background,
           },
         }}
       >
         <DialogTitle
           sx={{
             textAlign: "center",
-            bgcolor: "#1f4aac",
-            color: "#f8d25d",
+            bgcolor: brand.navy,
+            color: brand.gold,
             fontWeight: 700,
             fontSize: "1.3rem",
             borderRadius: "12px 12px 0 0",
@@ -186,43 +187,43 @@ const AdminUsersPage = () => {
               <Typography
                 variant="h6"
                 sx={{
-                  color: "#1f3f95",
+                  color: brand.navy,
                   fontWeight: 700,
                   fontSize: "1.2rem",
                 }}
               >
                 {user?.name || "משתמש"}
               </Typography>
-              <Typography sx={{ color: "#666", fontSize: "0.9rem", mt: 0.5 }}>
-                <span style={{ fontWeight: 600, color: "#1f3f95" }}>מספר מזהה:</span> {user?.idNumber || "לא צוין"}
+              <Typography sx={{ color: brand.mistDeep, fontSize: "0.9rem", mt: 0.5 }}>
+                <span style={{ fontWeight: 600, color: brand.navy }}>מספר מזהה:</span> {user?.idNumber || "לא צוין"}
               </Typography>
-              <Typography sx={{ color: "#666", fontSize: "0.9rem" }}>
-                <span style={{ fontWeight: 600, color: "#1f3f95" }}>תפקיד:</span> {roleLabel(user?.role) || "לא צוין"}
+              <Typography sx={{ color: brand.mistDeep, fontSize: "0.9rem" }}>
+                <span style={{ fontWeight: 600, color: brand.navy }}>תפקיד:</span> {roleLabel(user?.role) || "לא צוין"}
               </Typography>
             </Box>
 
             <Box>
-              <Typography sx={{ fontWeight: 700, color: "#1f3f95", mb: 1.5, fontSize: "1rem" }}>
+              <Typography sx={{ fontWeight: 700, color: brand.navy, mb: 1.5, fontSize: "1rem" }}>
                 פרטי פרופיל
               </Typography>
               <Stack spacing={1}>
-                <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>גיל:</span> {profile?.age || "לא צוין"}
+                <Typography sx={{ color: brand.mistDeep }}>
+                  <span style={{ fontWeight: 600, color: brand.navy }}>גיל:</span> {profile?.age || "לא צוין"}
                 </Typography>
-                <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>עיר:</span> {profile?.city || "לא צוין"}
+                <Typography sx={{ color: brand.mistDeep }}>
+                  <span style={{ fontWeight: 600, color: brand.navy }}>עיר:</span> {profile?.city || "לא צוין"}
                 </Typography>
-                <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>גובה:</span> {profile?.height || "לא צוין"}
+                <Typography sx={{ color: brand.mistDeep }}>
+                  <span style={{ fontWeight: 600, color: brand.navy }}>גובה:</span> {profile?.height || "לא צוין"}
                 </Typography>
-                <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>סגנון:</span> {labelOf(styleOptions, profile?.style) || "לא צוין"}
+                <Typography sx={{ color: brand.mistDeep }}>
+                  <span style={{ fontWeight: 600, color: brand.navy }}>סגנון:</span> {labelOf(styleOptions, profile?.style) || "לא צוין"}
                 </Typography>
-                <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>מראה:</span> {labelOf(appearanceOptions, profile?.appearance) || "לא צוין"}
+                <Typography sx={{ color: brand.mistDeep }}>
+                  <span style={{ fontWeight: 600, color: brand.navy }}>מראה:</span> {labelOf(appearanceOptions, profile?.appearance) || "לא צוין"}
                 </Typography>
-                <Typography sx={{ color: "#666" }}>
-                  <span style={{ fontWeight: 600, color: "#1f3f95" }}>תיאור:</span> {profile?.description || "לא צוין"}
+                <Typography sx={{ color: brand.mistDeep }}>
+                  <span style={{ fontWeight: 600, color: brand.navy }}>תיאור:</span> {profile?.description || "לא צוין"}
                 </Typography>
               </Stack>
             </Box>
@@ -250,13 +251,13 @@ const AdminUsersPage = () => {
                         target="_blank"
                         rel="noreferrer"
                         sx={{
-                          borderColor: "#1f4aac",
-                          color: "#1f4aac",
+                          borderColor: brand.navy,
+                          color: brand.navy,
                           fontWeight: 600,
                           textTransform: "none",
                           "&:hover": {
                             bgcolor: "rgba(31,63,149,0.05)",
-                            borderColor: "#1f3f95",
+                            borderColor: brand.navy,
                           },
                         }}
                       >
@@ -272,13 +273,13 @@ const AdminUsersPage = () => {
                       target="_blank"
                       rel="noreferrer"
                       sx={{
-                        borderColor: "#1f4aac",
-                        color: "#1f4aac",
+                        borderColor: brand.navy,
+                        color: brand.navy,
                         fontWeight: 600,
                         textTransform: "none",
                         "&:hover": {
                           bgcolor: "rgba(31,63,149,0.05)",
-                          borderColor: "#1f3f95",
+                          borderColor: brand.navy,
                         },
                       }}
                     >
@@ -291,11 +292,11 @@ const AdminUsersPage = () => {
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ bgcolor: "#f8fbff", p: 2, borderRadius: "0 0 12px 12px" }}>
+        <DialogActions sx={{ bgcolor: brand.background, p: 2, borderRadius: "0 0 12px 12px" }}>
           <Button
             onClick={() => setOpen(false)}
             sx={{
-              color: "#1f4aac",
+              color: brand.navy,
               fontWeight: 600,
               textTransform: "none",
               fontSize: "1rem",

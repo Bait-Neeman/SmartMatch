@@ -7,7 +7,7 @@ export default function PageHeader({ title, subtitle }) {
       <Typography
         variant="h4"
         component="h1"
-        sx={{ fontWeight: 800, color: "#1f3f95", fontSize: { xs: "1.8rem", sm: "2.2rem" } }}
+        sx={{ fontWeight: 700, color: "text.primary" }}
       >
         {title}
       </Typography>
