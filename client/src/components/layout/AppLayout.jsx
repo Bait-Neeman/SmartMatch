@@ -23,6 +23,7 @@ import {
   Menu as MenuIcon,
   PendingActions,
   Person,
+  Settings,
 } from "@mui/icons-material";
 import { getSession, logout } from "../../utils/session.js";
 import { brand } from "../../theme/tokens.js";
@@ -33,6 +34,7 @@ const USER_LINKS = [
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
   { to: "/matches", label: "התאמות", icon: <Favorite /> },
   { to: "/interests", label: "התעניינויות", icon: <Forum /> },
+  { to: "/settings", label: "הגדרות", icon: <Settings /> },
 ];
 
 const ADMIN_LINKS = [
