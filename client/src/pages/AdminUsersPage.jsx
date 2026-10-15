@@ -95,7 +95,7 @@ const AdminUsersPage = () => {
             p: 4,
             textAlign: "center",
             bgcolor: brand.background,
-            border: "1px solid rgba(31,63,149,0.12)",
+            border: `1px solid ${brand.blueLine}`,
             borderRadius: 2,
           }}
           elevation={2}
@@ -109,14 +109,14 @@ const AdminUsersPage = () => {
               key={userItem._id || userItem.id}
               sx={{
                 p: 3,
-                bgcolor: "#ffffff",
-                border: "1px solid rgba(31,63,149,0.12)",
+                bgcolor: brand.paper,
+                border: `1px solid ${brand.blueLine}`,
                 borderRadius: 2,
                 transition: "all 0.3s ease",
                 "&:hover": {
-                  boxShadow: "0 6px 20px rgba(31,63,149,0.15)",
+                  boxShadow: brand.blueShadow,
                   transform: "translateY(-2px)",
-                  borderColor: "rgba(31,63,149,0.25)",
+                  borderColor: brand.blueLineStrong,
                 },
               }}
               elevation={0}
@@ -181,9 +181,9 @@ const AdminUsersPage = () => {
           פרופיל משתמש
         </DialogTitle>
 
-        <DialogContent dividers sx={{ bgcolor: "#ffffff", py: 3 }}>
+        <DialogContent dividers sx={{ bgcolor: brand.paper, py: 3 }}>
           <Stack spacing={2.5}>
-            <Box sx={{ borderBottom: "2px solid rgba(31,63,149,0.1)", pb: 2 }}>
+            <Box sx={{ borderBottom: `2px solid ${brand.blueDivider}`, pb: 2 }}>
               <Typography
                 variant="h6"
                 sx={{
@@ -229,7 +229,7 @@ const AdminUsersPage = () => {
             </Box>
 
             {(profile?.image || profile?.resumePdf) && (
-              <Box sx={{ borderTop: "2px solid rgba(31,63,149,0.1)", pt: 2 }}>
+              <Box sx={{ borderTop: `2px solid ${brand.blueDivider}`, pt: 2 }}>
                 <Stack spacing={1.5}>
                   {profile?.image && (
                     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
@@ -241,7 +241,7 @@ const AdminUsersPage = () => {
                           width: "100%",
                           maxWidth: 320,
                           borderRadius: 2,
-                          border: "1px solid rgba(31,63,149,0.12)",
+                          border: `1px solid ${brand.blueLine}`,
                           objectFit: "cover",
                         }}
                       />
@@ -256,7 +256,7 @@ const AdminUsersPage = () => {
                           fontWeight: 600,
                           textTransform: "none",
                           "&:hover": {
-                            bgcolor: "rgba(31,63,149,0.05)",
+                            bgcolor: brand.blueWash,
                             borderColor: brand.navy,
                           },
                         }}
@@ -278,7 +278,7 @@ const AdminUsersPage = () => {
                         fontWeight: 600,
                         textTransform: "none",
                         "&:hover": {
-                          bgcolor: "rgba(31,63,149,0.05)",
+                          bgcolor: brand.blueWash,
                           borderColor: brand.navy,
                         },
                       }}
@@ -301,7 +301,7 @@ const AdminUsersPage = () => {
               textTransform: "none",
               fontSize: "1rem",
               "&:hover": {
-                bgcolor: "rgba(31,63,149,0.1)",
+                bgcolor: brand.blueDivider,
               },
             }}
           >

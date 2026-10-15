@@ -1,5 +1,6 @@
 import { Link as RouterLink } from "react-router-dom";
 import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { brand } from "../../theme/tokens.js";
 
 // A friendly message for "nothing here yet", with buttons that lead somewhere useful.
 // actions: [{ label, to?, onClick?, variant?, icon? }]
@@ -12,7 +13,7 @@ export default function EmptyState({ icon, title, description, actions = [] }) {
         maxWidth: 560,
         textAlign: "center",
         borderRadius: "16px",
-        border: "1px dashed rgba(151, 166, 188, 0.9)",
+        border: `1px dashed ${brand.dashed}`,
         bgcolor: "background.paper",
         boxShadow: "none",
       }}

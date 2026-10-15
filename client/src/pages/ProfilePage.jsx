@@ -17,6 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 import { CloudUpload } from "@mui/icons-material";
+import { brand } from "../theme/tokens.js";
 import { createProfile } from "../services/profile.service.js";
 import { getImageFileError, getPdfFileError, IMAGE_ACCEPT } from "../utils/files.js";
 import {
@@ -185,7 +186,7 @@ export default function ProfilePage() {
       <Typography sx={{ color: "text.secondary", textAlign: "center", mt: 1, mb: 3 }}>
         כמה פרטים בסיסיים, כדי שנוכל להציע לך התאמות. שדות המסומנים בכוכבית הם חובה.
       </Typography>
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "grid", gap: 2, width: "100%", maxWidth: 720, backgroundColor: '#ffffff', borderRadius: 3, boxShadow: '0 10px 28px rgba(4, 15, 32, 0.06)', p: 4 }}>
+      <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate sx={{ display: "grid", gap: 2, width: "100%", maxWidth: 720, backgroundColor: brand.paper, borderRadius: 3, boxShadow: brand.cardShadow, p: 4 }}>
         <Controller
           name="gender"
           control={control}
@@ -369,14 +370,14 @@ export default function ProfilePage() {
                 gap: 1,
                 p: 2,
                 borderRadius: 3,
-                border: "1px dashed rgba(151, 166, 188, 0.9)",
-                backgroundColor: "rgba(29, 53, 87, 0.04)",
+                border: `1px dashed ${brand.dashed}`,
+                backgroundColor: brand.slateWash,
                 cursor: "pointer",
                 textAlign: "center",
                 minHeight: 120,
                 transition: "background-color 0.2s ease",
                 '&:hover': {
-                  backgroundColor: "rgba(29, 53, 87, 0.08)",
+                  backgroundColor: brand.slateLine,
                 },
               }}
             >
@@ -425,14 +426,14 @@ export default function ProfilePage() {
                 gap: 1,
                 p: 2,
                 borderRadius: 3,
-                border: "1px dashed rgba(151, 166, 188, 0.9)",
-                backgroundColor: "rgba(29, 53, 87, 0.04)",
+                border: `1px dashed ${brand.dashed}`,
+                backgroundColor: brand.slateWash,
                 cursor: "pointer",
                 textAlign: "center",
                 minHeight: 120,
                 transition: "background-color 0.2s ease",
                 '&:hover': {
-                  backgroundColor: "rgba(29, 53, 87, 0.08)",
+                  backgroundColor: brand.slateLine,
                 },
               }}
             >

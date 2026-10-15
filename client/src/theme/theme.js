@@ -15,29 +15,29 @@ const theme = createTheme({
       main: brand.gold,
       light: brand.goldLight,
       dark: brand.goldDeep,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     secondary: {
       main: brand.navy,
       light: brand.navy2,
       dark: brand.navy,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     success: {
       main: brand.pillGreenText,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     warning: {
       main: brand.gold,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     error: {
       main: brand.pillRedText,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     info: {
       main: brand.navy,
-      contrastText: "#ffffff",
+      contrastText: brand.paper,
     },
     background: {
       default: brand.background,
@@ -117,16 +117,16 @@ const theme = createTheme({
           fontSize: "15px",
         },
         containedPrimary: {
-          color: "#ffffff",
+          color: brand.paper,
           background: brand.goldButton,
           boxShadow: brand.goldButtonShadow,
           "&:hover": {
-            background: "linear-gradient(90deg, #A8823A, #C9A24A 60%, #D9B864)",
+            background: brand.goldButtonHover,
             boxShadow: brand.goldButtonShadow,
           },
         },
         containedSecondary: {
-          color: "#ffffff",
+          color: brand.paper,
           background: brand.navy,
           boxShadow: "none",
           "&:hover": {
@@ -134,20 +134,20 @@ const theme = createTheme({
           },
         },
         outlined: {
-          backgroundColor: "#ffffff",
+          backgroundColor: brand.paper,
           color: brand.navy,
           borderColor: brand.navy,
           borderWidth: "1.5px",
           "&:hover": {
             borderWidth: "1.5px",
             borderColor: brand.navy,
-            backgroundColor: "rgba(4, 15, 32, 0.04)",
+            backgroundColor: brand.navyWash,
           },
         },
         outlinedPrimary: {
           color: brand.goldDark,
           borderColor: brand.gold,
-          backgroundColor: "#ffffff",
+          backgroundColor: brand.paper,
           "&:hover": {
             borderColor: brand.goldDeep,
             backgroundColor: brand.pillGoldBg,
@@ -273,7 +273,7 @@ const theme = createTheme({
           minHeight: 40,
           borderRadius: 10,
           color: brand.navy,
-          backgroundColor: "#ffffff",
+          backgroundColor: brand.paper,
           border: `1px solid ${brand.inputLine}`,
           "&.Mui-selected": {
             color: brand.goldText,
