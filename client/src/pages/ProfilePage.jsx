@@ -475,7 +475,7 @@ export default function ProfilePage() {
           </Alert>
         )}
 
-        <Button type="submit" variant="contained" disabled={isSubmitting} color="secondary" sx={{ mx: 'auto', display: 'block', px: 4, py: 1.25 }}>
+        <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ mx: 'auto', display: 'block', px: 4, py: 1.25 }}>
           {isSubmitting ? "שולח..." : "שמור והמשך"}
         </Button>
       </Box>

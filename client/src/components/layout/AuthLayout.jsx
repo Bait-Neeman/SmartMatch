@@ -45,7 +45,7 @@ export default function AuthLayout({ title, subtitle, children }) {
         <Paper
           sx={{
             p: { xs: 3, sm: 4.5 },
-            borderRadius: "20px",
+            borderRadius: "18px",
             bgcolor: brand.paper,
             border: `1px solid ${brand.lineSoft}`,
             boxShadow: brand.shadowLift,
@@ -60,7 +60,7 @@ export default function AuthLayout({ title, subtitle, children }) {
               pb: 0.5,
             }}
           >
-            <BrandLogo />
+            <BrandLogo maxWidth={200} />
           </Box>
 
           <Box sx={{ textAlign: "center", mb: 3 }}>

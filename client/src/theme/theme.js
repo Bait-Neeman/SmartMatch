@@ -1,34 +1,38 @@
 import { createTheme } from "@mui/material/styles";
 import { brand } from "./tokens.js";
 
-const statusChipBackground = "#E7EDF4";
+const heading = {
+  fontWeight: 600,
+  letterSpacing: "-0.3px",
+  color: brand.navy,
+};
 
 const theme = createTheme({
   direction: "rtl",
   palette: {
     mode: "light",
     primary: {
-      main: brand.navy,
-      light: brand.navyMid,
-      dark: brand.navyDeep,
+      main: brand.gold,
+      light: brand.goldLight,
+      dark: brand.goldDeep,
       contrastText: "#ffffff",
     },
     secondary: {
-      main: brand.gold,
-      light: brand.goldLight,
-      dark: brand.goldDark,
-      contrastText: brand.navyDeep,
+      main: brand.navy,
+      light: brand.navy2,
+      dark: brand.navy,
+      contrastText: "#ffffff",
     },
     success: {
-      main: "#2F6F4E",
+      main: brand.pillGreenText,
       contrastText: "#ffffff",
     },
     warning: {
-      main: "#A68534",
-      contrastText: brand.navyDeep,
+      main: brand.gold,
+      contrastText: "#ffffff",
     },
     error: {
-      main: "#8E3B3B",
+      main: brand.pillRedText,
       contrastText: "#ffffff",
     },
     info: {
@@ -40,25 +44,25 @@ const theme = createTheme({
       paper: brand.paper,
     },
     text: {
-      primary: brand.navy,
-      secondary: brand.mistDeep,
-      disabled: brand.mist,
+      primary: brand.ink,
+      secondary: brand.mut,
+      disabled: brand.mut2,
     },
     divider: brand.line,
   },
   typography: {
     fontFamily: brand.fontFamily,
-    h1: { fontWeight: 700, fontSize: "2rem", lineHeight: 1.25, letterSpacing: 0 },
-    h2: { fontWeight: 700, fontSize: "1.625rem", lineHeight: 1.3, letterSpacing: 0 },
-    h3: { fontWeight: 700, fontSize: "1.375rem", lineHeight: 1.35, letterSpacing: 0 },
-    h4: { fontWeight: 700, fontSize: "1.25rem", lineHeight: 1.4, letterSpacing: 0 },
-    h5: { fontWeight: 700, fontSize: "1.125rem", lineHeight: 1.4, letterSpacing: 0 },
-    h6: { fontWeight: 700, fontSize: "1rem", lineHeight: 1.45, letterSpacing: 0 },
-    subtitle1: { fontWeight: 600, lineHeight: 1.5 },
-    subtitle2: { fontWeight: 600, lineHeight: 1.5 },
-    body1: { fontSize: "1rem", lineHeight: 1.65 },
-    body2: { fontSize: "0.9375rem", lineHeight: 1.6 },
-    button: { textTransform: "none", fontWeight: 600, letterSpacing: 0, fontSize: "0.9375rem" },
+    h1: { ...heading, fontSize: "1.875rem", lineHeight: 1.15 },
+    h2: { ...heading, fontSize: "1.75rem", lineHeight: 1.2 },
+    h3: { ...heading, fontSize: "1.3125rem", lineHeight: 1.3 },
+    h4: { ...heading, fontSize: "1.25rem", lineHeight: 1.35 },
+    h5: { ...heading, fontSize: "1.125rem", lineHeight: 1.4 },
+    h6: { ...heading, fontSize: "1rem", lineHeight: 1.45 },
+    subtitle1: { fontWeight: 600, fontSize: "1.0625rem", lineHeight: 1.5 },
+    subtitle2: { fontWeight: 600, fontSize: "0.9375rem", lineHeight: 1.5 },
+    body1: { fontSize: "1rem", lineHeight: 1.5, fontWeight: 400 },
+    body2: { fontSize: "0.875rem", lineHeight: 1.5, fontWeight: 400 },
+    button: { textTransform: "none", fontWeight: 600, letterSpacing: 0, fontSize: "0.875rem" },
   },
   shape: {
     borderRadius: brand.radius,
@@ -68,13 +72,17 @@ const theme = createTheme({
       styleOverrides: {
         html: {
           height: "100%",
+          backgroundColor: brand.background,
         },
         body: {
           margin: 0,
           minHeight: "100%",
           backgroundColor: brand.background,
-          color: brand.navy,
+          color: brand.ink,
           fontFamily: brand.fontFamily,
+          fontSize: "16px",
+          lineHeight: 1.5,
+          fontWeight: 400,
           overflowX: "hidden",
         },
         "#root": {
@@ -89,41 +97,61 @@ const theme = createTheme({
       },
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 10,
           textTransform: "none",
           fontWeight: 600,
-          padding: "10px 18px",
+          fontSize: "14px",
+          minHeight: 40,
+          padding: "0 18px",
           boxShadow: "none",
           letterSpacing: 0,
         },
+        sizeSmall: {
+          minHeight: 34,
+          padding: "0 14px",
+          fontSize: "13px",
+        },
         sizeLarge: {
-          padding: "12px 22px",
-          fontSize: "1rem",
+          minHeight: 44,
+          padding: "0 22px",
+          fontSize: "15px",
         },
         containedPrimary: {
-          backgroundColor: brand.navy,
+          color: "#ffffff",
+          background: brand.goldButton,
+          boxShadow: brand.goldButtonShadow,
           "&:hover": {
-            backgroundColor: brand.navyDeep,
+            background: "linear-gradient(90deg, #A8823A, #C9A24A 60%, #D9B864)",
+            boxShadow: brand.goldButtonShadow,
           },
         },
         containedSecondary: {
-          backgroundColor: brand.gold,
-          color: brand.navyDeep,
+          color: "#ffffff",
+          background: brand.navy,
+          boxShadow: "none",
           "&:hover": {
-            backgroundColor: brand.goldDark,
-            color: "#ffffff",
+            background: brand.navy2,
           },
         },
         outlined: {
-          borderColor: "rgba(151, 166, 188, 0.95)",
+          backgroundColor: "#ffffff",
+          color: brand.navy,
+          borderColor: brand.navy,
+          borderWidth: "1.5px",
           "&:hover": {
-            borderColor: brand.gold,
-            backgroundColor: "rgba(196, 162, 79, 0.08)",
+            borderWidth: "1.5px",
+            borderColor: brand.navy,
+            backgroundColor: "rgba(4, 15, 32, 0.04)",
           },
         },
         outlinedPrimary: {
-          borderColor: "rgba(29, 53, 87, 0.35)",
-          color: brand.navy,
+          color: brand.goldDark,
+          borderColor: brand.gold,
+          backgroundColor: "#ffffff",
+          "&:hover": {
+            borderColor: brand.goldDeep,
+            backgroundColor: brand.pillGoldBg,
+          },
         },
       },
     },
@@ -147,9 +175,9 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 16,
+          borderRadius: brand.radiusCard,
           backgroundColor: brand.paper,
-          border: `1px solid ${brand.lineSoft}`,
+          border: `1px solid ${brand.line}`,
           boxShadow: brand.shadow,
           backgroundImage: "none",
         },
@@ -158,37 +186,38 @@ const theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 999,
+          borderRadius: brand.radiusPill,
           fontWeight: 600,
-          height: 28,
-          backgroundColor: statusChipBackground,
-          color: brand.navy,
+          height: 30,
+          fontSize: "13px",
+          backgroundColor: brand.pillGrayBg,
+          color: brand.pillGrayText,
         },
         outlined: {
           backgroundColor: "transparent",
-          borderColor: "rgba(29, 53, 87, 0.22)",
+          borderColor: brand.inputLine,
         },
         colorSuccess: {
-          backgroundColor: "#E5F3EA",
-          color: "#1E6B45",
+          backgroundColor: brand.pillGreenBg,
+          color: brand.pillGreenText,
         },
         colorWarning: {
-          backgroundColor: "#F6EED9",
-          color: "#7A6232",
+          backgroundColor: brand.pillGoldBg,
+          color: brand.pillGoldText,
         },
         colorError: {
-          backgroundColor: "#F8E8E6",
-          color: "#8C3D38",
+          backgroundColor: brand.pillRedBg,
+          color: brand.pillRedText,
         },
       },
     },
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 10,
           backgroundColor: brand.paper,
           "&:hover .MuiOutlinedInput-notchedOutline": {
-            borderColor: brand.navyMid,
+            borderColor: brand.mut2,
           },
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
             borderColor: brand.gold,
@@ -196,17 +225,18 @@ const theme = createTheme({
           },
         },
         notchedOutline: {
-          borderColor: "rgba(151, 166, 188, 0.95)",
+          borderColor: brand.inputLine,
         },
         input: {
-          padding: "12.5px 14px",
+          padding: "13px 18px",
         },
       },
     },
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          color: brand.mistDeep,
+          color: brand.mut,
+          fontWeight: 600,
           "&.Mui-focused": {
             color: brand.navy,
           },
@@ -224,12 +254,13 @@ const theme = createTheme({
     MuiTabs: {
       styleOverrides: {
         root: {
-          minHeight: 44,
+          minHeight: 40,
         },
         indicator: {
-          backgroundColor: brand.gold,
-          height: 3,
-          borderRadius: 3,
+          display: "none",
+        },
+        flexContainer: {
+          gap: 8,
         },
       },
     },
@@ -238,10 +269,16 @@ const theme = createTheme({
         root: {
           textTransform: "none",
           fontWeight: 600,
-          minHeight: 44,
-          color: brand.mistDeep,
+          fontSize: "14px",
+          minHeight: 40,
+          borderRadius: 10,
+          color: brand.navy,
+          backgroundColor: "#ffffff",
+          border: `1px solid ${brand.inputLine}`,
           "&.Mui-selected": {
-            color: brand.navy,
+            color: brand.goldText,
+            backgroundColor: brand.tabOn,
+            borderColor: brand.gold,
           },
         },
       },
@@ -249,24 +286,25 @@ const theme = createTheme({
     MuiAlert: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 10,
         },
       },
     },
     MuiDialog: {
       styleOverrides: {
         paper: {
-          borderRadius: 20,
-          boxShadow: "0 24px 60px rgba(4, 15, 32, 0.18)",
+          borderRadius: brand.radiusDialog,
+          boxShadow: brand.shadowLift,
         },
       },
     },
     MuiDialogTitle: {
       styleOverrides: {
         root: {
-          fontWeight: 700,
+          fontWeight: 600,
           color: brand.navy,
           fontSize: "1.25rem",
+          letterSpacing: "-0.3px",
         },
       },
     },

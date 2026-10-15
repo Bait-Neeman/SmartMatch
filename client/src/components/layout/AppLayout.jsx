@@ -3,7 +3,6 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   AppBar,
   Box,
-  Divider,
   Drawer,
   IconButton,
   List,
@@ -43,34 +42,44 @@ const ADMIN_LINKS = [
 ];
 
 const navItemSx = {
-  mx: 1.25,
+  mx: 0.5,
   my: 0.25,
-  borderRadius: "12px",
-  color: brand.mist,
-  minHeight: 44,
+  px: 1.5,
+  py: "10px",
+  borderRadius: "10px",
+  color: brand.nav,
+  minHeight: 40,
   "& .MuiListItemIcon-root": {
-    minWidth: 36,
-    color: "inherit",
+    minWidth: 32,
+    color: brand.navIcon,
   },
   "& .MuiListItemText-primary": {
-    fontWeight: 600,
-    fontSize: "0.95rem",
+    fontWeight: 500,
+    fontSize: "15px",
   },
   "&:hover": {
-    bgcolor: "rgba(196, 162, 79, 0.10)",
-    color: brand.goldLight,
+    bgcolor: "rgba(255, 255, 255, 0.06)",
+    color: "#ffffff",
   },
   "&.active": {
-    bgcolor: "rgba(196, 162, 79, 0.16)",
-    color: brand.gold,
+    background: brand.navActive,
+    color: brand.navy,
+    boxShadow: "0 6px 16px -8px rgba(201, 162, 74, 0.8)",
+    "& .MuiListItemIcon-root": {
+      color: brand.navy,
+    },
+    "& .MuiListItemText-primary": {
+      fontWeight: 700,
+    },
   },
 };
 
 function SideNav({ links, onNavigate }) {
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: brand.navyDeep }}>
-      <BrandLogo />
-      <Divider sx={{ borderColor: "rgba(151, 166, 188, 0.18)", mx: 2, mb: 1 }} />
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: brand.navy, px: "12px", py: "18px" }}>
+      <Box sx={{ px: "4px", pt: "8px", pb: "4px", mb: "8px" }}>
+        <BrandLogo />
+      </Box>
       <List sx={{ px: 0.5, py: 0.5 }}>
         {links.map((link) => (
           <ListItemButton key={link.to} component={NavLink} to={link.to} end onClick={onNavigate} sx={navItemSx}>
@@ -79,8 +88,7 @@ function SideNav({ links, onNavigate }) {
           </ListItemButton>
         ))}
       </List>
-      <Box sx={{ mt: "auto", pb: 1.5 }}>
-        <Divider sx={{ borderColor: "rgba(151, 166, 188, 0.18)", mx: 2, mb: 1 }} />
+      <Box sx={{ mt: "auto", pt: 1, borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
         <List sx={{ py: 0 }}>
           <ListItemButton onClick={logout} sx={navItemSx}>
             <ListItemIcon>
@@ -133,27 +141,26 @@ export default function AppLayout() {
           elevation={0}
           color="inherit"
           sx={{
-            bgcolor: "rgba(255, 255, 255, 0.94)",
-            backdropFilter: "blur(12px)",
-            borderBottom: `1px solid ${brand.line}`,
-            color: "text.primary",
+            bgcolor: brand.navy,
+            color: "#ffffff",
+            boxShadow: "0 4px 16px -8px rgba(11, 31, 58, 0.5)",
           }}
         >
           <Toolbar sx={{ minHeight: brand.topBarHeight, gap: 1.5, px: { xs: 2, lg: 3 } }}>
             {isCompact && (
-              <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)}>
+              <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)} sx={{ color: "#ffffff" }}>
                 <MenuIcon />
               </IconButton>
             )}
             <Box sx={{ flexGrow: 1 }} />
             {user?.name && (
-              <Typography sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.95rem" }}>
+              <Typography sx={{ color: "#ffffff", fontWeight: 600, fontSize: "15px" }}>
                 שלום, {user.name}
               </Typography>
             )}
-            <PersonAvatar size={36} />
+            <PersonAvatar size={32} />
             {isCompact && (
-              <IconButton aria-label="התנתקות" onClick={logout}>
+              <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: "#ffffff" }}>
                 <Logout />
               </IconButton>
             )}
@@ -168,8 +175,8 @@ export default function AppLayout() {
             paper: {
               sx: {
                 width: brand.sidebarWidth,
-                bgcolor: brand.navyDeep,
-                color: brand.mist,
+                bgcolor: brand.navy,
+                color: brand.nav,
               },
             },
           }}
@@ -182,8 +189,9 @@ export default function AppLayout() {
           sx={{
             flex: 1,
             minWidth: 0,
-            px: { xs: 2, lg: 3.5 },
-            py: { xs: 2, lg: 3 },
+            px: "clamp(20px, 2.4vw, 36px)",
+            py: 3,
+            pb: 7,
           }}
         >
           <Outlet />

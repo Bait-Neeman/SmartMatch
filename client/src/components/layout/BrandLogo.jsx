@@ -1,26 +1,26 @@
 import { Box } from "@mui/material";
-import logo1x from "../../assets/brand/logo-shiny.png";
-import logo2x from "../../assets/brand/logo-shiny@2x.png";
+import logo from "../../assets/brand/logo-shiny.png";
+import logo480 from "../../assets/brand/logo-shiny-480.png";
+import logo960 from "../../assets/brand/logo-shiny-960.png";
 
-// Shiny wordmark only. No tagline under the logo.
-export default function BrandLogo({ width = 196 }) {
+// Approved shiny mark. Sidebar display size is 160px; larger sources stay crisp.
+export default function BrandLogo({ maxWidth = 160 }) {
   return (
     <Box
       component="img"
-      src={logo1x}
-      srcSet={`${logo1x} 1x, ${logo2x} 2x`}
+      src={logo}
+      srcSet={`${logo480} 480w, ${logo960} 960w, ${logo} 1178w`}
+      sizes={`${maxWidth}px`}
       alt="בית נאמן"
-      width={392}
-      height={104}
+      width={1178}
+      height={864}
       draggable={false}
       sx={{
         display: "block",
-        width,
+        width: "100%",
+        maxWidth,
         height: "auto",
-        maxWidth: "calc(100% - 28px)",
         mx: "auto",
-        mt: 2.5,
-        mb: 1,
         userSelect: "none",
       }}
     />

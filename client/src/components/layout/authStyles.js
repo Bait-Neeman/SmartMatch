@@ -2,10 +2,10 @@ import { brand } from "../../theme/tokens.js";
 
 export const authFieldSx = {
   "& .MuiOutlinedInput-root": {
-    borderRadius: "12px",
+    borderRadius: "10px",
     backgroundColor: brand.paper,
     "& fieldset": {
-      borderColor: "rgba(151, 166, 188, 0.95)",
+      borderColor: brand.inputLine,
     },
     "&:hover fieldset": {
       borderColor: brand.navyMid,
@@ -22,10 +22,6 @@ export const authFieldSx = {
 
 export const authSubmitSx = {
   mt: 1,
-  py: 1.4,
-  borderRadius: "12px",
-  fontWeight: 700,
-  fontSize: "1rem",
-  textTransform: "none",
-  boxShadow: "none",
+  minHeight: 44,
+  fontWeight: 600,
 };

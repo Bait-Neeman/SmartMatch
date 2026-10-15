@@ -37,7 +37,7 @@ export default function DashboardPage() {
         >
           {/* Decorative heart icons */}
           <Box component="h1" sx={{ m: 0, mb: 1 }}>
-            <BrandLogo width={240} />
+            <BrandLogo maxWidth={240} />
           </Box>
 
           {/* Subtitle */}
@@ -103,7 +103,6 @@ export default function DashboardPage() {
           >
             <Button
               variant="contained"
-              color="secondary"
               size="large"
               onClick={() => navigate("/register")}
               startIcon={<LinkIcon />}
