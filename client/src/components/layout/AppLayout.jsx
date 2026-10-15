@@ -3,9 +3,6 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   AppBar,
   Box,
-  Button,
-  Container,
-  Divider,
   Drawer,
   IconButton,
   List,
@@ -28,6 +25,9 @@ import {
   Person,
 } from "@mui/icons-material";
 import { getSession, logout } from "../../utils/session.js";
+import { brand } from "../../theme/tokens.js";
+import BrandLogo from "./BrandLogo.jsx";
+import PersonAvatar from "../common/PersonAvatar.jsx";
 
 const USER_LINKS = [
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
@@ -41,127 +41,161 @@ const ADMIN_LINKS = [
   { to: "/admin/pending-matches", label: "הצעות ממתינות", icon: <PendingActions /> },
 ];
 
-const brandSx = {
-  fontWeight: 900,
-  fontSize: "1.4rem",
-  textDecoration: "none",
-  background: "linear-gradient(90deg, #3f71d5, #5c85db, #c4a24f)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent",
-};
-
-const navButtonSx = {
+const navItemSx = {
+  mx: 0.5,
+  my: 0.25,
   px: 1.5,
-  py: 1,
-  borderRadius: "12px",
-  boxShadow: "none",
-  color: "text.secondary",
+  py: "10px",
+  borderRadius: "10px",
+  color: brand.nav,
+  minHeight: 40,
+  "& .MuiListItemIcon-root": {
+    minWidth: 32,
+    color: brand.navIcon,
+  },
+  "& .MuiListItemText-primary": {
+    fontWeight: 500,
+    fontSize: "15px",
+  },
+  "&:hover": {
+    bgcolor: "rgba(255, 255, 255, 0.06)",
+    color: "#ffffff",
+  },
   "&.active": {
-    color: "primary.main",
-    bgcolor: "rgba(63, 113, 213, 0.1)",
+    background: brand.navActive,
+    color: brand.navy,
+    boxShadow: "0 6px 16px -8px rgba(201, 162, 74, 0.8)",
+    "& .MuiListItemIcon-root": {
+      color: brand.navy,
+    },
+    "& .MuiListItemText-primary": {
+      fontWeight: 700,
+    },
   },
 };
 
-// Header with navigation and logout, shown on every page of a logged-in user
+function SideNav({ links, onNavigate }) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: brand.navy, px: "12px", py: "18px" }}>
+      <Box sx={{ px: "4px", pt: "8px", pb: "4px", mb: "8px" }}>
+        <BrandLogo maxWidth={190} />
+      </Box>
+      <List sx={{ px: 0.5, py: 0.5 }}>
+        {links.map((link) => (
+          <ListItemButton key={link.to} component={NavLink} to={link.to} end onClick={onNavigate} sx={navItemSx}>
+            <ListItemIcon>{link.icon}</ListItemIcon>
+            <ListItemText primary={link.label} />
+          </ListItemButton>
+        ))}
+      </List>
+      <Box sx={{ mt: "auto", pt: 1, borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
+        <List sx={{ py: 0 }}>
+          <ListItemButton onClick={logout} sx={navItemSx}>
+            <ListItemIcon>
+              <Logout />
+            </ListItemIcon>
+            <ListItemText primary="התנתקות" />
+          </ListItemButton>
+        </List>
+      </Box>
+    </Box>
+  );
+}
+
 export default function AppLayout() {
   const { pathname } = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, isAdmin } = getSession();
   const links = isAdmin ? ADMIN_LINKS : USER_LINKS;
 
-  // Every page opens at the top
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <AppBar
-        position="sticky"
-        elevation={0}
-        color="inherit"
-        sx={{
-          bgcolor: "rgba(255, 255, 255, 0.92)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(63, 113, 213, 0.12)",
-        }}
-      >
-        <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ minHeight: 64, gap: 1 }}>
-            {isMobile && (
-              <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)}>
+    <Box sx={{ minHeight: "100vh", display: "flex", bgcolor: "background.default" }}>
+      {!isCompact && (
+        <Box
+          component="nav"
+          aria-label="ניווט ראשי"
+          sx={{
+            width: brand.sidebarWidth,
+            flexShrink: 0,
+            position: "sticky",
+            top: 0,
+            alignSelf: "flex-start",
+            height: "100vh",
+            overflowY: "auto",
+            borderInlineEnd: "1px solid rgba(4, 15, 32, 0.4)",
+          }}
+        >
+          <SideNav links={links} />
+        </Box>
+      )}
+
+      <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <AppBar
+          position="sticky"
+          elevation={0}
+          color="inherit"
+          sx={{
+            bgcolor: brand.navy,
+            color: "#ffffff",
+            boxShadow: "0 4px 16px -8px rgba(11, 31, 58, 0.5)",
+          }}
+        >
+          <Toolbar sx={{ minHeight: brand.topBarHeight, gap: 1.5, px: { xs: 2, lg: 3 } }}>
+            {isCompact && (
+              <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)} sx={{ color: "#ffffff" }}>
                 <MenuIcon />
               </IconButton>
             )}
-
-            <Typography component={NavLink} to={links[0].to} sx={brandSx}>
-              SmartMatch
-            </Typography>
-
-            {!isMobile && (
-              <Box component="nav" sx={{ display: "flex", gap: 0.5, mx: 3 }}>
-                {links.map((link) => (
-                  <Button key={link.to} component={NavLink} to={link.to} end startIcon={link.icon} sx={navButtonSx}>
-                    {link.label}
-                  </Button>
-                ))}
-              </Box>
-            )}
-
             <Box sx={{ flexGrow: 1 }} />
-
-            {!isMobile && user?.name && (
-              <Typography sx={{ color: "text.secondary", fontWeight: 600, mx: 1 }}>שלום, {user.name}</Typography>
+            {user?.name && (
+              <Typography sx={{ color: "#ffffff", fontWeight: 600, fontSize: "15px" }}>
+                שלום, {user.name}
+              </Typography>
             )}
-
-            {isMobile ? (
-              <IconButton aria-label="התנתקות" onClick={logout}>
+            <PersonAvatar size={32} />
+            {isCompact && (
+              <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: "#ffffff" }}>
                 <Logout />
               </IconButton>
-            ) : (
-              <Button variant="outlined" startIcon={<Logout />} onClick={logout} sx={{ boxShadow: "none", py: 0.75 }}>
-                התנתקות
-              </Button>
             )}
           </Toolbar>
-        </Container>
-      </AppBar>
+        </AppBar>
 
-      {/* With the RTL theme, anchor "left" opens from the right edge (the start side) */}
-      <Drawer anchor="left" open={menuOpen} onClose={() => setMenuOpen(false)}>
-        <Box sx={{ width: 260, pt: 2 }} role="navigation">
-          <Typography sx={{ ...brandSx, px: 2.5, pb: 1, display: "block" }}>SmartMatch</Typography>
-          {user?.name && <Typography sx={{ px: 2.5, pb: 2, color: "text.secondary" }}>שלום, {user.name}</Typography>}
-          <Divider />
-          <List>
-            {links.map((link) => (
-              <ListItemButton
-                key={link.to}
-                component={NavLink}
-                to={link.to}
-                end
-                onClick={() => setMenuOpen(false)}
-                sx={{ "&.active": { bgcolor: "rgba(63, 113, 213, 0.1)", color: "primary.main" } }}
-              >
-                <ListItemIcon sx={{ minWidth: 40, color: "inherit" }}>{link.icon}</ListItemIcon>
-                <ListItemText primary={link.label} />
-              </ListItemButton>
-            ))}
-            <Divider sx={{ my: 1 }} />
-            <ListItemButton onClick={logout}>
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <Logout />
-              </ListItemIcon>
-              <ListItemText primary="התנתקות" />
-            </ListItemButton>
-          </List>
+        <Drawer
+          anchor="left"
+          open={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          slotProps={{
+            paper: {
+              sx: {
+                width: brand.sidebarWidth,
+                bgcolor: brand.navy,
+                color: brand.nav,
+              },
+            },
+          }}
+        >
+          <SideNav links={links} onNavigate={() => setMenuOpen(false)} />
+        </Drawer>
+
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            px: "clamp(20px, 2.4vw, 36px)",
+            py: 3,
+            pb: 7,
+          }}
+        >
+          <Outlet />
         </Box>
-      </Drawer>
-
-      <Box component="main" sx={{ flexGrow: 1 }}>
-        <Outlet />
       </Box>
     </Box>
   );

@@ -115,7 +115,7 @@ export default function PreferencesPage() {
     <Container maxWidth="sm" sx={{ py: { xs: 3, sm: 5 } }}>
       <Box sx={{ textAlign: "center", mb: 3 }}>
         <Chip label="שלב 2 מתוך 2" color="primary" variant="outlined" sx={{ fontWeight: 700, mb: 1.5 }} />
-        <Typography variant="h4" component="h1" sx={{ color: "#1f3f95", fontWeight: 800 }}>
+        <Typography variant="h4" component="h1" sx={{ color: "text.primary", fontWeight: 700 }}>
           מה חשוב לך?
         </Typography>
         <Typography sx={{ color: "text.secondary", mt: 1 }}>
@@ -126,9 +126,9 @@ export default function PreferencesPage() {
       <Paper
         sx={{
           p: { xs: 2.5, sm: 4 },
-          borderRadius: "24px",
-          border: "1px solid rgba(63, 113, 213, 0.12)",
-          boxShadow: "0 16px 38px rgba(15, 23, 42, 0.06)",
+          borderRadius: "16px",
+          border: "1px solid rgba(29, 53, 87, 0.08)",
+          boxShadow: "0 10px 28px rgba(4, 15, 32, 0.06)",
         }}
       >
         <Box

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { Alert, Avatar, Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
 import { FavoriteBorder, LocationOn } from "@mui/icons-material";
 import { sendInterest } from "../../store/slices/matchesSlice.js";
 import { appearanceOptions, labelOf, styleOptions } from "../../constants/profileOptions.js";
+import PersonAvatar from "../common/PersonAvatar.jsx";
+import MatchRing from "../common/MatchRing.jsx";
 
 // onSent is called after a successful send - the card itself is removed from the list then,
 // so the confirmation is shown by the page
@@ -21,6 +23,10 @@ const MatchCard = ({ match, onSent }) => {
   };
 
   const receiverId = normalizeId(rawReceiver);
+
+  const matchPercent = [match?.matchPercent, match?.compatibility, match?.score].find(
+    (value) => typeof value === "number" && Number.isFinite(value)
+  );
 
   const details = [
     match?.age && `גיל ${match.age}`,
@@ -51,19 +57,15 @@ const MatchCard = ({ match, onSent }) => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        borderRadius: "24px",
-        border: "1px solid rgba(63, 113, 213, 0.12)",
-        boxShadow: "0 16px 38px rgba(15, 23, 42, 0.08)",
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
-        "&:hover": { transform: "translateY(-3px)", boxShadow: "0 20px 44px rgba(15, 23, 42, 0.12)" },
+        "&:hover": { transform: "translateY(-2px)", boxShadow: "0 16px 36px rgba(4, 15, 32, 0.10)" },
       }}
     >
       <CardContent
         sx={{ p: 3, flexGrow: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
       >
-        <Avatar sx={{ width: 64, height: 64, fontSize: "1.6rem", fontWeight: 800, bgcolor: "rgba(63, 113, 213, 0.12)", color: "primary.main" }}>
-          {match?.name?.trim()?.[0] || "?"}
-        </Avatar>
+        <PersonAvatar size={72} />
+        {matchPercent !== undefined && <MatchRing value={matchPercent} />}
 
         <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
           {match?.name || "משתמש"}
@@ -79,7 +81,7 @@ const MatchCard = ({ match, onSent }) => {
         {details.length > 0 && (
           <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
             {details.map((detail) => (
-              <Chip key={detail} label={detail} size="small" sx={{ bgcolor: "rgba(63, 113, 213, 0.08)", fontWeight: 600 }} />
+              <Chip key={detail} label={detail} size="small" />
             ))}
           </Stack>
         )}

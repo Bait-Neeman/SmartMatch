@@ -11,7 +11,7 @@ const AdminPage = () => {
         py: 6,
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
+        alignItems: "center",
       }}
     >
       <Paper
@@ -19,19 +19,17 @@ const AdminPage = () => {
           p: 5,
           width: "100%",
           textAlign: "center",
-          bgcolor: "#f8fbff",
-          border: "1px solid rgba(31,63,149,0.12)",
+          border: "1px solid",
+          borderColor: "divider",
           borderRadius: 3,
         }}
-        elevation={2}
       >
         <Typography
           variant="h3"
           sx={{
             mb: 5,
-            color: "#1f3f95",
+            color: "text.primary",
             fontWeight: 700,
-            letterSpacing: 0.5,
           }}
         >
           אזור מנהל
@@ -49,23 +47,10 @@ const AdminPage = () => {
             variant="contained"
             onClick={() => navigate("/admin/users")}
             sx={{
-              bgcolor: "#1f4aac",
-              color: "#f8d25d",
-              fontSize: "1.1rem",
-              py: 2.5,
+              py: 1.75,
               px: 5,
-              borderRadius: 3,
-              fontWeight: 600,
-              textTransform: "none",
               width: "100%",
               maxWidth: 350,
-              boxShadow: "0 4px 12px rgba(31,63,149,0.25)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                bgcolor: "#163e86",
-                boxShadow: "0 6px 16px rgba(31,63,149,0.35)",
-                transform: "translateY(-2px)",
-              },
             }}
           >
             צפייה בכל המשתמשים
@@ -75,23 +60,10 @@ const AdminPage = () => {
             variant="contained"
             onClick={() => navigate("/admin/pending-matches")}
             sx={{
-              bgcolor: "#1f4aac",
-              color: "#f8d25d",
-              fontSize: "1.1rem",
-              py: 2.5,
+              py: 1.75,
               px: 5,
-              borderRadius: 3,
-              fontWeight: 600,
-              textTransform: "none",
               width: "100%",
               maxWidth: 350,
-              boxShadow: "0 4px 12px rgba(31,63,149,0.25)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                bgcolor: "#163e86",
-                boxShadow: "0 6px 16px rgba(31,63,149,0.35)",
-                transform: "translateY(-2px)",
-              },
             }}
           >
             הצעות שממתינות לטיפול

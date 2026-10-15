@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { Alert, Avatar, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
+import { Alert, Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { Check, Close, SupervisorAccount } from "@mui/icons-material";
+import PersonAvatar from "../common/PersonAvatar.jsx";
+import StatusPill from "../common/StatusPill.jsx";
 import {
   acceptInterest,
   rejectInterest,
@@ -13,9 +15,9 @@ const getErrorMessage = (err) =>
   (typeof err === "string" && err) || err?.message || "לא הצלחנו לבצע את הפעולה";
 
 const STATUSES = {
-  pending: { label: "ממתין לתשובה", color: "warning" },
-  accepted: { label: "אושר", color: "success" },
-  rejected: { label: "נדחה", color: "error" },
+  pending: { label: "ממתין לתשובה", tone: "pending" },
+  accepted: { label: "אושר", tone: "accepted" },
+  rejected: { label: "נדחה", tone: "rejected" },
 };
 
 const InterestCard = ({ interest, type }) => {
@@ -25,7 +27,7 @@ const InterestCard = ({ interest, type }) => {
 
   const otherUser = type === "incoming" ? interest?.sender : interest?.receiver;
   const otherUserId = otherUser?._id || otherUser?.id;
-  const status = STATUSES[interest?.status] || { label: "לא ידוע", color: "default" };
+  const status = STATUSES[interest?.status] || { label: "לא ידוע", tone: "neutral" };
 
   // Each side approves separately; the match reaches the manager once both have approved
   const iApproved = type === "incoming" ? interest?.receiverApprovedToManager : interest?.senderApprovedToManager;
@@ -81,25 +83,18 @@ const InterestCard = ({ interest, type }) => {
 
   return (
     <Card
-      sx={{
-        height: "100%",
-        borderRadius: "24px",
-        border: "1px solid rgba(63, 113, 213, 0.12)",
-        boxShadow: "0 16px 38px rgba(15, 23, 42, 0.08)",
-      }}
+      sx={{ height: "100%" }}
     >
       <CardContent
         sx={{ p: 3, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
       >
-        <Avatar sx={{ width: 56, height: 56, fontSize: "1.4rem", fontWeight: 800, bgcolor: "rgba(63, 113, 213, 0.12)", color: "primary.main" }}>
-          {otherUser?.name?.trim()?.[0] || "?"}
-        </Avatar>
+        <PersonAvatar size={64} locked={interest?.status !== "accepted"} />
 
         <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
           {otherUser?.name || "משתמש"}
         </Typography>
 
-        <Chip label={status.label} color={status.color} size="small" variant="outlined" sx={{ fontWeight: 700 }} />
+        <StatusPill tone={status.tone} label={status.label} />
 
         {type === "incoming" && interest?.status === "pending" && (
           <Stack direction="row" spacing={1}>
