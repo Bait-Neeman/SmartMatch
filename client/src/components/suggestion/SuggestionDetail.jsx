@@ -3,6 +3,7 @@ import {
   ArrowForward,
   Height,
   LockOutlined,
+  PeopleOutline,
   Place,
   School,
   Stars,
@@ -17,11 +18,13 @@ import { SUGGESTION_KINDS } from "../../utils/suggestionView.js";
 
 const FIELD_ICONS = {
   height: Height,
+  maritalStatus: PeopleOutline,
   community: Stars,
   city: Place,
   institution: School,
   occupation: Work,
   financialRequirement: Payments,
+  financialDemand: Payments,
   financialParticipation: Payments,
 };
 

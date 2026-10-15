@@ -1,4 +1,5 @@
 const Preference = require("../models/preference.model");
+const { MARITAL_STATUSES } = require("../models/options");
 const HttpError = require("../utils/httpError");
 
 // The fields a user may set, with their Hebrew names for error messages
@@ -14,6 +15,7 @@ const TEXT_FIELDS = {
   city: "עיר",
   style: "סגנון",
   preferredAppearance: "מראה חיצוני",
+  preferredMaritalStatus: "סטטוס משפחתי",
 };
 const RANGES = [
   ["ageMin", "ageMax", "הגיל"],
@@ -45,8 +47,15 @@ const parsePreferences = (body = {}) => {
       if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
         throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
       }
+      if ((field === "ageMin" || field === "ageMax") && (value < 18 || value > 99)) {
+        throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+      }
     } else if (typeof value !== "string") {
       throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+    }
+
+    if (field === "preferredMaritalStatus" && !MARITAL_STATUSES.includes(value)) {
+      throw new HttpError(400, "ערך לא תקין בשדה סטטוס משפחתי");
     }
 
     values[field] = value;
@@ -76,6 +85,7 @@ const toPreferenceResponse = (preference) => ({
   heightMax: preference.heightMax,
   financialMin: preference.financialMin,
   financialMax: preference.financialMax,
+  preferredMaritalStatus: preference.preferredMaritalStatus ?? null,
 });
 
 const createPreferenceForUser = async (userId, body) => {
@@ -116,8 +126,29 @@ const updatePreferenceByUserId = async (userId, body) => {
   return toPreferenceResponse(preference);
 };
 
+// Profile create/update can carry the age range (and marital preference) so get-me
+// can return them. Only those keys are written here; an empty value clears the field.
+const PROFILE_PREFERENCE_FIELDS = ["ageMin", "ageMax", "preferredMaritalStatus"];
+
+const applyProfilePreference = async (userId, body = {}) => {
+  if (!PROFILE_PREFERENCE_FIELDS.some((field) => body[field] !== undefined)) {
+    return null;
+  }
+
+  const subset = {};
+  for (const field of PROFILE_PREFERENCE_FIELDS) {
+    if (body[field] !== undefined) subset[field] = body[field];
+  }
+
+  if (await Preference.exists({ user: userId })) {
+    return updatePreferenceByUserId(userId, subset);
+  }
+  return createPreferenceForUser(userId, subset);
+};
+
 module.exports = {
   createPreferenceForUser,
   getPreferenceByUserId,
   updatePreferenceByUserId,
+  applyProfilePreference,
 };

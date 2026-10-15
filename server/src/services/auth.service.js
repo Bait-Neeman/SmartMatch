@@ -48,14 +48,14 @@ const registerUser = async ({ name, idNumber, email, password }) => {
 
   const existingUser = await User.findOne({
     $or: [{ idNumber: cleanIdNumber }, ...(cleanEmail ? [{ email: cleanEmail }] : [])],
-  }).select("+password");
+  }).select("+password +tokenVersion");
 
   if (existingUser) {
     // Submitting the same registration twice (e.g. after a network error) is not an error
     const isSameUserRetry =
       existingUser.idNumber === cleanIdNumber && (await comparePassword(password, existingUser.password));
     if (isSameUserRetry) {
-      return buildUserResponse(existingUser);
+      return { ...buildUserResponse(existingUser), tokenVersion: existingUser.tokenVersion || 0 };
     }
 
     // One message for both cases, so the form doesn't reveal which detail is registered
@@ -69,7 +69,7 @@ const registerUser = async ({ name, idNumber, email, password }) => {
     password,
   });
 
-  return buildUserResponse(user);
+  return { ...buildUserResponse(user), tokenVersion: user.tokenVersion || 0 };
 };
 
 const loginUser = async ({ idNumber, password }) => {
@@ -79,7 +79,7 @@ const loginUser = async ({ idNumber, password }) => {
     throw new HttpError(400, "יש להזין תעודת זהות וסיסמה");
   }
 
-  const user = await User.findOne({ idNumber: cleanIdNumber }).select("+password");
+  const user = await User.findOne({ idNumber: cleanIdNumber }).select("+password +tokenVersion");
   const isMatch = await comparePassword(password, user ? user.password : await getDummyHash());
 
   if (!user || !isMatch) {
@@ -87,7 +87,7 @@ const loginUser = async ({ idNumber, password }) => {
   }
 
   return {
-    token: generateToken(user._id, user.role),
+    token: generateToken(user._id, user.role, user.tokenVersion || 0),
     user: buildUserResponse(user),
   };
 };

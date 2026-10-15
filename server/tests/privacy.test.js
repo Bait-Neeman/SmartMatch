@@ -112,6 +112,11 @@ const CANDIDATE_KEYS = new Set([
   "financialRequirement",
   "financialCapabilities",
   "financialStatus",
+  "financialDemand",
+  "financialParticipation",
+  "lookingFor",
+  "maritalStatus",
+  "matchPercent",
 ]);
 
 // Institution plus both stored money figures. financialRequirement is דרישה כספית
@@ -301,6 +306,7 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
         financialRequirement: VIEWER.financialRequirement,
         financialCapabilities: VIEWER.financialCapabilities,
         financialStatus: VIEWER.financialStatus,
+        maritalStatus: "single",
         image: VIEWER.image,
         resumePdf: VIEWER.resumePdf,
       },
@@ -320,6 +326,7 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
         financialRequirement: RIVKA.financialRequirement,
         financialCapabilities: RIVKA.financialCapabilities,
         financialStatus: RIVKA.financialStatus,
+        maritalStatus: "divorced",
         image: RIVKA.image,
         resumePdf: RIVKA.resumePdf,
       },
@@ -414,6 +421,8 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(card.occupation, RIVKA.occupation);
     assert.equal(card.description, RIVKA.description);
     assert.equal(card.style, "modern");
+    assert.equal(card.maritalStatus, "divorced");
+    assert.equal(card.name, undefined);
     assertMoneyAndInstitution(card, RIVKA);
     for (const key of Object.keys(card)) {
       assert.ok(CANDIDATE_KEYS.has(key), `unexpected candidate field ${key}`);
@@ -431,7 +440,15 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(profile.body.profile.occupation, RIVKA.occupation);
     assert.equal(profile.body.profile.description, RIVKA.description);
     assert.equal(profile.body.profile.age, 24);
+    assert.equal(profile.body.profile.maritalStatus, "divorced");
+    assert.equal(profile.body.profile.name, undefined);
     assertMoneyAndInstitution(profile.body.profile, RIVKA);
+
+    const suggestions = await request(app).get("/api/suggestions").set(headers);
+    assert.equal(suggestions.status, 200);
+    assertAnonymous(suggestions.body);
+    assert.equal(suggestions.body.newSuggestions[0].maritalStatus, "divorced");
+    assert.equal(suggestions.body.newSuggestions[0].name, undefined);
 
     const incoming = await request(app).get("/api/interest/incoming").set(headers);
     const outgoing = await request(app).get("/api/interest/outgoing").set(headers);
@@ -476,11 +493,14 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(seenByViewer.occupation, RIVKA.occupation);
     assert.equal(seenByViewer.description, RIVKA.description);
     assert.equal(seenByViewer.city, RIVKA.city);
+    assert.equal(seenByViewer.maritalStatus, "divorced");
+    assert.equal(seenByViewer.name, undefined);
     assertMoneyAndInstitution(seenByViewer, RIVKA);
     assert.equal(String(seenByRivka._id), String(fixture.viewer._id));
     assert.equal(seenByRivka.occupation, VIEWER.occupation);
     assert.equal(seenByRivka.description, VIEWER.description);
     assert.equal(seenByRivka.city, VIEWER.city);
+    assert.equal(seenByRivka.maritalStatus, "single");
     assertMoneyAndInstitution(seenByRivka, VIEWER);
 
     for (const key of Object.keys(seenByViewer)) {

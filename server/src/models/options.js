@@ -3,6 +3,8 @@ const GENDERS = ["male", "female"];
 const STYLES = ["conservative", "modern", "open", "classic"];
 const APPEARANCES = ["slim", "average", "full", "chubby"];
 const ETHNICITIES = ["ashkenazi", "sephardic", "yemenite", "other"];
+const MARITAL_STATUSES = ["single", "divorced", "widowed"];
+const LANGUAGES = ["he", "en"];
 
 // Schema field helpers with Hebrew validation messages (they are shown to users).
 const textField = (maxlength, label) => ({
@@ -16,4 +18,13 @@ const choiceField = (values, label) => ({
   enum: { values, message: `ערך לא תקין בשדה ${label}` },
 });
 
-module.exports = { GENDERS, STYLES, APPEARANCES, ETHNICITIES, textField, choiceField };
+module.exports = {
+  GENDERS,
+  STYLES,
+  APPEARANCES,
+  ETHNICITIES,
+  MARITAL_STATUSES,
+  LANGUAGES,
+  textField,
+  choiceField,
+};

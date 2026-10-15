@@ -3,10 +3,10 @@ const User = require("../models/user.model");
 const Profile = require("../models/profile.model");
 const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
-const { toProfileResponse } = require("./profile.service");
+const { toOwnerProfile } = require("./profile.service");
 
-const getPendingMatches = () =>
-  Interest.find({
+const getPendingMatches = async () => {
+  const matches = await Interest.find({
     status: "accepted",
     senderApprovedToManager: true,
     receiverApprovedToManager: true,
@@ -15,6 +15,9 @@ const getPendingMatches = () =>
     .populate("receiver", "name idNumber role")
     .sort({ updatedAt: -1 })
     .lean();
+
+  return matches.map((match) => ({ ...match, stage: "matchmaker" }));
+};
 
 const removePendingMatch = async (senderId, receiverId) => {
   assertObjectId(senderId);
@@ -46,7 +49,7 @@ const getUserProfileForAdmin = async (userId) => {
 
   return {
     user,
-    profile: profile ? toProfileResponse(profile) : null,
+    profile: profile ? await toOwnerProfile(profile) : null,
   };
 };
 

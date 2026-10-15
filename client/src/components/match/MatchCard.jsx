@@ -3,7 +3,7 @@ import { useDispatch } from "react-redux";
 import { Alert, Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
 import { AutoAwesome, FavoriteBorder, LocationOn, Send } from "@mui/icons-material";
 import { sendInterest } from "../../store/slices/matchesSlice.js";
-import { appearanceOptions, labelOf, styleOptions } from "../../constants/profileOptions.js";
+import { appearanceOptions, labelOf, maritalStatusOptions, styleOptions } from "../../constants/profileOptions.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import MatchRing from "../common/MatchRing.jsx";
 import SuggestionRow from "../suggestion/SuggestionRow.jsx";
@@ -29,6 +29,7 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
   const details = [
     match?.age && `גיל ${match.age}`,
     match?.height && `${match.height} ס"מ`,
+    labelOf(maritalStatusOptions, match?.maritalStatus),
     labelOf(styleOptions, match?.style),
     labelOf(appearanceOptions, match?.appearance),
   ].filter(Boolean);

@@ -21,10 +21,15 @@ const protect = async (req, res, next) => {
   }
 
   const user = isObjectId(payload.userId)
-    ? await User.findById(payload.userId).select("role").lean()
+    ? await User.findById(payload.userId).select("+tokenVersion").lean()
     : null;
 
   if (!user) {
+    throw new HttpError(401, SESSION_EXPIRED);
+  }
+
+  // Tokens issued before this check have no version and match an unchanged account (0).
+  if ((payload.tokenVersion || 0) !== (user.tokenVersion || 0)) {
     throw new HttpError(401, SESSION_EXPIRED);
   }
 

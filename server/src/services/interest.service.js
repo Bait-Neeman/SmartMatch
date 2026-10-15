@@ -1,13 +1,16 @@
 const Interest = require('../models/interest.model');
 const User = require('../models/user.model');
 const Profile = require('../models/profile.model');
+const Preference = require('../models/preference.model');
 const HttpError = require('../utils/httpError');
 const { assertObjectId } = require('../utils/validators');
+const { stageForViewer } = require('../utils/suggestionStage');
 const { toPublicPerson, redactIdentity } = require('./privacy.service');
-const { getCandidatesForUser } = require('./match.service');
+const { getCandidatesForUser, computeMatchPercent } = require('./match.service');
 
 const RESPONSE_STATUSES = ['accepted', 'rejected'];
 const USER_NOT_FOUND = 'המשתמש לא נמצא';
+const SUGGESTIONS_PAUSED = 'קבלת ההצעות מושהית. בטלו את ההשהיה כדי לשלוח התעניינות חדשה';
 
 const isDuplicateKey = (error) => error?.code === 11000 || error?.cause?.code === 11000;
 
@@ -138,6 +141,14 @@ const sendInterest = async (senderId, receiverId) => {
     // The other request may have created the row while candidates were loaded.
     const recovered = await open();
     if (recovered) return recovered;
+    // A paused account cannot start a new interest. Replies still pass mayStartInterest
+    // because an incoming interest returns true before this branch. A target below the
+    // viewer's own minimum percent stays a generic not-found, so the response does not
+    // reveal that the person exists.
+    const sender = await User.findById(senderId).select('pauseSuggestions').lean();
+    if (sender?.pauseSuggestions) {
+      throw new HttpError(403, SUGGESTIONS_PAUSED);
+    }
     throw new HttpError(404, USER_NOT_FOUND);
   }
 
@@ -246,13 +257,18 @@ const withPublicCounterparts = async (interests, viewerId) => {
     .filter((interest) => interest.status === 'accepted')
     .map((interest) => otherUserId(interest, viewerId));
 
-  const [users, profiles] = await Promise.all([
-    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email').lean() : [],
-    Profile.find({ user: { $in: otherIds } }).lean(),
+  const contextIds = [...new Set([String(viewerId), ...otherIds.map(String)])];
+  const [users, profiles, preferences, viewerProfile] = await Promise.all([
+    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email phone').lean() : [],
+    Profile.find({ user: { $in: contextIds } }).lean(),
+    Preference.find({ user: { $in: contextIds } }).lean(),
+    Profile.findOne({ user: viewerId }).lean(),
   ]);
 
   const userById = new Map(users.map((user) => [String(user._id), user]));
   const profileByUser = new Map(profiles.map((profile) => [String(profile.user), profile]));
+  const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
+  if (viewerProfile) profileByUser.set(String(viewerId), viewerProfile);
 
   return interests.map((interest) => {
     const otherId = otherUserId(interest, viewerId);
@@ -263,11 +279,17 @@ const withPublicCounterparts = async (interests, viewerId) => {
       { revealIdentity }
     );
     person._id = otherId;
+    person.matchPercent = computeMatchPercent(
+      profileByUser.get(String(viewerId)),
+      preferenceByUser.get(String(viewerId)),
+      profileByUser.get(String(otherId)),
+      preferenceByUser.get(String(otherId))
+    );
 
     const view =
       String(interest.sender) === String(viewerId)
-        ? { ...interest, receiver: person }
-        : { ...interest, sender: person };
+        ? { ...interest, receiver: person, ...stageForViewer(interest, viewerId) }
+        : { ...interest, sender: person, ...stageForViewer(interest, viewerId) };
 
     return redactIdentity(view, { revealIdentity });
   });

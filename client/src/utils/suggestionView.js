@@ -1,7 +1,8 @@
-import { ethnicityOptions, labelOf } from "../constants/profileOptions.js";
+import { ethnicityOptions, labelOf, maritalStatusOptions } from "../constants/profileOptions.js";
 
 // Fields the suggestions page may show before mutual approval.
 // Name, photo, resume, and contact are never copied into a view.
+// maritalStatus is public, like age and city.
 // Shape follows PR #7 (privacy.service PUBLIC_PROFILE_FIELDS): the person object
 // may omit name/image entirely, or an older payload may still include them.
 const PUBLIC_KEYS = [
@@ -13,9 +14,11 @@ const PUBLIC_KEYS = [
   "occupation",
   "description",
   "lookingFor",
+  "maritalStatus",
   "yeshiva",
   "seminar",
   "financialRequirement",
+  "financialDemand",
   "financialCapabilities",
   "financialContribution",
   "financialParticipation",
@@ -168,11 +171,16 @@ export const toSuggestionView = (person, kind = "new", extra) => {
   const lookingFor = cleanText(source.lookingFor) || lookingForOf(source);
   const fields = [
     { key: "height", label: "גובה", value: formatHeight(source.height) },
+    { key: "maritalStatus", label: "סטטוס משפחתי", value: labelOf(maritalStatusOptions, source.maritalStatus) },
     { key: "community", label: "עדה", value: communityOf(source) },
     { key: "city", label: "מגורים", value: city },
     { key: "institution", label: "מוסד לימוד", value: institution },
     { key: "occupation", label: "עיסוק", value: occupation },
-    { key: "financialRequirement", label: "דרישה כספית", value: cleanText(source.financialRequirement) },
+    {
+      key: cleanText(source.financialDemand) ? "financialDemand" : "financialRequirement",
+      label: "דרישה כספית",
+      value: cleanText(source.financialDemand) || cleanText(source.financialRequirement),
+    },
     { key: "financialParticipation", label: "השתתפות כספית", value: contributionOf(source) },
   ].filter((field) => field.value);
 

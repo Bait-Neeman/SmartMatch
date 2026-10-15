@@ -12,11 +12,12 @@ const getSecret = () => {
   return secret;
 };
 
-const generateToken = (userId, role) => {
-  return jwt.sign({ userId: String(userId), role }, getSecret(), {
-    expiresIn: TOKEN_EXPIRES_IN,
-    algorithm: "HS256",
-  });
+const generateToken = (userId, role, tokenVersion = 0) => {
+  return jwt.sign(
+    { userId: String(userId), role, tokenVersion: Number(tokenVersion) || 0 },
+    getSecret(),
+    { expiresIn: TOKEN_EXPIRES_IN, algorithm: "HS256" }
+  );
 };
 
 const verifyToken = (token) => {
