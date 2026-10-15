@@ -11,9 +11,10 @@ export default function EmptyState({ icon, title, description, actions = [] }) {
         mx: "auto",
         maxWidth: 560,
         textAlign: "center",
-        borderRadius: "24px",
-        border: "1px dashed rgba(63, 113, 213, 0.3)",
-        bgcolor: "rgba(255, 255, 255, 0.85)",
+        borderRadius: "16px",
+        border: "1px dashed rgba(151, 166, 188, 0.9)",
+        bgcolor: "background.paper",
+        boxShadow: "none",
       }}
     >
       {icon && (

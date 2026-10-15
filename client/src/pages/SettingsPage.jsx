@@ -1,20 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router-dom";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  MenuItem,
+  TextField,
+  Typography,
+} from "@mui/material";
+import {
+  Check,
+  Email,
+  Lock,
+  NotificationsNone,
+  Person,
+  Settings,
+  Visibility,
+} from "@mui/icons-material";
 import { getCurrentUser } from "../services/auth.service.js";
-import { getSession, logout } from "../utils/session.js";
-import { tokenVars } from "../theme/tokens.js";
-import { Avatar, Icon } from "../components/settings/icons.jsx";
-import "./settings.css";
-
-const NAV = [
-  { to: "/personal-area", label: "דף הבית", icon: "home" },
-  { to: "/matches", label: "הצעות", icon: "list" },
-  { to: "/interests", label: "הצעות פעילות", icon: "heart" },
-  { label: "בטיפול שדכן", icon: "send", placeholder: true },
-  { to: "/personal-area", label: "הפרופיל שלי", icon: "user" },
-  { to: "/preferences", label: "העדפות", icon: "sliders" },
-  { to: "/settings", label: "הגדרות", icon: "settings", end: true },
-];
+import { getSession } from "../utils/session.js";
+import { brand } from "../theme/tokens.js";
 
 const NOTIFICATION_ROWS = [
   { key: "newSuggestion", title: "הצעה חדשה", detail: "כשנבחרת עבורך הצעה חדשה", defaultOn: true },
@@ -30,26 +35,147 @@ const UNAVAILABLE = "הפעולה הזו עדיין לא זמינה בחשבון
 const initialToggles = () =>
   Object.fromEntries(NOTIFICATION_ROWS.map((row) => [row.key, row.defaultOn]));
 
+const cardSx = {
+  p: "clamp(16px, 1.6vw, 24px)",
+};
+
+const rowSx = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 2,
+  flexWrap: "wrap",
+  py: "13px",
+  borderBottom: `1px solid ${brand.line}`,
+  "&:last-of-type": {
+    borderBottom: 0,
+  },
+};
+
+const fieldSx = {
+  width: "100%",
+  font: "inherit",
+  fontWeight: 600,
+  color: brand.navy,
+  border: 0,
+  borderBottom: `1px solid ${brand.inputLine}`,
+  borderRadius: 0,
+  background: "transparent",
+  py: "6px",
+  px: "2px",
+  outline: "none",
+  "&:focus": {
+    borderBottomColor: brand.gold,
+  },
+  "&::placeholder": {
+    color: brand.mut,
+    fontWeight: 500,
+  },
+};
+
 function Toggle({ on, label, onToggle }) {
   return (
-    <button
+    <Box
+      component="button"
       type="button"
-      className={on ? "bn-tgl on" : "bn-tgl"}
       role="switch"
       aria-checked={on}
       aria-label={label}
       onClick={onToggle}
+      sx={{
+        flex: "none",
+        width: 42,
+        height: 24,
+        p: 0,
+        border: 0,
+        borderRadius: 999,
+        cursor: "pointer",
+        position: "relative",
+        background: on ? brand.navActive : brand.inputLine,
+      }}
     >
-      <i />
-    </button>
+      <Box
+        component="i"
+        sx={{
+          position: "absolute",
+          top: 3,
+          insetInlineStart: on ? 21 : 3,
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          bgcolor: brand.paper,
+          boxShadow: `0 1px 3px ${brand.line}`,
+        }}
+      />
+    </Box>
+  );
+}
+
+function SectionTitle({ icon, children }) {
+  return (
+    <Typography
+      component="h2"
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1.25,
+        m: 0,
+        mb: 1,
+        color: brand.navy,
+        fontSize: 18,
+        fontWeight: 600,
+        letterSpacing: "-0.3px",
+        "& .MuiSvgIcon-root": {
+          fontSize: 20,
+          color: brand.goldDeep,
+        },
+      }}
+    >
+      {icon}
+      {children}
+    </Typography>
+  );
+}
+
+function AccountField({ icon, label, children }) {
+  return (
+    <Box
+      component="li"
+      sx={{
+        display: "grid",
+        gridTemplateColumns: { xs: "18px minmax(0, 1fr)", sm: "18px 130px minmax(0, 1fr)" },
+        gap: 1.25,
+        alignItems: "center",
+      }}
+    >
+      {icon}
+      <Typography component="span" sx={{ color: brand.mut }}>
+        {label}
+      </Typography>
+      <Box sx={{ gridColumn: { xs: "1 / -1", sm: "auto" }, minWidth: 0 }}>{children}</Box>
+    </Box>
+  );
+}
+
+function SettingRow({ title, detail, control }) {
+  return (
+    <Box sx={rowSx}>
+      <Box>
+        <Typography component="b" sx={{ display: "block", color: brand.navy, fontWeight: 600 }}>
+          {title}
+        </Typography>
+        <Typography component="small" sx={{ display: "block", color: brand.mut, fontSize: 13 }}>
+          {detail}
+        </Typography>
+      </Box>
+      {control}
+    </Box>
   );
 }
 
 export default function SettingsPage() {
   const session = getSession();
-  const [navOpen, setNavOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [name, setName] = useState(session.user?.name || "");
   const [email, setEmail] = useState(session.user?.email || "");
   const emailDirty = useRef(false);
   const [toggles, setToggles] = useState({
@@ -65,7 +191,6 @@ export default function SettingsPage() {
       .then((data) => {
         const user = data?.user;
         if (ignore || !user) return;
-        if (user.name) setName(user.name);
         if (user.email && !emailDirty.current) setEmail(user.email);
       })
       .catch(() => {});
@@ -81,222 +206,174 @@ export default function SettingsPage() {
     setToggles((current) => ({ ...current, [key]: !current[key] }));
   };
 
-  const displayName = name || "חשבון";
-
   return (
-    <div className="bn-settings" style={tokenVars}>
-      {navOpen && (
-        <button type="button" className="bn-backdrop" aria-label="סגירת תפריט" onClick={() => setNavOpen(false)} />
+    <Box>
+      <Typography
+        component="h1"
+        sx={{
+          m: 0,
+          color: brand.navy,
+          fontWeight: 600,
+          letterSpacing: "-0.3px",
+          fontSize: "clamp(22px, 1.9vw, 28px)",
+          lineHeight: 1.1,
+        }}
+      >
+        הגדרות
+      </Typography>
+      <Typography sx={{ mt: 0.75, mb: 2.25, color: brand.mut, fontSize: 17 }}>
+        התראות, פרטיות וחשבון
+      </Typography>
+
+      {notice && (
+        <Alert severity="info" sx={{ width: "fit-content", mb: 2 }} role="status">
+          {notice}
+        </Alert>
       )}
 
-      <aside className={navOpen ? "bn-side open" : "bn-side"}>
-        <div className="bn-logo">
-          <span className="bn-wordmark">בית נאמן</span>
-        </div>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 440px), 1fr))",
+          gap: 2.5,
+          alignItems: "start",
+        }}
+      >
+        <Card sx={cardSx}>
+          <SectionTitle icon={<NotificationsNone />}>התראות</SectionTitle>
+          {NOTIFICATION_ROWS.map((row) => (
+            <SettingRow
+              key={row.key}
+              title={row.title}
+              detail={row.detail}
+              control={<Toggle on={toggles[row.key]} label={row.title} onToggle={() => flip(row.key)} />}
+            />
+          ))}
+        </Card>
 
-        <NavLink className="bn-me" to="/personal-area" onClick={() => setNavOpen(false)}>
-          <Avatar className="bn-av" />
-          <div>
-            <b>{displayName}</b>
-            <small>לפרופיל שלי</small>
-          </div>
-        </NavLink>
-
-        <nav className="bn-nav">
-          {NAV.map((item) =>
-            item.placeholder ? (
-              <button key={item.label} type="button" onClick={unavailable}>
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </button>
-            ) : (
-              <NavLink
-                key={item.label}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) => (isActive ? "on" : undefined)}
-                onClick={() => setNavOpen(false)}
+        <Card sx={cardSx}>
+          <SectionTitle icon={<Lock />}>פרטיות</SectionTitle>
+          <SettingRow
+            title="חשיפת תמונה ושם"
+            detail="רק לאחר אישור התעניינות הדדי – ההגדרה קבועה ואינה ניתנת לשינוי"
+            control={
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                  minHeight: 30,
+                  px: 1.5,
+                  borderRadius: `${brand.radiusPill}px`,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: brand.pillGreenText,
+                  bgcolor: brand.pillGreenBg,
+                  boxShadow: `inset 0 0 0 1px ${brand.pillGreenLine}`,
+                  whiteSpace: "nowrap",
+                }}
               >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </NavLink>
-            )
-          )}
-        </nav>
+                <Check sx={{ fontSize: 14 }} />
+                לאחר אישור הדדי
+              </Box>
+            }
+          />
+          <SettingRow
+            title="הצגת אחוז התאמה"
+            detail="הצגת אחוז ההתאמה בכרטיסי ההצעות"
+            control={
+              <Toggle
+                on={toggles.showMatchPercent}
+                label="הצגת אחוז התאמה"
+                onToggle={() => flip("showMatchPercent")}
+              />
+            }
+          />
+          <SettingRow
+            title="השהיית קבלת הצעות"
+            detail="הפרופיל לא יוצע לאחרים עד לביטול"
+            control={
+              <Toggle
+                on={toggles.pauseSuggestions}
+                label="השהיית קבלת הצעות"
+                onToggle={() => flip("pauseSuggestions")}
+              />
+            }
+          />
+          <Button
+            type="button"
+            onClick={unavailable}
+            startIcon={<Visibility />}
+            sx={{
+              mt: 1,
+              px: 0,
+              minHeight: 0,
+              color: brand.goldDark,
+              fontWeight: 600,
+              "&:hover": { bgcolor: "transparent" },
+            }}
+          >
+            מקרא סטטוסים ומסלול ההצעה
+          </Button>
+        </Card>
 
-        <button type="button" className="bn-out" onClick={logout}>
-          <Icon name="logout" />
-          <span>יציאה</span>
-        </button>
-      </aside>
+        <Card sx={cardSx}>
+          <SectionTitle icon={<Person />}>חשבון וסיסמה</SectionTitle>
+          <Box component="ul" sx={{ listStyle: "none", m: "8px 0 4px", p: 0, display: "grid", rowGap: 1.5 }}>
+            <AccountField icon={<Email sx={{ fontSize: 16, color: brand.gold }} />} label="אימייל">
+              <Box
+                component="input"
+                type="email"
+                dir="ltr"
+                value={email}
+                placeholder="לא הוגדר"
+                autoComplete="email"
+                onChange={(event) => {
+                  emailDirty.current = true;
+                  setEmail(event.target.value);
+                }}
+                sx={fieldSx}
+              />
+            </AccountField>
+            <AccountField icon={<Lock sx={{ fontSize: 16, color: brand.gold }} />} label="סיסמה">
+              <Box component="input" value="••••••••" readOnly tabIndex={-1} aria-label="סיסמה מוסתרת" sx={fieldSx} />
+            </AccountField>
+            <AccountField icon={<Person sx={{ fontSize: 16, color: brand.gold }} />} label="טלפון">
+              <Box component="input" type="tel" value="" placeholder="לא הוגדר" readOnly aria-label="טלפון" sx={fieldSx} />
+            </AccountField>
+          </Box>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mt: 3.5, pt: 3, borderTop: `1px solid ${brand.line}` }}>
+            <Button variant="contained" size="small" onClick={unavailable}>
+              שמירה
+            </Button>
+            <Button variant="outlined" size="small" onClick={unavailable}>
+              שינוי סיסמה
+            </Button>
+          </Box>
+        </Card>
 
-      <main className="bn-main">
-        <header className="bn-top">
-          <button type="button" className="bn-menu" aria-label="פתיחת תפריט" onClick={() => setNavOpen(true)}>
-            <Icon name="menu" />
-          </button>
-          <div className="bn-search">
-            <Icon name="search" />
-            <span>חיפוש הצעות, שמות, ערים…</span>
-            <kbd>⌘K</kbd>
-          </div>
-          <span className="bn-grow" />
-          <span className="bn-tb" aria-hidden="true">
-            <Icon name="mail" />
-            <i />
-          </span>
-          <span className="bn-tb" aria-hidden="true">
-            <Icon name="bell" />
-            <i />
-          </span>
-          <span className="bn-tme">
-            <Avatar className="bn-av" />
-            <b>{displayName}</b>
-          </span>
-        </header>
-
-        <div className="bn-content">
-          <div className="bn-sec">
-            <h2>הגדרות</h2>
-            <p>התראות, פרטיות וחשבון</p>
-          </div>
-
-          {notice && (
-            <p className="bn-toast" role="status">
-              {notice}
-            </p>
-          )}
-
-          <div className="bn-grid">
-            <section className="bn-card">
-              <h3 className="bn-ch">
-                <Icon name="bell" />
-                התראות
-              </h3>
-              {NOTIFICATION_ROWS.map((row) => (
-                <div className="bn-srow" key={row.key}>
-                  <div>
-                    <b>{row.title}</b>
-                    <small>{row.detail}</small>
-                  </div>
-                  <Toggle on={toggles[row.key]} label={row.title} onToggle={() => flip(row.key)} />
-                </div>
-              ))}
-            </section>
-
-            <section className="bn-card">
-              <h3 className="bn-ch">
-                <Icon name="lock" />
-                פרטיות
-              </h3>
-              <div className="bn-srow">
-                <div>
-                  <b>חשיפת תמונה ושם</b>
-                  <small>רק לאחר אישור התעניינות הדדי – ההגדרה קבועה ואינה ניתנת לשינוי</small>
-                </div>
-                <span className="bn-pill">
-                  <Icon name="check" className="ic" />
-                  לאחר אישור הדדי
-                </span>
-              </div>
-              <div className="bn-srow">
-                <div>
-                  <b>הצגת אחוז התאמה</b>
-                  <small>הצגת אחוז ההתאמה בכרטיסי ההצעות</small>
-                </div>
-                <Toggle
-                  on={toggles.showMatchPercent}
-                  label="הצגת אחוז התאמה"
-                  onToggle={() => flip("showMatchPercent")}
-                />
-              </div>
-              <div className="bn-srow">
-                <div>
-                  <b>השהיית קבלת הצעות</b>
-                  <small>הפרופיל לא יוצע לאחרים עד לביטול</small>
-                </div>
-                <Toggle
-                  on={toggles.pauseSuggestions}
-                  label="השהיית קבלת הצעות"
-                  onToggle={() => flip("pauseSuggestions")}
-                />
-              </div>
-              <button type="button" className="bn-lnk" onClick={unavailable}>
-                <Icon name="eye" />
-                מקרא סטטוסים ומסלול ההצעה
-              </button>
-            </section>
-
-            <section className="bn-card">
-              <h3 className="bn-ch">
-                <Icon name="user" />
-                חשבון וסיסמה
-              </h3>
-              <ul className="bn-dlist">
-                <li>
-                  <Icon name="mail" />
-                  <span>אימייל</span>
-                  <input
-                    className="bn-lin"
-                    type="email"
-                    dir="ltr"
-                    value={email}
-                    placeholder="לא הוגדר"
-                    autoComplete="email"
-                    onChange={(event) => {
-                      emailDirty.current = true;
-                      setEmail(event.target.value);
-                    }}
-                  />
-                </li>
-                <li>
-                  <Icon name="lock" />
-                  <span>סיסמה</span>
-                  <input className="bn-lin" value="••••••••" readOnly tabIndex={-1} aria-label="סיסמה מוסתרת" />
-                </li>
-                <li>
-                  <Icon name="user" />
-                  <span>טלפון</span>
-                  <input className="bn-lin" type="tel" value="" placeholder="לא הוגדר" readOnly aria-label="טלפון" />
-                </li>
-              </ul>
-              <div className="bn-actions">
-                <button type="button" className="bn-btn gold" onClick={unavailable}>
-                  שמירה
-                </button>
-                <button type="button" className="bn-btn ghost" onClick={unavailable}>
-                  שינוי סיסמה
-                </button>
-              </div>
-            </section>
-
-            <section className="bn-card">
-              <h3 className="bn-ch">
-                <Icon name="settings" />
-                שפה ותצוגה
-              </h3>
-              <div className="bn-srow">
-                <div>
-                  <b>שפה</b>
-                  <small>שפת הממשק</small>
-                </div>
-                <select className="bn-sel" aria-label="שפה" defaultValue="he">
-                  <option value="he">עברית</option>
-                </select>
-              </div>
-              <div className="bn-srow">
-                <div>
-                  <b>מחיקת חשבון</b>
-                  <small>הסרה מלאה של הפרופיל והנתונים</small>
-                </div>
-                <button type="button" className="bn-btn ghost" onClick={unavailable}>
-                  מחיקה
-                </button>
-              </div>
-            </section>
-          </div>
-        </div>
-      </main>
-    </div>
+        <Card sx={cardSx}>
+          <SectionTitle icon={<Settings />}>שפה ותצוגה</SectionTitle>
+          <SettingRow
+            title="שפה"
+            detail="שפת הממשק"
+            control={
+              <TextField select size="small" value="he" aria-label="שפה" sx={{ width: 160, flex: "none" }}>
+                <MenuItem value="he">עברית</MenuItem>
+              </TextField>
+            }
+          />
+          <SettingRow
+            title="מחיקת חשבון"
+            detail="הסרה מלאה של הפרופיל והנתונים"
+            control={
+              <Button variant="outlined" size="small" onClick={unavailable}>
+                מחיקה
+              </Button>
+            }
+          />
+        </Card>
+      </Box>
+    </Box>
   );
 }
