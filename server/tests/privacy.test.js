@@ -1005,4 +1005,72 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     await declineBy(fixture.rivka);
     await declineBy(fixture.viewer);
   });
+
+  it("rejects interest unless the person is a current candidate or already wrote first", async () => {
+    const fixture = await seed();
+    const headers = auth(tokenFor(fixture.viewer));
+    const hiddenUser = { message: "המשתמש לא נמצא" };
+
+    const peer = await User.create({
+      name: "LEAK-NAME-PEER",
+      email: "leak-peer@private.test",
+      idNumber: "100000005",
+      password: PASSWORD,
+      role: "user",
+    });
+    await Profile.create({ user: peer._id, gender: "male", age: 26 });
+
+    const unknown = await request(app)
+      .post("/api/interest")
+      .set(headers)
+      .send({ receiverId: String(new mongoose.Types.ObjectId()) });
+    const toExcluded = await request(app)
+      .post("/api/interest")
+      .set(headers)
+      .send({ receiverId: String(fixture.excluded._id) });
+    const toPreference = await request(app)
+      .post("/api/interest")
+      .set(headers)
+      .send({ receiverId: String(fixture.preferenceExcluded._id) });
+    const toPeer = await request(app)
+      .post("/api/interest")
+      .set(headers)
+      .send({ receiverId: String(peer._id) });
+
+    assert.equal(unknown.status, 404);
+    assert.equal(toExcluded.status, 404);
+    assert.equal(toPreference.status, 404);
+    assert.equal(toPeer.status, 404);
+    assert.deepEqual(unknown.body, hiddenUser);
+    assert.deepEqual(toExcluded.body, hiddenUser);
+    assert.deepEqual(toPreference.body, hiddenUser);
+    assert.deepEqual(toPeer.body, hiddenUser);
+    assert.equal(await Interest.countDocuments(), 0);
+
+    const excludedProfile = await request(app).get(`/api/profile/${fixture.excluded._id}`).set(headers);
+    const peerProfile = await request(app).get(`/api/profile/${peer._id}`).set(headers);
+    assert.equal(excludedProfile.status, 404);
+    assert.equal(peerProfile.status, 404);
+    assert.deepEqual(excludedProfile.body, PROFILE_HIDDEN);
+    assert.deepEqual(peerProfile.body, PROFILE_HIDDEN);
+    assertNoSecrets(excludedProfile.body, secretMarkersFor(fixture));
+    assert.equal(JSON.stringify(peerProfile.body).includes("LEAK-NAME-PEER"), false);
+
+    const sent = await request(app)
+      .post("/api/interest")
+      .set(headers)
+      .send({ receiverId: String(fixture.rivka._id) });
+    assert.equal(sent.status, 201);
+    assert.equal(sent.body.interest.status, "pending");
+
+    const reply = await request(app)
+      .post("/api/interest")
+      .set(auth(tokenFor(fixture.rivka)))
+      .send({ receiverId: String(fixture.viewer._id) });
+    assert.equal(reply.status, 201);
+    assert.equal(reply.body.interest.status, "accepted");
+    const stored = await Interest.find().lean();
+    assert.equal(stored.length, 1);
+    assert.equal(stored[0].status, "accepted");
+  });
 });

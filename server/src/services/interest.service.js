@@ -4,8 +4,10 @@ const Profile = require('../models/profile.model');
 const HttpError = require('../utils/httpError');
 const { assertObjectId } = require('../utils/validators');
 const { toPublicPerson, redactIdentity } = require('./privacy.service');
+const { getCandidatesForUser } = require('./match.service');
 
 const RESPONSE_STATUSES = ['accepted', 'rejected'];
+const USER_NOT_FOUND = 'המשתמש לא נמצא';
 
 const isDuplicateKey = (error) => error?.code === 11000 || error?.cause?.code === 11000;
 
@@ -86,8 +88,24 @@ const acceptIfStillPending = async (interestId, senderId, receiverId) => {
   throw new HttpError(409, 'לא ניתן לעדכן את הפנייה');
 };
 
+// A brand-new interest is allowed only when matching would currently show that
+// person, or when they already sent one to the sender. Anything else uses the
+// same not-found response as an unknown id.
+const mayStartInterest = async (senderId, receiverId) => {
+  const incoming = await Interest.exists({ sender: receiverId, receiver: senderId });
+  if (incoming) return true;
+
+  try {
+    const candidates = await getCandidatesForUser(senderId);
+    return candidates.some((candidate) => String(candidate._id) === String(receiverId));
+  } catch (error) {
+    if (error instanceof HttpError && error.statusCode === 404) return false;
+    throw error;
+  }
+};
+
 const sendInterest = async (senderId, receiverId) => {
-  assertObjectId(receiverId, 'המשתמש לא נמצא');
+  assertObjectId(receiverId, USER_NOT_FOUND);
 
   if (String(senderId) === String(receiverId)) {
     throw new HttpError(400, 'לא ניתן לשלוח פנייה לעצמך');
@@ -95,7 +113,7 @@ const sendInterest = async (senderId, receiverId) => {
 
   const receiver = await User.findById(receiverId).select('role').lean();
   if (!receiver || receiver.role !== 'user') {
-    throw new HttpError(404, 'המשתמש לא נמצא');
+    throw new HttpError(404, USER_NOT_FOUND);
   }
 
   // A pending interest from the other person is mutual approval, not a conflict —
@@ -115,6 +133,13 @@ const sendInterest = async (senderId, receiverId) => {
 
   const existing = await open();
   if (existing) return existing;
+
+  if (!(await mayStartInterest(senderId, receiverId))) {
+    // The other request may have created the row while candidates were loaded.
+    const recovered = await open();
+    if (recovered) return recovered;
+    throw new HttpError(404, USER_NOT_FOUND);
+  }
 
   let created = null;
   try {
