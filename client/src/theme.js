@@ -1,4 +1,5 @@
 import { createTheme } from "@mui/material/styles";
+import { tokens } from "./theme/tokens.js";
 
 const theme = createTheme({
   direction: "rtl",
@@ -176,4 +177,5 @@ const theme = createTheme({
   },
 });
 
+export { tokens };
 export default theme;

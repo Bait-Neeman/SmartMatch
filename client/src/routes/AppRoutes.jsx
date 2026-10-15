@@ -13,6 +13,7 @@ import AdminRoute from "../components/AdminRoute.jsx";
 import AppLayout from "../components/layout/AppLayout.jsx";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminPendingMatchesPage from "../pages/AdminPendingMatchesPage";
+import SettingsPage from "../pages/SettingsPage";
 import { getSession, homePathFor } from "../utils/session.js";
 
 // Visitors see the landing page; logged-in users go straight to their area
@@ -34,6 +35,7 @@ export default function AppRoutes() {
       <Route path="/" element={<HomeRoute />} />
       <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
       <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
 
       {/* User Routes (with the site header) */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
