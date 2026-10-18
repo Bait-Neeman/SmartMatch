@@ -1,4 +1,6 @@
+import { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -6,32 +8,96 @@ import {
   DialogContent,
   DialogTitle,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
-import { appearanceOptions, ethnicityOptions, labelOf, roleLabel, styleOptions } from "../../constants/profileOptions.js";
+import {
+  appearanceOptions,
+  ethnicityOptions,
+  labelOf,
+  maritalStatusOptions,
+  roleLabel,
+  styleOptions,
+} from "../../constants/profileOptions.js";
 import { toSafeFileUrl } from "../../utils/files.js";
 import { openProtectedFile } from "../../utils/protectedFile.js";
+import { resetAdminUserPassword } from "../../services/admin.service.js";
 import ProtectedImage from "../common/ProtectedFile.jsx";
 import AdminAvatar from "./AdminAvatar.jsx";
+import { formatDotDate } from "./format.js";
 
 const Row = ({ label, value }) => {
   if (value == null || value === "") return null;
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: "120px minmax(0, 1fr)", gap: 1, py: 0.6 }}>
+    <Box sx={{ display: "grid", gridTemplateColumns: "140px minmax(0, 1fr)", gap: 1, py: 0.6 }}>
       <Typography sx={{ color: brand.mut, fontSize: 14 }}>{label}</Typography>
-      <Typography sx={{ color: brand.navy, fontWeight: 600, fontSize: 15 }}>{value}</Typography>
+      <Typography sx={{ color: brand.navy, fontWeight: 600, fontSize: 15, wordBreak: "break-word" }}>{value}</Typography>
     </Box>
   );
 };
 
-export default function AdminProfileDialog({ open, onClose, data, loading, revealIdentity = true }) {
+const range = (min, max, unit = "") => {
+  if (min == null && max == null) return "";
+  const suffix = unit ? ` ${unit}` : "";
+  if (min != null && max != null) return `${min}–${max}${suffix}`;
+  if (min != null) return `מ-${min}${suffix}`;
+  return `עד ${max}${suffix}`;
+};
+
+const passwordBytes = (value) => new TextEncoder().encode(value).length;
+
+export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const user = data?.user;
   const profile = data?.profile;
+  const preference = data?.preference;
   const image = toSafeFileUrl(profile?.image);
   const resume = toSafeFileUrl(profile?.resumePdf);
   const school = [profile?.yeshiva, profile?.seminar].filter(Boolean).join(" · ");
-  const title = revealIdentity && user?.name ? user.name : "פרופיל";
+  const title = user?.name || "פרופיל";
+  const userId = user?._id ? String(user._id) : "";
+  const [resetOpen, setResetOpen] = useState(false);
+  const [nextPassword, setNextPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const closeReset = () => {
+    setResetOpen(false);
+    setNextPassword("");
+    setCurrentPassword("");
+    setResetError("");
+    setResetSuccess("");
+  };
+
+  const submitReset = async () => {
+    setResetError("");
+    setResetSuccess("");
+    if (!nextPassword) {
+      setResetError("יש להזין סיסמה");
+      return;
+    }
+    if (passwordBytes(nextPassword) > 72) {
+      setResetError("הסיסמה ארוכה מדי");
+      return;
+    }
+    if (!currentPassword) {
+      setResetError("יש להזין את הסיסמה הנוכחית");
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetAdminUserPassword(userId, { password: nextPassword, currentPassword });
+      setNextPassword("");
+      setCurrentPassword("");
+      setResetSuccess("הסיסמה עודכנה. ההתחברות הקיימת של המשתמש נותקה.");
+    } catch (error) {
+      setResetError(error?.message || "לא הצלחנו לעדכן את הסיסמה");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -42,23 +108,23 @@ export default function AdminProfileDialog({ open, onClose, data, loading, revea
         ) : (
           <Stack spacing={2}>
             <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-              {revealIdentity && image ? (
+              {image ? (
                 <ProtectedImage
                   url={image}
                   alt=""
                   sx={{
                     width: 84,
                     height: 84,
-                    borderRadius: "50%",
+                    borderRadius: "16px",
                     objectFit: "cover",
                     boxShadow: `0 0 0 3px ${brand.paper}, 0 0 0 4px ${brand.goldLight}`,
                   }}
                 />
               ) : (
-                <AdminAvatar gender={profile?.gender} size={84} ring reveal={false} />
+                <AdminAvatar gender={profile?.gender} size={84} rounded="16px" ring />
               )}
               <Box>
-                {revealIdentity && user?.name ? (
+                {user?.name ? (
                   <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: 20 }}>{user.name}</Typography>
                 ) : null}
                 <Typography sx={{ color: brand.mut, fontSize: 14 }}>{roleLabel(user?.role)}</Typography>
@@ -67,8 +133,10 @@ export default function AdminProfileDialog({ open, onClose, data, loading, revea
 
             <Box>
               <Typography sx={{ fontWeight: 600, color: brand.navy, mb: 0.5 }}>פרטי קשר</Typography>
-              <Row label="מספר זהות" value={user?.idNumber} />
+              <Row label="שם מלא" value={user?.name} />
               <Row label="אימייל" value={user?.email} />
+              <Row label="טלפון" value={user?.phone} />
+              <Row label="מספר זהות" value={user?.idNumber} />
             </Box>
 
             <Box>
@@ -79,12 +147,29 @@ export default function AdminProfileDialog({ open, onClose, data, loading, revea
               <Row label="עדה" value={labelOf(ethnicityOptions, profile?.ethnicity)} />
               <Row label="סגנון" value={labelOf(styleOptions, profile?.style)} />
               <Row label="מראה" value={labelOf(appearanceOptions, profile?.appearance)} />
+              <Row label="סטטוס משפחתי" value={labelOf(maritalStatusOptions, profile?.maritalStatus)} />
               <Row label="מוסד" value={school} />
               <Row label="עיסוק" value={profile?.occupation} />
+              <Row label="מה מחפש/ת" value={profile?.lookingFor} />
               <Row label="דרישה כספית" value={profile?.financialRequirement} />
               <Row label="יכולת כספית" value={profile?.financialCapabilities} />
               <Row label="מדד כספי" value={profile?.financialStatus} />
+              <Row label="דרישה (מספר)" value={profile?.financialDemand} />
+              <Row label="השתתפות כספית" value={profile?.financialParticipation} />
               <Row label="תיאור" value={profile?.description} />
+              <Row label="גודל רזומה" value={profile?.resumeSize != null ? `${profile.resumeSize} בייט` : ""} />
+              <Row label="רזומה הועלה" value={profile?.resumeUploadedAt ? formatDotDate(profile.resumeUploadedAt) : ""} />
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontWeight: 600, color: brand.navy, mb: 0.5 }}>העדפות</Typography>
+              <Row label="גיל" value={range(preference?.ageMin, preference?.ageMax)} />
+              <Row label="גובה" value={range(preference?.heightMin, preference?.heightMax, "ס״מ")} />
+              <Row label="עיר" value={preference?.city} />
+              <Row label="סגנון" value={labelOf(styleOptions, preference?.style)} />
+              <Row label="מראה" value={labelOf(appearanceOptions, preference?.preferredAppearance)} />
+              <Row label="סטטוס משפחתי" value={labelOf(maritalStatusOptions, preference?.preferredMaritalStatus)} />
+              <Row label="מדד כספי" value={range(preference?.financialMin, preference?.financialMax)} />
             </Box>
 
             {resume ? (
@@ -96,8 +181,71 @@ export default function AdminProfileDialog({ open, onClose, data, loading, revea
         )}
       </DialogContent>
       <DialogActions>
+        {userId ? (
+          <Button
+            onClick={() => {
+              setResetError("");
+              setResetSuccess("");
+              setResetOpen(true);
+            }}
+            sx={{ color: brand.goldDark, fontWeight: 600 }}
+          >
+            איפוס סיסמה
+          </Button>
+        ) : null}
+        <Box sx={{ flexGrow: 1 }} />
         <Button onClick={onClose}>סגירה</Button>
       </DialogActions>
+
+      <Dialog open={resetOpen} onClose={resetting ? undefined : closeReset} maxWidth="xs" fullWidth>
+        <DialogTitle>איפוס סיסמה</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: brand.mut, fontSize: 14, mb: 2 }}>
+            {user?.name ? `סיסמה חדשה עבור ${user.name}. ` : ""}
+            הסיסמה החדשה מחליפה את הקיימת ומנתקת את ההתחברות הפעילה.
+          </Typography>
+          {resetError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {resetError}
+            </Alert>
+          ) : null}
+          {resetSuccess ? (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {resetSuccess}
+            </Alert>
+          ) : null}
+          <Stack spacing={1.5}>
+            <TextField
+              label="סיסמה חדשה"
+              type="password"
+              value={nextPassword}
+              onChange={(event) => setNextPassword(event.target.value)}
+              autoComplete="new-password"
+              fullWidth
+              disabled={resetting || Boolean(resetSuccess)}
+            />
+            <TextField
+              label="הסיסמה שלך לאישור"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              autoComplete="current-password"
+              fullWidth
+              disabled={resetting || Boolean(resetSuccess)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeReset} disabled={resetting}>
+            {resetSuccess ? "סגירה" : "ביטול"}
+          </Button>
+          {resetSuccess ? null : (
+            <Button variant="contained" onClick={submitReset} disabled={resetting}>
+              עדכון סיסמה
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

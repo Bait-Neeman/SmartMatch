@@ -17,6 +17,7 @@ const { comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
 const { fileAccessPath } = require("./storage.service");
 const { toOwnerProfile } = require("./profile.service");
+const { getCandidatesForUser } = require("./match.service");
 const AdminStaff = require("../models/adminStaff.model");
 
 // Admin-only views. Identity and contact stay here.
@@ -39,17 +40,101 @@ const SETTING_FLAGS = [
   "revealIdentity",
 ];
 const STALE_MS = 60 * 24 * 60 * 60 * 1000;
-const USER_FIELDS = "name email idNumber role createdAt";
+const USER_FIELDS = "name email phone idNumber role createdAt";
 const GENDERS = new Set(["male", "female"]);
 
-const getPendingMatches = async () => {
-  const matches = await Interest.find(FORWARDED)
-    .populate("sender", "name idNumber role")
-    .populate("receiver", "name idNumber role")
-    .sort({ updatedAt: -1 })
-    .lean();
+// Every stored profile field the matchmaker is allowed to read. File ids are
+// replaced with protected paths below and never copied out.
+const PROFILE_DETAIL_FIELDS = [
+  "gender",
+  "age",
+  "city",
+  "height",
+  "style",
+  "appearance",
+  "ethnicity",
+  "description",
+  "lookingFor",
+  "maritalStatus",
+  "occupation",
+  "yeshiva",
+  "seminar",
+  "financialRequirement",
+  "financialCapabilities",
+  "financialStatus",
+  "financialDemand",
+  "financialParticipation",
+  "resumeSize",
+  "resumeUploadedAt",
+];
 
-  return matches.map((match) => ({ ...match, stage: "matchmaker" }));
+const PREFERENCE_FIELDS = [
+  "ageMin",
+  "ageMax",
+  "city",
+  "heightMin",
+  "heightMax",
+  "style",
+  "preferredAppearance",
+  "financialMin",
+  "financialMax",
+  "preferredMaritalStatus",
+];
+
+const blankFields = (fields) => Object.fromEntries(fields.map((field) => [field, null]));
+
+const toAdminPreference = (preference) => {
+  const full = blankFields(PREFERENCE_FIELDS);
+  if (!preference) return full;
+  for (const field of PREFERENCE_FIELDS) {
+    if (preference[field] != null && preference[field] !== "") full[field] = preference[field];
+  }
+  return full;
+};
+
+const toAdminProfile = (userId, profile) => {
+  if (!profile) return null;
+  return {
+    ...blankFields(PROFILE_DETAIL_FIELDS),
+    ...Object.fromEntries(
+      PROFILE_DETAIL_FIELDS.filter((field) => profile[field] != null && profile[field] !== "").map((field) => [
+        field,
+        profile[field],
+      ])
+    ),
+    image: fileAccessPath(userId, "image", profile.image),
+    resumePdf: fileAccessPath(userId, "resumePdf", profile.resumePdf),
+  };
+};
+
+// Full contact, profile, and preference for one person. Password and token
+// version are never copied, even if the caller loaded them.
+const toAdminPerson = (user, profile, preference) => {
+  const id = user?._id || profile?.user || null;
+  return {
+    _id: id,
+    name: user?.name || "",
+    email: user?.email || null,
+    phone: user?.phone || null,
+    idNumber: user?.idNumber || null,
+    role: user?.role || null,
+    age: profile?.age ?? null,
+    city: profile?.city || "",
+    gender: profile?.gender || "",
+    image: fileAccessPath(id, "image", profile?.image),
+    resumePdf: fileAccessPath(id, "resumePdf", profile?.resumePdf),
+    profile: toAdminProfile(id, profile),
+    preference: toAdminPreference(preference),
+  };
+};
+
+const toAdminAccount = (user) => {
+  if (!user) return null;
+  const plain = typeof user.toObject === "function" ? user.toObject() : { ...user };
+  delete plain.password;
+  delete plain.tokenVersion;
+  delete plain.__v;
+  return plain;
 };
 
 const removePendingMatch = async (senderId, receiverId) => {
@@ -104,20 +189,7 @@ const compatibilityPercent = (profileA, preferenceA, profileB, preferenceB) => {
 
 const caseNumberFrom = (id) => String(parseInt(String(id).slice(-4), 16) % 10000).padStart(4, "0");
 
-const toParty = (user, profile) => {
-  const id = user?._id || profile?.user || null;
-  return {
-    _id: id,
-    name: user?.name || "",
-    email: user?.email || null,
-    idNumber: user?.idNumber || null,
-    age: profile?.age ?? null,
-    city: profile?.city || "",
-    gender: profile?.gender || "",
-    image: fileAccessPath(id, "image", profile?.image),
-    resumePdf: fileAccessPath(id, "resumePdf", profile?.resumePdf),
-  };
-};
+const toParty = (user, profile, preference) => toAdminPerson(user, profile, preference);
 
 const monthStart = (now = new Date()) => new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -191,7 +263,7 @@ const shapeCases = async (interests) => {
     ...new Set(interests.flatMap((item) => [String(item.sender), String(item.receiver)])),
   ];
   const [users, profiles, preferences, records] = await Promise.all([
-    User.find({ _id: { $in: userIds } }).select("name email idNumber").lean(),
+    User.find({ _id: { $in: userIds } }).select("name email phone idNumber role").lean(),
     Profile.find({ user: { $in: userIds } }).lean(),
     Preference.find({ user: { $in: userIds } }).lean(),
     AdminCase.find({ interest: { $in: interests.map((item) => item._id) } }).lean(),
@@ -219,8 +291,10 @@ const shapeCases = async (interests) => {
         receiverProfile,
         preferenceByUser.get(receiverId)
       ),
-      sender: toParty(userById.get(senderId), senderProfile),
-      receiver: toParty(userById.get(receiverId), receiverProfile),
+      stage: "matchmaker",
+      manageable: true,
+      sender: toParty(userById.get(senderId), senderProfile, preferenceByUser.get(senderId)),
+      receiver: toParty(userById.get(receiverId), receiverProfile, preferenceByUser.get(receiverId)),
     };
   });
 };
@@ -250,43 +324,36 @@ const caseMembership = async () => {
   return { openIds, closedIds };
 };
 
-const toDirectoryUser = (user, profile, status) => ({
+const toDirectoryUser = (user, profile, status, preference) => ({
   _id: user._id,
   name: user.name,
   email: user.email || null,
+  phone: user.phone || null,
   idNumber: user.idNumber || null,
   role: user.role,
   createdAt: user.createdAt,
   status,
-  profile: profile
-    ? {
-        gender: profile.gender,
-        age: profile.age ?? null,
-        city: profile.city || "",
-        ethnicity: profile.ethnicity || "",
-        occupation: profile.occupation || "",
-        yeshiva: profile.yeshiva || "",
-        seminar: profile.seminar || "",
-        image: fileAccessPath(user._id, "image", profile.image),
-        resumePdf: fileAccessPath(user._id, "resumePdf", profile.resumePdf),
-      }
-    : null,
+  profile: toAdminProfile(user._id, profile),
+  preference: toAdminPreference(preference),
 });
 
 // Password is never selected. Profile files are stable paths, not storage ids.
 const getAllUsers = async () => {
-  const [users, profiles, membership] = await Promise.all([
+  const [users, profiles, preferences, membership] = await Promise.all([
     User.find({ role: "user" }).select(USER_FIELDS).sort({ createdAt: -1 }).lean(),
     Profile.find().lean(),
+    Preference.find().lean(),
     caseMembership(),
   ]);
   const profileByUser = new Map(profiles.map((profile) => [String(profile.user), profile]));
+  const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
 
   return users.map((user) =>
     toDirectoryUser(
       user,
       profileByUser.get(String(user._id)),
-      candidateStatus(String(user._id), membership.openIds, membership.closedIds)
+      candidateStatus(String(user._id), membership.openIds, membership.closedIds),
+      preferenceByUser.get(String(user._id))
     )
   );
 };
@@ -299,23 +366,154 @@ const getUserProfileForAdmin = async (userId) => {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
 
-  const profile = await Profile.findOne({ user: userId });
+  const [profile, preference] = await Promise.all([
+    Profile.findOne({ user: userId }),
+    Preference.findOne({ user: userId }).lean(),
+  ]);
 
   return {
-    user,
+    user: toAdminAccount(user),
     profile: profile ? await toOwnerProfile(profile) : null,
+    preference: toAdminPreference(preference),
   };
+};
+
+// One row for the matchmaker, not a viewer-relative stage.
+// pending covers interest sent and interest received.
+// active is mutual approval before either side forwards.
+const adminSuggestionStage = (interest) => {
+  if (interest.status === "rejected") return "declined";
+  if (interest.status === "pending") return "interest";
+  if (interest.senderApprovedToManager && interest.receiverApprovedToManager) return "matchmaker";
+  if (interest.senderApprovedToManager || interest.receiverApprovedToManager) return "forwarded";
+  return "active";
+};
+
+const loadPeople = async (ids) => {
+  const unique = [...new Set(ids.filter(Boolean).map(String))];
+  const [users, profiles, preferences] = await Promise.all([
+    User.find({ _id: { $in: unique } }).select("name email phone idNumber role").lean(),
+    Profile.find({ user: { $in: unique } }).lean(),
+    Preference.find({ user: { $in: unique } }).lean(),
+  ]);
+  return {
+    userById: new Map(users.map((user) => [String(user._id), user])),
+    profileByUser: new Map(profiles.map((profile) => [String(profile.user), profile])),
+    preferenceByUser: new Map(preferences.map((preference) => [String(preference.user), preference])),
+  };
+};
+
+const personFrom = (maps, id) =>
+  toAdminPerson(maps.userById.get(String(id)), maps.profileByUser.get(String(id)), maps.preferenceByUser.get(String(id)));
+
+const discoverNewPairs = async () => {
+  const users = await User.find({ role: "user", pauseSuggestions: { $ne: true } }).select("_id").lean();
+  const seen = new Set();
+  const pairs = [];
+
+  for (const user of users) {
+    let candidates = [];
+    try {
+      candidates = await getCandidatesForUser(user._id);
+    } catch (error) {
+      if (error instanceof HttpError && error.statusCode === 404) continue;
+      throw error;
+    }
+    for (const candidate of candidates) {
+      const key = [String(user._id), String(candidate._id)].sort().join(":");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push({ viewerId: String(user._id), otherId: String(candidate._id), key });
+    }
+  }
+
+  return pairs;
+};
+
+// Every suggestion the matchmaker can open, at every stage, with both people in full.
+// New rows are candidate pairs that do not yet have an interest.
+const getAdminSuggestions = async () => {
+  const [interests, newPairs] = await Promise.all([
+    Interest.find().sort({ updatedAt: -1 }).lean(),
+    discoverNewPairs(),
+  ]);
+  const maps = await loadPeople([
+    ...interests.flatMap((item) => [item.sender, item.receiver]),
+    ...newPairs.flatMap((pair) => [pair.viewerId, pair.otherId]),
+  ]);
+  const records = interests.length
+    ? await AdminCase.find({ interest: { $in: interests.map((item) => item._id) } }).lean()
+    : [];
+  const caseByInterest = new Map(records.map((record) => [String(record.interest), record]));
+
+  const interestRows = interests.map((item) => {
+    const stage = adminSuggestionStage(item);
+    const record = caseByInterest.get(String(item._id));
+    const senderId = String(item.sender);
+    const receiverId = String(item.receiver);
+    const matchmaker = stage === "matchmaker";
+    return {
+      _id: item._id,
+      stage,
+      status: matchmaker ? record?.status || "new" : null,
+      note: matchmaker ? record?.note || "" : "",
+      caseNumber: matchmaker ? caseNumberFrom(item._id) : null,
+      manageable: matchmaker,
+      transferredAt: item.createdAt,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      senderApprovedToManager: Boolean(item.senderApprovedToManager),
+      receiverApprovedToManager: Boolean(item.receiverApprovedToManager),
+      matchPercent: compatibilityPercent(
+        maps.profileByUser.get(senderId),
+        maps.preferenceByUser.get(senderId),
+        maps.profileByUser.get(receiverId),
+        maps.preferenceByUser.get(receiverId)
+      ),
+      sender: personFrom(maps, senderId),
+      receiver: personFrom(maps, receiverId),
+    };
+  });
+
+  const newRows = newPairs.map((pair) => ({
+    _id: `new:${pair.key}`,
+    stage: "new",
+    status: null,
+    note: "",
+    caseNumber: null,
+    manageable: false,
+    transferredAt: null,
+    createdAt: null,
+    updatedAt: null,
+    senderApprovedToManager: false,
+    receiverApprovedToManager: false,
+    matchPercent: compatibilityPercent(
+      maps.profileByUser.get(pair.viewerId),
+      maps.preferenceByUser.get(pair.viewerId),
+      maps.profileByUser.get(pair.otherId),
+      maps.preferenceByUser.get(pair.otherId)
+    ),
+    sender: personFrom(maps, pair.viewerId),
+    receiver: personFrom(maps, pair.otherId),
+  }));
+
+  return [...interestRows, ...newRows];
+};
+
+const getPendingMatches = async () => {
+  const suggestions = await getAdminSuggestions();
+  return suggestions.filter((item) => item.stage === "matchmaker");
 };
 
 const getAdminCases = async (adminId, { applyAutoClose = true } = {}) => {
   if (applyAutoClose) await closeStaleCases(adminId);
   const settings = await readSettings(adminId);
-  const cases = await shapeCases(await loadForwarded());
-  return { cases, revealIdentity: settings.revealIdentity !== false };
+  const [cases, suggestions] = await Promise.all([shapeCases(await loadForwarded()), getAdminSuggestions()]);
+  return { cases, suggestions, revealIdentity: settings.revealIdentity !== false };
 };
 
 const getAdminSummary = async (adminId) => {
-  const [users, { cases, revealIdentity }, admin] = await Promise.all([
+  const [users, { cases, suggestions, revealIdentity }, admin] = await Promise.all([
     getAllUsers(),
     getAdminCases(adminId),
     User.findById(adminId).select("name").lean(),
@@ -339,6 +537,7 @@ const getAdminSummary = async (adminId) => {
     cases: { total: open.length, fresh: fresh.length },
     closed: { total: closed.length },
     recent,
+    pipeline: suggestions.slice(0, 8),
   };
 };
 
@@ -658,8 +857,48 @@ const updateAdminAccount = async (adminId, body = {}) => {
   return account;
 };
 
+// Admin chooses the new password. It must be non-empty and at most 72 bytes,
+// which is all bcrypt will hash. The value is stored only as a hash, and it is
+// never written to a log or included in the response.
+const resetUserPassword = async (adminId, userId, body = {}) => {
+  assertObjectId(userId, "מזהה משתמש לא תקין");
+
+  const nextPassword = body.password;
+  if (typeof nextPassword !== "string" || nextPassword.length === 0) {
+    throw new HttpError(400, "יש להזין סיסמה");
+  }
+  if (Buffer.byteLength(nextPassword, "utf8") > 72) {
+    throw new HttpError(400, "הסיסמה ארוכה מדי");
+  }
+
+  if (typeof body.currentPassword !== "string" || body.currentPassword.length === 0) {
+    throw new HttpError(400, "יש להזין את הסיסמה הנוכחית");
+  }
+
+  const admin = await User.findById(adminId).select("+password");
+  if (!admin) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+  const confirmed = await comparePassword(body.currentPassword, admin.password);
+  if (!confirmed) {
+    throw new HttpError(400, "הסיסמה הנוכחית שגויה");
+  }
+
+  const user = await User.findById(userId).select("+password +tokenVersion");
+  if (!user) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+
+  user.password = nextPassword;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+
+  return { message: "הסיסמה עודכנה" };
+};
+
 module.exports = {
   getPendingMatches,
+  getAdminSuggestions,
   removePendingMatch,
   getAllUsers,
   getUserProfileForAdmin,
@@ -672,4 +911,5 @@ module.exports = {
   updateAdminAccount,
   createAdminCandidate,
   createAdminMatchmaker,
+  resetUserPassword,
 };

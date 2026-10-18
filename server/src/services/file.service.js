@@ -33,6 +33,9 @@ const hasAcceptedInterest = (viewerId, ownerId) =>
 
 // Owner, admin, or a person whose interest with the owner is accepted on this request.
 // A decline is visible here immediately: the check reads the interest again.
+// `viewer.role` is the role loaded from the database on this request, not the
+// role baked into the token. An admin may open a photo or resume at every
+// suggestion stage, including before any interest and after a decline.
 const openProfileFile = async (viewer, ownerId, routeKind) => {
   assertObjectId(ownerId);
   const field = FIELD_BY_ROUTE[routeKind];

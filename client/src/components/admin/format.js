@@ -45,12 +45,23 @@ export const freshTrend = (count) => (count === 1 ? "חדשה אחת" : `${count
 
 export const closedTrend = (count) => (count > 0 ? "מזל טוב!" : "אין עדיין");
 
+export const SUGGESTION_STAGE = {
+  new: { tone: "pending", label: "הצעה חדשה" },
+  interest: { tone: "received", label: "התעניינות" },
+  active: { tone: "accepted", label: "אושרה הדדית" },
+  forwarded: { tone: "forwarded", label: "הועבר לשדכן" },
+  matchmaker: { tone: "matchmaker", label: "בטיפול שדכן" },
+  declined: { tone: "rejected", label: "נדחה" },
+};
+
 export const partyLine = (party) => {
   if (!party) return "";
   const noun = party.gender === "female" ? "בת" : party.gender === "male" ? "בן" : "";
   const age = party.age != null && party.age !== "" ? `${noun ? `${noun} ` : ""}${party.age}` : "";
   return [age, party.city].filter(Boolean).join(" · ");
 };
+
+export const contactLine = (party) => [party?.phone, party?.email].filter(Boolean).join(" · ");
 
 export const displayName = (party, reveal) => {
   if (reveal && party?.name) return party.name;

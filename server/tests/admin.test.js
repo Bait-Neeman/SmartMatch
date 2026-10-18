@@ -9,6 +9,7 @@ const request = require("supertest");
 
 const app = require("../app");
 const { generateToken } = require("../src/config/jwt");
+const { setStoredFileReader } = require("../src/services/storage.service");
 const { comparePassword } = require("../src/utils/hash");
 const User = require("../src/models/user.model");
 const Profile = require("../src/models/profile.model");
@@ -26,6 +27,11 @@ describe("admin pages", () => {
   let mongo;
 
   before(async () => {
+    setStoredFileReader(async (kind, publicId) => ({
+      body: Buffer.from(`${kind}:${publicId}`),
+      contentType: kind === "image" ? "image/jpeg" : "application/pdf",
+      filename: kind === "image" ? "photo.jpg" : "resume.pdf",
+    }));
     mongo = await MongoMemoryServer.create();
     await mongoose.connect(mongo.getUri());
   });
@@ -135,7 +141,13 @@ describe("admin pages", () => {
     const fixture = await seed();
     const headers = auth(tokenFor(fixture.boy));
 
-    for (const path of ["/api/admin/summary", "/api/admin/cases", "/api/admin/settings", "/api/admin/search?q=יוסי"]) {
+    for (const path of [
+      "/api/admin/summary",
+      "/api/admin/cases",
+      "/api/admin/suggestions",
+      "/api/admin/settings",
+      "/api/admin/search?q=יוסי",
+    ]) {
       const response = await request(app).get(path).set(headers);
       assert.equal(response.status, 403, path);
     }
@@ -400,5 +412,364 @@ describe("admin pages", () => {
     assert.equal(byCase.body.cases.length, 1);
     assert.equal(byCase.body.cases[0].receiverName, "שרה לוי");
     assert.equal(JSON.stringify(byCase.body).includes(PASSWORD), false);
+  });
+
+  it("gives an admin full details at every stage and keeps them off a regular user", async () => {
+    const photoBoy = "secret-stage-photo-boy";
+    const resumeBoy = "secret-stage-resume-boy";
+    const photoGirl = "secret-stage-photo-girl";
+    const resumeGirl = "secret-stage-resume-girl";
+    const boyPhone = "0501111111";
+    const girlPhone = "0522222222";
+
+    const [admin, boy, girl] = await Promise.all([
+      User.create({
+        name: "הרב שלב",
+        email: "stage-admin@example.test",
+        idNumber: "200000020",
+        password: PASSWORD,
+        role: "admin",
+      }),
+      User.create({
+        name: "נעם פרטי",
+        email: "stage-boy@example.test",
+        idNumber: "200000021",
+        phone: boyPhone,
+        password: PASSWORD,
+        role: "user",
+      }),
+      User.create({
+        name: "מיכל פרטית",
+        email: "stage-girl@example.test",
+        idNumber: "200000022",
+        phone: girlPhone,
+        password: PASSWORD,
+        role: "user",
+      }),
+    ]);
+
+    await Profile.create([
+      {
+        user: boy._id,
+        gender: "male",
+        age: 28,
+        city: "חיפה",
+        height: 178,
+        style: "classic",
+        appearance: "average",
+        ethnicity: "ashkenazi",
+        description: "תיאור נעם",
+        lookingFor: "מחפש מיכל",
+        maritalStatus: "single",
+        occupation: "הייטק",
+        yeshiva: "ישיבת נעם",
+        financialRequirement: "גמיש",
+        financialCapabilities: "יציב",
+        financialStatus: 40,
+        financialDemand: 1000,
+        financialParticipation: 2000,
+        image: photoBoy,
+        resumePdf: resumeBoy,
+        resumeSize: 321,
+      },
+      {
+        user: girl._id,
+        gender: "female",
+        age: 25,
+        city: "חיפה",
+        height: 165,
+        style: "classic",
+        appearance: "average",
+        ethnicity: "sephardic",
+        description: "תיאור מיכל",
+        lookingFor: "מחפשת נעם",
+        maritalStatus: "single",
+        occupation: "מורה",
+        seminar: "סמינר מיכל",
+        financialRequirement: "פתוח",
+        financialCapabilities: "מסודר",
+        financialStatus: 55,
+        financialDemand: 500,
+        financialParticipation: 3000,
+        image: photoGirl,
+        resumePdf: resumeGirl,
+        resumeSize: 654,
+      },
+    ]);
+
+    await Preference.create([
+      {
+        user: boy._id,
+        ageMin: 22,
+        ageMax: 30,
+        city: "חיפה",
+        heightMin: 155,
+        heightMax: 180,
+        style: "classic",
+        preferredAppearance: "average",
+        financialMin: 10,
+        financialMax: 80,
+        preferredMaritalStatus: "single",
+      },
+      {
+        user: girl._id,
+        ageMin: 24,
+        ageMax: 32,
+        city: "חיפה",
+        heightMin: 170,
+        heightMax: 190,
+        style: "classic",
+        preferredAppearance: "average",
+        financialMin: 20,
+        financialMax: 90,
+        preferredMaritalStatus: "single",
+      },
+    ]);
+
+    const adminHeaders = auth(tokenFor(admin));
+    const boyHeaders = auth(tokenFor(boy));
+    const girlHeaders = auth(tokenFor(girl));
+    const boyId = String(boy._id);
+    const girlId = String(girl._id);
+    const fileBody = (response) =>
+      Buffer.isBuffer(response.body) ? response.body.toString() : String(response.text || "");
+
+    const pairOf = (body) =>
+      body.suggestions.find((item) => {
+        const ids = [String(item.sender?._id), String(item.receiver?._id)];
+        return ids.includes(boyId) && ids.includes(girlId);
+      });
+
+    const assertAdminPair = (item, stage) => {
+      assert.ok(item, `missing admin suggestion at ${stage}`);
+      assert.equal(item.stage, stage);
+      const people = [item.sender, item.receiver];
+      const naam = people.find((person) => String(person._id) === boyId);
+      const michal = people.find((person) => String(person._id) === girlId);
+      assert.equal(naam.name, "נעם פרטי");
+      assert.equal(naam.email, "stage-boy@example.test");
+      assert.equal(naam.phone, boyPhone);
+      assert.equal(naam.idNumber, "200000021");
+      assert.equal(naam.profile.yeshiva, "ישיבת נעם");
+      assert.equal(naam.profile.lookingFor, "מחפש מיכל");
+      assert.equal(naam.profile.maritalStatus, "single");
+      assert.equal(naam.profile.financialDemand, 1000);
+      assert.equal(naam.profile.financialParticipation, 2000);
+      assert.equal(naam.profile.height, 178);
+      assert.equal(naam.profile.image, `/api/files/${boyId}/image`);
+      assert.equal(naam.profile.resumePdf, `/api/files/${boyId}/resume`);
+      assert.equal(naam.resumePdf, `/api/files/${boyId}/resume`);
+      assert.equal(naam.preference.ageMin, 22);
+      assert.equal(naam.preference.city, "חיפה");
+      assert.equal(naam.preference.preferredMaritalStatus, "single");
+      assert.equal(michal.name, "מיכל פרטית");
+      assert.equal(michal.email, "stage-girl@example.test");
+      assert.equal(michal.phone, girlPhone);
+      assert.equal(michal.profile.seminar, "סמינר מיכל");
+      assert.equal(michal.profile.image, `/api/files/${girlId}/image`);
+      assert.equal(michal.profile.resumePdf, `/api/files/${girlId}/resume`);
+      assert.equal(michal.preference.heightMin, 170);
+      const serialized = JSON.stringify(item);
+      assert.equal(serialized.includes(PASSWORD), false);
+      assert.equal(serialized.includes(photoBoy), false);
+      assert.equal(serialized.includes(resumeGirl), false);
+    };
+
+    const identityMarkers = ["נעם פרטי", "מיכל פרטית", "stage-boy@example.test", "stage-girl@example.test", boyPhone, girlPhone, photoBoy, photoGirl, resumeBoy, resumeGirl];
+
+    const assertUserHidden = (body) => {
+      const serialized = JSON.stringify(body);
+      for (const marker of identityMarkers) {
+        assert.equal(serialized.includes(marker), false, marker);
+      }
+      assert.equal(serialized.includes("idNumber"), false);
+      assert.equal(serialized.includes("password"), false);
+    };
+
+    const assertFile = async (userId, kind, headers, status, payload) => {
+      const response = await request(app).get(`/api/files/${userId}/${kind}`).set(headers);
+      assert.equal(response.status, status);
+      if (status === 200) assert.equal(fileBody(response), payload);
+      return response;
+    };
+
+    const listed = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assert.equal(listed.status, 200);
+    assertAdminPair(pairOf(listed.body), "new");
+
+    const directory = await request(app).get("/api/admin/users").set(adminHeaders);
+    const directoryBoy = directory.body.users.find((user) => String(user._id) === boyId);
+    assert.equal(directoryBoy.phone, boyPhone);
+    assert.equal(directoryBoy.email, "stage-boy@example.test");
+    assert.equal(directoryBoy.profile.image, `/api/files/${boyId}/image`);
+    assert.equal(directoryBoy.profile.lookingFor, "מחפש מיכל");
+    assert.equal(directoryBoy.preference.ageMax, 30);
+    assert.equal(JSON.stringify(directory.body).includes(photoBoy), false);
+
+    const profile = await request(app).get(`/api/admin/users/${girlId}/profile`).set(adminHeaders);
+    assert.equal(profile.body.user.phone, girlPhone);
+    assert.equal(profile.body.user.email, "stage-girl@example.test");
+    assert.equal(profile.body.profile.seminar, "סמינר מיכל");
+    assert.equal(profile.body.profile.image, `/api/files/${girlId}/image`);
+    assert.equal(profile.body.preference.city, "חיפה");
+    assert.equal(profile.body.user.password, undefined);
+
+    const hiddenNew = await request(app).get("/api/suggestions").set(boyHeaders);
+    assert.equal(hiddenNew.status, 200);
+    assert.ok(hiddenNew.body.newSuggestions.some((item) => String(item._id) === girlId));
+    assertUserHidden(hiddenNew.body);
+    await assertFile(girlId, "image", boyHeaders, 404);
+    await assertFile(girlId, "resume", boyHeaders, 404);
+    await assertFile(girlId, "image", adminHeaders, 200, `image:${photoGirl}`);
+    await assertFile(boyId, "resume", adminHeaders, 200, `resumePdf:${resumeBoy}`);
+
+    const blocked = await request(app).get("/api/admin/suggestions").set(boyHeaders);
+    assert.equal(blocked.status, 403);
+    assertUserHidden(blocked.body);
+
+    await request(app).post("/api/interest").set(boyHeaders).send({ receiverId: girlId });
+    const sent = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assertAdminPair(pairOf(sent.body), "interest");
+    const boySent = await request(app).get("/api/suggestions").set(boyHeaders);
+    const girlReceived = await request(app).get("/api/suggestions").set(girlHeaders);
+    assert.equal(boySent.body.sent.length, 1);
+    assert.equal(girlReceived.body.received.length, 1);
+    assertUserHidden(boySent.body);
+    assertUserHidden(girlReceived.body);
+    await assertFile(boyId, "image", girlHeaders, 404);
+    await assertFile(girlId, "resume", adminHeaders, 200, `resumePdf:${resumeGirl}`);
+
+    await request(app).put("/api/interest/respond").set(girlHeaders).send({ senderId: boyId, status: "accepted" });
+    const approved = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assertAdminPair(pairOf(approved.body), "active");
+
+    await request(app).post("/api/interest/send-to-manager").set(boyHeaders).send({ otherUserId: girlId });
+    const forwarded = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assertAdminPair(pairOf(forwarded.body), "forwarded");
+
+    await request(app).post("/api/interest/send-to-manager").set(girlHeaders).send({ otherUserId: boyId });
+    const matchmaker = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assertAdminPair(pairOf(matchmaker.body), "matchmaker");
+    const cases = await request(app).get("/api/admin/cases").set(adminHeaders);
+    const stageCase = cases.body.suggestions.find((item) => String(item._id) === String(pairOf(matchmaker.body)._id));
+    assert.equal(stageCase.stage, "matchmaker");
+    const casePeople = [stageCase.sender, stageCase.receiver];
+    assert.equal(casePeople.find((person) => String(person._id) === boyId).phone, boyPhone);
+    assert.equal(casePeople.find((person) => String(person._id) === girlId).email, "stage-girl@example.test");
+    assert.equal(JSON.stringify(cases.body).includes(photoBoy), false);
+
+    await request(app).put("/api/interest/respond").set(girlHeaders).send({ senderId: boyId, status: "rejected" });
+    const declined = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assertAdminPair(pairOf(declined.body), "declined");
+    const pending = await request(app).get("/api/admin/pending-matches").set(adminHeaders);
+    assert.equal(
+      pending.body.matches.some((item) => {
+        const ids = [String(item.sender?._id), String(item.receiver?._id)];
+        return ids.includes(boyId) && ids.includes(girlId);
+      }),
+      false
+    );
+
+    const afterDecline = await request(app).get("/api/suggestions").set(boyHeaders);
+    assert.equal(afterDecline.body.declined.length, 1);
+    assert.equal(afterDecline.body.active.length, 0);
+    assert.equal(afterDecline.body.matchmaker.length, 0);
+    assertUserHidden(afterDecline.body);
+    const closedProfile = await request(app).get(`/api/profile/${girlId}`).set(boyHeaders);
+    assert.equal(closedProfile.status, 404);
+    await assertFile(girlId, "image", boyHeaders, 404);
+    await assertFile(girlId, "resume", boyHeaders, 404);
+    await assertFile(boyId, "image", girlHeaders, 404);
+    await assertFile(girlId, "image", adminHeaders, 200, `image:${photoGirl}`);
+    await assertFile(boyId, "resume", adminHeaders, 200, `resumePdf:${resumeBoy}`);
+
+    const boyToken = tokenFor(boy);
+    await User.updateOne({ _id: boy._id }, { role: "admin" });
+    await assertFile(girlId, "image", auth(boyToken), 200, `image:${photoGirl}`);
+    await User.updateOne({ _id: boy._id }, { role: "user" });
+    await assertFile(girlId, "resume", auth(boyToken), 404);
+  });
+
+  it("lets only an admin set a user's password, and signs out the old session", async () => {
+    const fixture = await seed();
+    const boyId = String(fixture.boy._id);
+    const path = `/api/admin/users/${boyId}/password`;
+    const nextPassword = "ResetPass99";
+    const adminHeaders = auth(tokenFor(fixture.admin));
+    const oldToken = tokenFor(fixture.boy);
+
+    const anonymous = await request(app).put(path).send({ password: nextPassword, currentPassword: PASSWORD });
+    assert.equal(anonymous.status, 401);
+
+    const forbidden = await request(app)
+      .put(path)
+      .set(auth(oldToken))
+      .send({ password: nextPassword, currentPassword: PASSWORD });
+    assert.equal(forbidden.status, 403);
+    assert.equal(JSON.stringify(forbidden.body).includes(nextPassword), false);
+
+    const stillOld = await request(app).post("/api/auth/login").send({
+      email: fixture.boy.email,
+      password: PASSWORD,
+    });
+    assert.equal(stillOld.status, 200);
+
+    const empty = await request(app).put(path).set(adminHeaders).send({ password: "", currentPassword: PASSWORD });
+    assert.equal(empty.status, 400);
+
+    const tooLong = await request(app)
+      .put(path)
+      .set(adminHeaders)
+      .send({ password: "a".repeat(73), currentPassword: PASSWORD });
+    assert.equal(tooLong.status, 400);
+    assert.equal(JSON.stringify(tooLong.body).includes("a".repeat(73)), false);
+
+    const wrong = await request(app)
+      .put(path)
+      .set(adminHeaders)
+      .send({ password: nextPassword, currentPassword: "Wrongpass1" });
+    assert.equal(wrong.status, 400);
+    assert.equal(JSON.stringify(wrong.body).includes(nextPassword), false);
+
+    const unchanged = await User.findById(fixture.boy._id).select("+password +tokenVersion");
+    assert.equal(unchanged.tokenVersion || 0, 0);
+    assert.equal(await comparePassword(PASSWORD, unchanged.password), true);
+
+    const reset = await request(app)
+      .put(path)
+      .set(adminHeaders)
+      .send({ password: nextPassword, currentPassword: PASSWORD });
+    assert.equal(reset.status, 200);
+    assert.equal(reset.body.message, "הסיסמה עודכנה");
+    assert.equal(reset.body.password, undefined);
+    assert.equal(JSON.stringify(reset.body).includes(nextPassword), false);
+    assert.equal(JSON.stringify(reset.body).includes(PASSWORD), false);
+
+    const stored = await User.findById(fixture.boy._id).select("+password +tokenVersion");
+    assert.equal(stored.tokenVersion, 1);
+    assert.notEqual(stored.password, nextPassword);
+    assert.equal(stored.password.startsWith("$2"), true);
+    assert.equal(await comparePassword(nextPassword, stored.password), true);
+    assert.equal(await comparePassword(PASSWORD, stored.password), false);
+
+    const stale = await request(app).get("/api/profile/me").set(auth(oldToken));
+    assert.equal(stale.status, 401);
+
+    const oldLogin = await request(app).post("/api/auth/login").send({
+      email: fixture.boy.email,
+      password: PASSWORD,
+    });
+    assert.equal(oldLogin.status, 401);
+
+    const freshLogin = await request(app).post("/api/auth/login").send({
+      email: fixture.boy.email,
+      password: nextPassword,
+    });
+    assert.equal(freshLogin.status, 200);
+    assert.equal(typeof freshLogin.body.token, "string");
+    assert.equal(JSON.stringify(freshLogin.body).includes(nextPassword), false);
+
+    const session = await request(app).get("/api/profile/me").set(auth(freshLogin.body.token));
+    assert.equal(session.status, 200);
   });
 });
