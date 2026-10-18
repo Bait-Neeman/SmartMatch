@@ -78,6 +78,7 @@ const subtitleOf = (person) =>
     .join(" · ");
 
 const hrefFor = (kind, id) => {
+  if (kind === "matchmaker") return `/matchmaker/${encodeURIComponent(id)}`;
   if (kind === "active") return `/active/${encodeURIComponent(id)}`;
   return `/suggestions/${kind}/${encodeURIComponent(id)}`;
 };
@@ -130,7 +131,7 @@ const searchUser = async (userId, needle) => {
   for (const item of lists.received) consider(item.sender, "received", false);
   for (const item of lists.sent) consider(item.receiver, "sent", false);
   for (const person of lists.active) consider(person, "active", true);
-  for (const person of lists.matchmaker) consider(person, "active", true);
+  for (const person of lists.matchmaker) consider(person, "matchmaker", true);
   for (const person of lists.newSuggestions) consider(person, "new", false);
 
   return rows;

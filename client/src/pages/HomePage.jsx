@@ -24,7 +24,7 @@ const STATS = [
   { key: "fresh", label: "הצעות חדשות", to: "/suggestions", icon: <AutoAwesome /> },
   { key: "received", label: "התקבלה התעניינות", to: "/suggestions", icon: <MailOutlined /> },
   { key: "active", label: "הצעות פעילות", to: "/active", icon: <FavoriteBorder /> },
-  { key: "matchmaker", label: "בטיפול שדכן", to: "/active", icon: <Send /> },
+  { key: "matchmaker", label: "בטיפול שדכן", to: "/matchmaker", icon: <Send /> },
 ];
 
 export default function HomePage() {
