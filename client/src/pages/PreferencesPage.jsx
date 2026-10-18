@@ -144,7 +144,7 @@ export default function PreferencesPage() {
       }
 
       setOnboardingPath(null);
-      navigate("/personal-area");
+      navigate("/home");
     } catch (error) {
       setApiError(error?.response?.data?.message || error.message || "שגיאה בשמירת העדפות");
     } finally {

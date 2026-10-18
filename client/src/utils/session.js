@@ -22,11 +22,11 @@ export const getSession = () => {
 
 const ONBOARDING_PATHS = new Set(["/profile", "/preferences"]);
 
-// Where a logged-in user lands. A new account stays on onboarding until it is done.
+// A finished account lands on /home. A new account stays on onboarding until it is done.
 export const pathForSession = (session, onboardingPath) => {
   if (session?.isAdmin) return "/admin";
   if (ONBOARDING_PATHS.has(onboardingPath)) return onboardingPath;
-  return "/personal-area";
+  return "/home";
 };
 
 export const homePathFor = (session) =>

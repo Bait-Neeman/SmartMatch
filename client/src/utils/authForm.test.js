@@ -32,11 +32,11 @@ describe("auth form", () => {
   it("sends a new account through onboarding and an admin to the admin area", () => {
     assert.equal(destinationAfterLogin({ role: "user", hasProfile: false, hasPreferences: false }), "/profile");
     assert.equal(destinationAfterLogin({ role: "user", hasProfile: true, hasPreferences: false }), "/preferences");
-    assert.equal(destinationAfterLogin({ role: "user", hasProfile: true, hasPreferences: true }), "/personal-area");
+    assert.equal(destinationAfterLogin({ role: "user", hasProfile: true, hasPreferences: true }), "/home");
     assert.equal(destinationAfterLogin({ role: "admin", hasProfile: false, hasPreferences: false }), "/admin");
     assert.equal(pathForSession({ isAdmin: false }, "/profile"), "/profile");
     assert.equal(pathForSession({ isAdmin: false }, "/preferences"), "/preferences");
-    assert.equal(pathForSession({ isAdmin: false }, null), "/personal-area");
+    assert.equal(pathForSession({ isAdmin: false }, null), "/home");
     assert.equal(pathForSession({ isAdmin: true }, "/profile"), "/admin");
   });
 

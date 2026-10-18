@@ -14,6 +14,18 @@ const buildUserResponse = (user) => ({
 
 const asTrimmedString = (value) => (typeof value === "string" ? value.trim() : "");
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Exact lowercase match first. Older accounts may still be stored with mixed case,
+// so a miss falls back to an anchored case-insensitive match.
+const findUserByEmail = async (email) => {
+  const exact = await User.findOne({ email }).select("+password +tokenVersion");
+  if (exact || !email) return exact;
+  return User.findOne({
+    email: { $regex: new RegExp(`^${escapeRegex(email)}$`, "i") },
+  }).select("+password +tokenVersion");
+};
+
 // Compared against when the email doesn't exist, so a login takes the same time
 // whether or not the account exists.
 let dummyHash;
@@ -45,7 +57,7 @@ const registerUser = async ({ name, email, password }) => {
     throw new HttpError(400, passwordMessage);
   }
 
-  const existingUser = await User.findOne({ email: cleanEmail }).select("+password +tokenVersion");
+  const existingUser = await findUserByEmail(cleanEmail);
 
   if (existingUser) {
     // Submitting the same registration twice (e.g. after a network error) is not an error
@@ -86,7 +98,7 @@ const loginUser = async ({ email, password }) => {
     throw new HttpError(400, passwordMessage);
   }
 
-  const user = await User.findOne({ email: cleanEmail }).select("+password +tokenVersion");
+  const user = await findUserByEmail(cleanEmail);
   const isMatch = await comparePassword(password, user ? user.password : await getDummyHash());
 
   if (!user || !isMatch) {

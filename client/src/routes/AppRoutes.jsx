@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import RegisterPage from "../pages/RegisterPage";
 import LoginPage from "../pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
+import HomePage from "../pages/HomePage";
 import PreferencesPage from "../pages/PreferencesPage";
 import ProfilePage from "../pages/ProfilePage";
 import PersonalAreaPage from "../pages/PersonalAreaPage";
@@ -45,6 +46,7 @@ export default function AppRoutes() {
 
       {/* User Routes (with the site header) */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/home" element={<HomePage />} />
         <Route path="/personal-area" element={<PersonalAreaPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/statuses" element={<StatusesPage />} />

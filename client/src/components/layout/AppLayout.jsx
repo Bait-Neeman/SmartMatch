@@ -34,6 +34,7 @@ import PersonAvatar from "../common/PersonAvatar.jsx";
 import AdminSearch from "../admin/AdminSearch.jsx";
 
 const USER_LINKS = [
+  { to: "/home", label: "דף הבית", icon: <HomeOutlined />, end: true },
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
   { to: "/suggestions", label: "הצעות", icon: <FormatListBulleted />, end: false },
   { to: "/active", label: "הצעות פעילות", icon: <HowToReg />, end: false },

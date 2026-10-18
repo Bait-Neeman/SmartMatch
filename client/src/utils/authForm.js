@@ -27,7 +27,7 @@ export const destinationAfterLogin = ({ role, hasProfile, hasPreferences }) => {
   if (role === "admin") return "/admin";
   if (!hasProfile) return "/profile";
   if (!hasPreferences) return "/preferences";
-  return "/personal-area";
+  return "/home";
 };
 
 export const authErrorMessage = (error, fallback = "אירעה שגיאה. נסו שוב.") => {

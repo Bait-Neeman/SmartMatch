@@ -11,7 +11,7 @@ const request = require("supertest");
 
 const app = require("../app");
 const User = require("../src/models/user.model");
-const { comparePassword } = require("../src/utils/hash");
+const { comparePassword, hashPassword } = require("../src/utils/hash");
 
 const TOO_LONG = "הסיסמה ארוכה מדי. אפשר עד 72 בתים";
 const WRONG = "אימייל או סיסמה שגויים";
@@ -291,26 +291,73 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(matchmaker.body.message, "יש להזין סיסמה");
   });
 
-  it("does not lock a user out for rapid retries outside production", async () => {
-    assert.notEqual(process.env.NODE_ENV, "production");
-    await request(app).post("/api/auth/register").send({
-      email: "retry@example.test",
-      password: "secret",
-    });
-
-    for (let i = 0; i < 15; i += 1) {
-      const failed = await request(app).post("/api/auth/login").send({
+  it("does not lock a user out for rapid retries in development", async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+      await request(app).post("/api/auth/register").send({
         email: "retry@example.test",
-        password: `wrong-${i}`,
+        password: "secret",
       });
-      assert.equal(failed.status, 401, `attempt ${i}: ${failed.body.message}`);
-    }
 
-    const loggedIn = await request(app).post("/api/auth/login").send({
-      email: "retry@example.test",
+      for (let i = 0; i < 15; i += 1) {
+        const failed = await request(app).post("/api/auth/login").send({
+          email: "retry@example.test",
+          password: `wrong-${i}`,
+        });
+        assert.equal(failed.status, 401, `attempt ${i}: ${failed.body.message}`);
+      }
+
+      const loggedIn = await request(app).post("/api/auth/login").send({
+        email: "retry@example.test",
+        password: "secret",
+      });
+      assert.equal(loggedIn.status, 200, JSON.stringify(loggedIn.body));
+    } finally {
+      if (previous === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previous;
+    }
+  });
+
+  it("logs in when the stored email still has mixed case", async () => {
+    const passwordHash = await hashPassword("secret");
+    await User.collection.insertOne({
+      name: "Old Account",
+      email: "A+B@Example.test",
+      password: passwordHash,
+      role: "user",
+      tokenVersion: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const lower = await request(app).post("/api/auth/login").send({
+      email: "a+b@example.test",
       password: "secret",
     });
-    assert.equal(loggedIn.status, 200, JSON.stringify(loggedIn.body));
+    assert.equal(lower.status, 200, JSON.stringify(lower.body));
+    assert.equal(lower.body.user.email, "A+B@Example.test");
+
+    const mixed = await request(app).post("/api/auth/login").send({
+      email: "  A+B@EXAMPLE.TEST ",
+      password: "secret",
+    });
+    assert.equal(mixed.status, 200, JSON.stringify(mixed.body));
+
+    const wrong = await request(app).post("/api/auth/login").send({
+      email: "a+b@example.test",
+      password: "other",
+    });
+    assert.equal(wrong.status, 401);
+    assert.equal(wrong.body.message, WRONG);
+
+    const again = await request(app).post("/api/auth/register").send({
+      email: "a+b@example.test",
+      password: "secret",
+    });
+    assert.equal(again.status, 201, JSON.stringify(again.body));
+    assert.equal(again.body.user.email, "A+B@Example.test");
+    assert.equal(await User.countDocuments({ email: /^a\+b@example\.test$/i }), 1);
   });
 
   it("locks only in production, and says so in Hebrew, without counting invalid forms", async () => {

@@ -19,9 +19,12 @@ const apiLimiter = createLimiter({
   message: "יותר מדי בקשות. נסו שוב בעוד כמה דקות.",
 });
 
-// Local development and the test suite retry the same account on purpose.
-// The limits stay in production, where NODE_ENV is "production".
-const authLimitsActive = () => process.env.NODE_ENV === "production";
+// Off only for local development and the test suite. npm run dev sets
+// NODE_ENV=development. Any other value, including an unset one, keeps the limits on.
+const authLimitsActive = () => {
+  const env = process.env.NODE_ENV;
+  return env !== "development" && env !== "test";
+};
 
 // Only a wrong password (401) uses up a try. An incomplete form (400) and a
 // successful login do not, so fixing a typo cannot lock the account.
