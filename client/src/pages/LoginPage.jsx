@@ -18,6 +18,7 @@ import AuthLayout, { AuthFooter } from "../components/layout/AuthLayout.jsx";
 import { authFieldSx, authSubmitSx } from "../components/layout/authStyles.js";
 import { brand } from "../theme/tokens.js";
 import { loginUser } from "../services/auth.service.js";
+import { homePathFor } from "../utils/session.js";
 import { getMyProfile } from "../services/profile.service.js";
 import { getMyPreferences } from "../services/preference.service.js";
 
@@ -81,7 +82,7 @@ export default function LoginPage() {
         }
 
         if (!shouldOnboard) {
-          navigate("/personal-area");
+          navigate(homePathFor({ isAdmin: false }));
           return;
         }
 
@@ -114,7 +115,7 @@ export default function LoginPage() {
         if (!hasPreferences) {
           navigate("/preferences");
         } else {
-          navigate("/personal-area");
+          navigate(homePathFor({ isAdmin: false }));
         }
       } else {
         setApiError("ההתחברות נכשלה, נסו שוב");
