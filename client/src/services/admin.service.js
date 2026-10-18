@@ -10,6 +10,11 @@ export const getAdminUserProfile = async (userId) => {
   return response.data;
 };
 
+export const resetAdminUserPassword = async (userId, payload) => {
+  const response = await api.put(`/admin/users/${userId}/password`, payload);
+  return response.data;
+};
+
 export const getPendingMatches = async () => {
   const response = await api.get("/admin/pending-matches");
   return response.data;

@@ -3,7 +3,7 @@ const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { hashPassword, comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
-const { validateEmail, validateName, validatePassword } = require("../utils/validators");
+const { validateEmail, validateName, passwordErrorMessage } = require("../utils/validators");
 
 const buildUserResponse = (user) => ({
   _id: user._id,
@@ -13,6 +13,18 @@ const buildUserResponse = (user) => ({
 });
 
 const asTrimmedString = (value) => (typeof value === "string" ? value.trim() : "");
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Exact lowercase match first. Older accounts may still be stored with mixed case,
+// so a miss falls back to an anchored case-insensitive match.
+const findUserByEmail = async (email) => {
+  const exact = await User.findOne({ email }).select("+password +tokenVersion");
+  if (exact || !email) return exact;
+  return User.findOne({
+    email: { $regex: new RegExp(`^${escapeRegex(email)}$`, "i") },
+  }).select("+password +tokenVersion");
+};
 
 // Compared against when the email doesn't exist, so a login takes the same time
 // whether or not the account exists.
@@ -40,11 +52,12 @@ const registerUser = async ({ name, email, password }) => {
   if (!validateName(cleanName)) {
     throw new HttpError(400, "יש להזין שם מלא");
   }
-  if (!validatePassword(password)) {
-    throw new HttpError(400, "הסיסמה חייבת להכיל לפחות 8 תווים ולפחות אות אחת באנגלית");
+  const passwordMessage = passwordErrorMessage(password);
+  if (passwordMessage) {
+    throw new HttpError(400, passwordMessage);
   }
 
-  const existingUser = await User.findOne({ email: cleanEmail }).select("+password +tokenVersion");
+  const existingUser = await findUserByEmail(cleanEmail);
 
   if (existingUser) {
     // Submitting the same registration twice (e.g. after a network error) is not an error
@@ -56,11 +69,19 @@ const registerUser = async ({ name, email, password }) => {
     throw new HttpError(409, "לא ניתן להירשם עם הפרטים האלה. אם כבר יש לך חשבון, יש להתחבר.");
   }
 
-  const user = await User.create({
-    name: cleanName,
-    email: cleanEmail,
-    password,
-  });
+  let user;
+  try {
+    user = await User.create({
+      name: cleanName,
+      email: cleanEmail,
+      password,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new HttpError(409, "לא ניתן להירשם עם הפרטים האלה. אם כבר יש לך חשבון, יש להתחבר.");
+    }
+    throw error;
+  }
 
   return { ...buildUserResponse(user), tokenVersion: user.tokenVersion || 0 };
 };
@@ -68,11 +89,16 @@ const registerUser = async ({ name, email, password }) => {
 const loginUser = async ({ email, password }) => {
   const cleanEmail = asTrimmedString(email).toLowerCase();
 
-  if (!cleanEmail || typeof password !== "string" || !password) {
+  if (!cleanEmail || typeof password !== "string" || password.length === 0) {
     throw new HttpError(400, "יש להזין אימייל וסיסמה");
   }
+  // Reject before bcrypt. A longer value would be silently truncated to 72 bytes.
+  const passwordMessage = passwordErrorMessage(password);
+  if (passwordMessage) {
+    throw new HttpError(400, passwordMessage);
+  }
 
-  const user = await User.findOne({ email: cleanEmail }).select("+password +tokenVersion");
+  const user = await findUserByEmail(cleanEmail);
   const isMatch = await comparePassword(password, user ? user.password : await getDummyHash());
 
   if (!user || !isMatch) {

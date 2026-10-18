@@ -26,7 +26,8 @@ const MARITAL = {
   widowed: { male: "אלמן", female: "אלמנה" },
 };
 
-const BUCKETS = ["active", "matchmaker", "accepted"];
+// `matchmaker` is a separate page: both sides have already forwarded.
+const BUCKETS = ["active", "accepted"];
 
 const textOf = (value) => {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -148,7 +149,7 @@ export const buildActiveItems = (data) => {
   for (const person of rowsOf(data)) {
     const view = toActiveView(person);
     const userId = idOf(person);
-    if (!view || !userId || seen.has(userId)) continue;
+    if (!view || view.kind === "matchmaker" || !userId || seen.has(userId)) continue;
     seen.add(userId);
     items.push({ id: userId, userId, view });
   }

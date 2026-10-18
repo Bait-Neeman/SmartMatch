@@ -9,11 +9,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -66,7 +61,7 @@ const matchesQuery = (user, query) => {
   if (!query) return true;
   const needle = query.trim().toLowerCase();
   const profile = user.profile || {};
-  return [user.name, profile.city, profile.yeshiva, profile.seminar, profile.occupation]
+  return [user.name, user.email, user.phone, profile.city, profile.yeshiva, profile.seminar, profile.occupation]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(needle));
 };
@@ -247,81 +242,93 @@ export default function AdminDirectoryPage({ gender }) {
           <CircularProgress />
         </Box>
       ) : (
-        <Paper sx={{ overflowX: "auto", p: "8px 8px 14px" }}>
+        <Box sx={{ display: "grid", gap: 1.25 }}>
           {shown.length === 0 ? (
-            <Typography sx={{ color: brand.mut, textAlign: "center", py: 4 }}>
-              {roster.length === 0 ? `אין ${title} רשומים` : "אין תוצאות לסינון הזה"}
-            </Typography>
+            <Paper sx={{ p: 2 }}>
+              <Typography sx={{ color: brand.mut, textAlign: "center", py: 4 }}>
+                {roster.length === 0 ? `אין ${title} רשומים` : "אין תוצאות לסינון הזה"}
+              </Typography>
+            </Paper>
           ) : (
-            <Table sx={{ minWidth: 720 }}>
-              <TableHead>
-                <TableRow>
-                  {["שם", "גיל", "עיר", "מוסד / עיסוק", "רזומה", "סטטוס", ""].map((heading) => (
-                    <TableCell
-                      key={heading || "go"}
-                      sx={{ fontWeight: 600, fontSize: 13, color: brand.mut, borderColor: brand.line, textAlign: "start" }}
-                    >
-                      {heading}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {shown.map((user) => {
-                  const tone = CANDIDATE_STATUS[user.status] || CANDIDATE_STATUS.active;
-                  const resume = toSafeFileUrl(user.profile?.resumePdf);
-                  return (
-                    <TableRow
-                      key={user._id}
-                      hover
-                      onClick={() => openProfile(user._id)}
-                      sx={{ cursor: "pointer", "&:hover td": { bgcolor: brand.rowHover } }}
-                    >
-                      <TableCell sx={cellSx}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                          <AdminAvatar image={user.profile?.image} gender={gender} size={36} rounded="12px" />
-                          <Typography sx={{ fontWeight: 600, color: brand.navy }}>{user.name}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={cellSx}>{user.profile?.age ?? "—"}</TableCell>
-                      <TableCell sx={cellSx}>{user.profile?.city || "—"}</TableCell>
-                      <TableCell sx={cellSx}>{institutionLine(user.profile)}</TableCell>
-                      <TableCell sx={cellSx}>
-                        {resume ? (
-                          <Box
-                            component="button"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openProtectedFile(resume);
-                            }}
-                            sx={{
-                              border: 0,
-                              background: "transparent",
-                              color: brand.pillRedText,
-                              fontWeight: 600,
-                              fontSize: 13,
-                              cursor: "pointer",
-                              fontFamily: "inherit",
-                            }}
-                          >
-                            PDF
-                          </Box>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell sx={cellSx}>
-                        <StatusPill tone={tone.tone} label={tone.label} icon={<StatusIcon Icon={tone.Icon} />} />
-                      </TableCell>
-                      <TableCell sx={{ ...cellSx, color: brand.goldDeep, width: 40 }}>
-                        <ChevronLeft />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            shown.map((user) => {
+              const tone = CANDIDATE_STATUS[user.status] || CANDIDATE_STATUS.active;
+              const resume = toSafeFileUrl(user.profile?.resumePdf);
+              const contact = [user.phone, user.email].filter(Boolean).join(" · ");
+              const meta = [
+                user.profile?.age != null ? String(user.profile.age) : "",
+                user.profile?.city || "",
+                institutionLine(user.profile) === "—" ? "" : institutionLine(user.profile),
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <Paper
+                  key={user._id}
+                  onClick={() => openProfile(user._id)}
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    alignItems: { xs: "stretch", sm: "center" },
+                    gap: 1.75,
+                    p: { xs: 1.5, sm: 2 },
+                    cursor: "pointer",
+                    borderColor: brand.line,
+                    "&:hover": {
+                      borderColor: brand.rowHoverBorder,
+                      boxShadow: brand.rowHoverShadow,
+                      bgcolor: brand.rowHover,
+                    },
+                  }}
+                >
+                  <AdminAvatar image={user.profile?.image} gender={gender} size={72} rounded="16px" ring />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: 18 }}>{user.name}</Typography>
+                    {meta ? <Typography sx={{ color: brand.mut, fontSize: 14 }}>{meta}</Typography> : null}
+                    {contact ? (
+                      <Typography sx={{ color: brand.ink2, fontSize: 14, wordBreak: "break-word" }}>{contact}</Typography>
+                    ) : null}
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: { xs: "space-between", sm: "flex-end" },
+                      gap: 1.5,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {resume ? (
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openProtectedFile(resume);
+                        }}
+                        sx={{
+                          border: `1px solid ${brand.inputLine}`,
+                          background: brand.paper,
+                          color: brand.goldDark,
+                          fontWeight: 600,
+                          fontSize: 13,
+                          borderRadius: "10px",
+                          px: 1.5,
+                          py: 0.75,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        רזומה
+                      </Box>
+                    ) : null}
+                    <StatusPill tone={tone.tone} label={tone.label} icon={<StatusIcon Icon={tone.Icon} />} />
+                    <Box sx={{ color: brand.goldDeep, display: "grid" }}>
+                      <ChevronLeft />
+                    </Box>
+                  </Box>
+                </Paper>
+              );
+            })
           )}
 
           {filtered.length > 0 ? (
@@ -346,7 +353,7 @@ export default function AdminDirectoryPage({ gender }) {
                 })}
             </Box>
           ) : null}
-        </Paper>
+        </Box>
       )}
 
       <AddCandidateDialog
@@ -371,7 +378,6 @@ export default function AdminDirectoryPage({ gender }) {
         onClose={closeProfile}
         data={profile}
         loading={profileLoading}
-        revealIdentity
       />
     </Box>
   );
@@ -399,13 +405,6 @@ function FilterSelect({ label, value, onChange, options }) {
     </Select>
   );
 }
-
-const cellSx = {
-  borderColor: brand.line,
-  color: brand.ink2,
-  fontSize: 15,
-  py: "9px",
-};
 
 const tabSx = (on) => ({
   border: `1px solid ${on ? brand.gold : brand.inputLine}`,

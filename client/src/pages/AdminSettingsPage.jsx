@@ -12,6 +12,7 @@ import {
 } from "@mui/icons-material";
 import { brand } from "../theme/tokens.js";
 import { getSession } from "../utils/session.js";
+import { passwordError } from "../utils/authForm.js";
 import {
   fetchAdminSettings,
   saveAdminAccount,
@@ -89,7 +90,15 @@ export default function AdminSettingsPage() {
         email: form.email,
         activityArea: form.activityArea,
       };
-      if (form.password) payload.password = form.password;
+      if (form.password) {
+        const passwordProblem = passwordError(form.password);
+        if (passwordProblem) {
+          setMessage(passwordProblem);
+          setSaving(false);
+          return;
+        }
+        payload.password = form.password;
+      }
       if (form.currentPassword) payload.currentPassword = form.currentPassword;
       const saved = await dispatch(saveAdminAccount(payload)).unwrap();
       if (saved?.token) localStorage.setItem("token", saved.token);
@@ -163,12 +172,11 @@ export default function AdminSettingsPage() {
                 slotProps={{ input: { "aria-label": "סגירת תיק אוטומטית" } }}
               />
             </SettingRow>
-            <SettingRow title="חשיפת פרטים לשדכן" detail="שם ותמונה של שני הצדדים זמינים לשדכן בכל תיק">
-              <Switch
-                checked={settings?.revealIdentity !== false}
-                onChange={() => toggle("revealIdentity")}
-                slotProps={{ input: { "aria-label": "חשיפת פרטים לשדכן" } }}
-              />
+            <SettingRow
+              title="פרטי שני הצדדים"
+              detail="שם, אימייל, טלפון, תמונה, רזומה וכל שדה בפרופיל ובהעדפות גלויים בכל שלב, כולל נדחו."
+            >
+              <Typography sx={{ color: brand.goldText, fontWeight: 600, fontSize: 14 }}>תמיד גלוי</Typography>
             </SettingRow>
           </Paper>
 

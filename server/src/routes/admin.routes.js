@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   getPending,
+  getSuggestions,
   removePending,
   getUsers,
   getUserProfile,
@@ -15,6 +16,7 @@ const {
   putAccount,
   postCandidate,
   postMatchmaker,
+  putUserPassword,
 } = require("../controllers/admin.controller");
 
 const { protect, requireAdmin } = require("../middleware/auth.middleware");
@@ -30,6 +32,7 @@ router.post("/candidates", postCandidate);
 router.post("/matchmakers", postMatchmaker);
 
 router.get("/cases", getCases);
+router.get("/suggestions", getSuggestions);
 router.patch("/cases/:id", patchCase);
 
 router.get("/pending-matches", getPending);
@@ -37,5 +40,6 @@ router.delete("/pending-match", removePending);
 
 router.get("/users", getUsers);
 router.get("/users/:userId/profile", getUserProfile);
+router.put("/users/:userId/password", putUserPassword);
 
 module.exports = router;

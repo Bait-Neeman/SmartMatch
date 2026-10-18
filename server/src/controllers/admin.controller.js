@@ -1,5 +1,6 @@
 const {
   getPendingMatches,
+  getAdminSuggestions,
   removePendingMatch,
   getAllUsers,
   getUserProfileForAdmin,
@@ -12,6 +13,7 @@ const {
   updateAdminAccount,
   createAdminCandidate,
   createAdminMatchmaker,
+  resetUserPassword,
 } = require("../services/admin.service");
 
 // Admin access is checked by the requireAdmin middleware on every admin route.
@@ -19,6 +21,11 @@ const {
 const getPending = async (req, res) => {
   const matches = await getPendingMatches();
   res.status(200).json({ matches });
+};
+
+const getSuggestions = async (req, res) => {
+  const suggestions = await getAdminSuggestions();
+  res.status(200).json({ suggestions });
 };
 
 const removePending = async (req, res) => {
@@ -82,8 +89,14 @@ const postMatchmaker = async (req, res) => {
   res.status(201).json({ member });
 };
 
+const putUserPassword = async (req, res) => {
+  const result = await resetUserPassword(req.user.userId, req.params.userId, req.body || {});
+  res.status(200).json(result);
+};
+
 module.exports = {
   getPending,
+  getSuggestions,
   removePending,
   getUsers,
   getUserProfile,
@@ -96,4 +109,5 @@ module.exports = {
   putAccount,
   postCandidate,
   postMatchmaker,
+  putUserPassword,
 };

@@ -23,7 +23,7 @@ import {
   styleOptions,
 } from "../constants/profileOptions.js";
 import { brand } from "../theme/tokens.js";
-import { getSession } from "../utils/session.js";
+import { getSession, setOnboardingPath } from "../utils/session.js";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
 
 const PHOTO_NOTE = "התמונה מוצגת לאחרים רק לאחר אישור התעניינות הדדי";
@@ -458,7 +458,9 @@ export default function ProfilePage() {
       if (profileExists) await updateProfile(requestData);
       else await createProfile(requestData);
       setSuccessMessage(profileExists ? "הפרופיל נשמר" : "הפרופיל נוצר בהצלחה");
-      setTimeout(() => navigate(profileExists ? "/personal-area" : "/preferences"), 750);
+      const nextPath = profileExists ? "/personal-area" : "/preferences";
+      setOnboardingPath(nextPath);
+      setTimeout(() => navigate(nextPath), 750);
     } catch (error) {
       const message = error?.response?.data?.message || error.message || "שגיאה בשמירת הפרופיל";
       setApiError(message);

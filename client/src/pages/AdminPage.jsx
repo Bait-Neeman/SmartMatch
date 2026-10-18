@@ -7,7 +7,6 @@ import { brand } from "../theme/tokens.js";
 import { getSession } from "../utils/session.js";
 import {
   fetchAdminSummary,
-  selectAdminRevealIdentity,
   selectAdminSummary,
   selectAdminSummaryError,
   selectAdminSummaryLoading,
@@ -22,7 +21,6 @@ export default function AdminPage() {
   const summary = useSelector(selectAdminSummary);
   const loading = useSelector(selectAdminSummaryLoading);
   const error = useSelector(selectAdminSummaryError);
-  const reveal = useSelector(selectAdminRevealIdentity);
   const sessionName = getSession().user?.name || "";
 
   useEffect(() => {
@@ -137,25 +135,25 @@ export default function AdminPage() {
             <Stat icon={<WorkspacePremium />} value={summary.closed.total} label="שידוכים שנסגרו" trend={closedTrend(summary.closed.total)} />
           </Box>
 
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mt: 4, mb: 2 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mt: 4, mb: 2, gap: 2, flexWrap: "wrap" }}>
             <Typography component="h3" sx={{ fontSize: "clamp(18px, 1.4vw, 21px)", fontWeight: 600, color: brand.navy }}>
-              הצעות חדשות שהועברו אליך
+              הצעות בכל השלבים
             </Typography>
             <Button
               component={RouterLink}
               to="/admin/cases"
               sx={{ color: brand.goldDark, fontWeight: 600 }}
             >
-              לכל התיקים
+              לכל ההצעות
             </Button>
           </Box>
 
-          {summary.recent.length === 0 ? (
+          {(summary.pipeline || summary.recent).length === 0 ? (
             <Paper sx={{ p: 3, textAlign: "center" }}>
-              <Typography sx={{ color: brand.mut }}>אין תיקים פתוחים</Typography>
+              <Typography sx={{ color: brand.mut }}>אין הצעות להצגה</Typography>
             </Paper>
           ) : (
-            summary.recent.map((item) => <CaseStrip key={item._id} item={item} reveal={reveal} />)
+            (summary.pipeline || summary.recent).map((item) => <CaseStrip key={item._id} item={item} reveal />)
           )}
         </>
       ) : null}

@@ -216,6 +216,19 @@ describe("top bar search and notifications", { timeout: 180000 }, () => {
       { sender: rivka._id, receiver: viewer._id },
       { $set: { senderApprovedToManager: true, receiverApprovedToManager: true } }
     );
+    const handled = await search(viewerToken, RIVKA_NAME);
+    assert.equal(handled.body.results.length, 1);
+    assert.equal(handled.body.results[0].href, `/matchmaker/${rivka._id}`);
+    assert.equal(JSON.stringify(handled.body).includes(RIVKA_EMAIL), false);
+    assert.equal(JSON.stringify(handled.body).includes(RIVKA_PHONE), false);
+    assert.equal(JSON.stringify(handled.body).includes(RIVKA_ID), false);
+    const started = await request(app).get("/api/notifications").set(auth(viewerToken));
+    const matchmakerNote = started.body.notifications.find((item) => item.type === "matchmakerStarted");
+    assert.ok(matchmakerNote);
+    assert.equal(matchmakerNote.href, `/matchmaker/${rivka._id}`);
+    assert.equal(JSON.stringify(started.body).includes(RIVKA_EMAIL), false);
+    assert.equal(JSON.stringify(started.body).includes(RIVKA_PHONE), false);
+    assert.equal(JSON.stringify(started.body).includes(RIVKA_ID), false);
     const adminNotes = await request(app).get("/api/notifications").set(auth(adminToken));
     assert.equal(adminNotes.body.notifications.length, 1);
     assert.equal(adminNotes.body.notifications[0].type, "adminCase");
