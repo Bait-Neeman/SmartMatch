@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -10,6 +10,7 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
+  Link,
   OutlinedInput,
   TextField,
 } from "@mui/material";
@@ -41,7 +42,6 @@ export default function LoginPage() {
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [resetNote, setResetNote] = useState(false);
 
   const {
     control,
@@ -138,47 +138,57 @@ export default function LoginPage() {
           )}
         />
 
-        <Controller
-          name="password"
-          control={control}
-          rules={{
-            validate: (value) => passwordError(value, "סיסמה היא שדה חובה") || true,
-          }}
-          render={({ field }) => (
-            <FormControl fullWidth error={Boolean(errors.password)} sx={authFieldSx}>
-              <InputLabel htmlFor="login-password">סיסמה</InputLabel>
-              <OutlinedInput
-                {...field}
-                id="login-password"
-                type={showPassword ? "text" : "password"}
-                label="סיסמה"
-                autoComplete="current-password"
-                endAdornment={
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={handleTogglePassword}
-                      edge="end"
-                      aria-label={showPassword ? "הסתרת הסיסמה" : "הצגת הסיסמה"}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                }
-              />
-              {errors.password && <FormHelperText>{errors.password.message}</FormHelperText>}
-            </FormControl>
-          )}
-        />
+        <Box>
+          <Controller
+            name="password"
+            control={control}
+            rules={{
+              validate: (value) => passwordError(value, "סיסמה היא שדה חובה") || true,
+            }}
+            render={({ field }) => (
+              <FormControl fullWidth error={Boolean(errors.password)} sx={authFieldSx}>
+                <InputLabel htmlFor="login-password">סיסמה</InputLabel>
+                <OutlinedInput
+                  {...field}
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  label="סיסמה"
+                  autoComplete="current-password"
+                  endAdornment={
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={handleTogglePassword}
+                        edge="end"
+                        aria-label={showPassword ? "הסתרת הסיסמה" : "הצגת הסיסמה"}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  }
+                />
+                {errors.password && <FormHelperText>{errors.password.message}</FormHelperText>}
+              </FormControl>
+            )}
+          />
+          <Link
+            component={RouterLink}
+            to="/forgot-password"
+            underline="none"
+            sx={{
+              display: "inline-flex",
+              mt: "10px",
+              p: 0,
+              fontSize: 13,
+              fontWeight: 600,
+              color: brand.goldDark,
+              background: "none",
+              "&&": { color: brand.goldDark },
+            }}
+          >
+            שכחת סיסמה?
+          </Link>
+        </Box>
 
-        <Button
-          type="button"
-          onClick={() => setResetNote(true)}
-          sx={{ alignSelf: "flex-start", p: 0, minHeight: 0, color: brand.goldText, fontSize: 13, fontWeight: 600 }}
-        >
-          שכחת סיסמה?
-        </Button>
-
-        {resetNote ? <Alert severity="info">שחזור סיסמה עדיין לא זמין.</Alert> : null}
         {signedOutNotice && !apiError ? <Alert severity="info">{signedOutNotice}</Alert> : null}
         {apiError && <Alert severity="error">{apiError}</Alert>}
 

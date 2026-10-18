@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import RegisterPage from "../pages/RegisterPage";
 import LoginPage from "../pages/LoginPage";
+import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
 import DashboardPage from "../pages/DashboardPage";
 import HomePage from "../pages/HomePage";
 import PreferencesPage from "../pages/PreferencesPage";
@@ -45,6 +47,8 @@ export default function AppRoutes() {
       <Route path="/" element={<HomeRoute />} />
       <Route path="/register" element={<PublicOnlyRoute><RegisterPage /></PublicOnlyRoute>} />
       <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* User Routes (with the site header) */}
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
