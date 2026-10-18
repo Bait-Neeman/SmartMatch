@@ -21,7 +21,7 @@ export const getSession = () => {
 };
 
 // Where a logged-in user lands
-export const homePathFor = (session) => (session.isAdmin ? "/admin" : "/personal-area");
+export const homePathFor = (session) => (session.isAdmin ? "/admin" : "/home");
 
 export const clearSession = () => {
   SESSION_KEYS.forEach((key) => localStorage.removeItem(key));
