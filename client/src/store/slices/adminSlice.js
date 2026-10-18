@@ -123,6 +123,7 @@ const initialState = {
   users: [],
   pendingMatches: [],
   cases: [],
+  suggestions: [],
   revealIdentity: true,
   summary: null,
   settings: null,
@@ -219,6 +220,7 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminCases.fulfilled, (state, action) => {
         state.cases = action.payload?.cases || [];
+        state.suggestions = action.payload?.suggestions || [];
         state.revealIdentity = action.payload?.revealIdentity !== false;
         state.loadingCases = false;
       })
@@ -230,6 +232,11 @@ const adminSlice = createSlice({
         const saved = action.payload;
         if (!saved) return;
         state.cases = state.cases.map((item) => (String(item._id) === String(saved._id) ? saved : item));
+        state.suggestions = state.suggestions.map((item) =>
+          String(item._id) === String(saved._id)
+            ? { ...item, status: saved.status, note: saved.note, manageable: true, stage: item.stage || "matchmaker" }
+            : item
+        );
         if (state.summary?.recent) {
           state.summary.recent = state.summary.recent.map((item) =>
             String(item._id) === String(saved._id) ? saved : item
@@ -290,6 +297,7 @@ export const selectAdminSummary = (state) => state.admin.summary;
 export const selectAdminSummaryLoading = (state) => state.admin.loadingSummary;
 export const selectAdminSummaryError = (state) => state.admin.errorSummary;
 export const selectAdminCases = (state) => state.admin.cases;
+export const selectAdminSuggestions = (state) => state.admin.suggestions;
 export const selectAdminCasesLoading = (state) => state.admin.loadingCases;
 export const selectAdminCasesError = (state) => state.admin.errorCases;
 export const selectAdminRevealIdentity = (state) => state.admin.revealIdentity;

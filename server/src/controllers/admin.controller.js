@@ -1,5 +1,6 @@
 const {
   getPendingMatches,
+  getAdminSuggestions,
   removePendingMatch,
   getAllUsers,
   getUserProfileForAdmin,
@@ -19,6 +20,11 @@ const {
 const getPending = async (req, res) => {
   const matches = await getPendingMatches();
   res.status(200).json({ matches });
+};
+
+const getSuggestions = async (req, res) => {
+  const suggestions = await getAdminSuggestions();
+  res.status(200).json({ suggestions });
 };
 
 const removePending = async (req, res) => {
@@ -84,6 +90,7 @@ const postMatchmaker = async (req, res) => {
 
 module.exports = {
   getPending,
+  getSuggestions,
   removePending,
   getUsers,
   getUserProfile,

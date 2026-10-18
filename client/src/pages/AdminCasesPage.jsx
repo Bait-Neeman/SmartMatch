@@ -21,23 +21,27 @@ import {
   fetchAdminCases,
   fetchAdminUserProfile,
   saveAdminCase,
-  selectAdminCases,
   selectAdminCasesError,
   selectAdminCasesLoading,
   selectAdminProfileError,
   selectAdminProfileLoading,
-  selectAdminRevealIdentity,
+  selectAdminSuggestions,
   selectAdminUserProfile,
 } from "../store/slices/adminSlice.js";
 import AdminHeading from "../components/admin/AdminHeading.jsx";
 import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
 import { CaseCard } from "../components/admin/CaseWidgets.jsx";
-import { CASE_STATUS } from "../components/admin/format.js";
+import { CASE_STATUS, SUGGESTION_STAGE } from "../components/admin/format.js";
 import { openProtectedFile } from "../utils/protectedFile.js";
 import { toSafeFileUrl } from "../utils/files.js";
 
-const TABS = [
+const STAGE_TABS = [
   { value: "", label: "הכל" },
+  ...Object.entries(SUGGESTION_STAGE).map(([value, meta]) => ({ value, label: meta.label })),
+];
+
+const WORK_TABS = [
+  { value: "", label: "כל התיקים" },
   { value: "new", label: "חדשות" },
   { value: "in_progress", label: "בתהליך" },
   { value: "closed", label: "נסגרו" },
@@ -45,15 +49,16 @@ const TABS = [
 
 export default function AdminCasesPage() {
   const dispatch = useDispatch();
-  const cases = useSelector(selectAdminCases);
+  const suggestions = useSelector(selectAdminSuggestions);
   const loading = useSelector(selectAdminCasesLoading);
   const error = useSelector(selectAdminCasesError);
-  const reveal = useSelector(selectAdminRevealIdentity);
   const profile = useSelector(selectAdminUserProfile);
   const profileLoading = useSelector(selectAdminProfileLoading);
   const profileError = useSelector(selectAdminProfileError);
   const [params, setParams] = useSearchParams();
-  const status = params.get("status") || "";
+  const requestedStatus = params.get("status") || "";
+  const stage = params.get("stage") ?? (requestedStatus ? "matchmaker" : "");
+  const status = stage === "matchmaker" ? requestedStatus : "";
   const focus = params.get("case") || "";
   const query = (params.get("q") || "").trim().toLowerCase();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -66,20 +71,39 @@ export default function AdminCasesPage() {
     dispatch(fetchAdminCases());
   }, [dispatch]);
 
-  const counts = useMemo(
-    () => ({
-      "": cases.length,
-      new: cases.filter((item) => item.status === "new").length,
-      in_progress: cases.filter((item) => item.status === "in_progress").length,
-      closed: cases.filter((item) => item.status === "closed").length,
-    }),
-    [cases]
-  );
+  const counts = useMemo(() => {
+    const byStage = { "": suggestions.length };
+    for (const key of Object.keys(SUGGESTION_STAGE)) {
+      byStage[key] = suggestions.filter((item) => item.stage === key).length;
+    }
+    return byStage;
+  }, [suggestions]);
 
-  const visible = cases.filter((item) => {
+  const workCounts = useMemo(() => {
+    const openCases = suggestions.filter((item) => item.stage === "matchmaker");
+    return {
+      "": openCases.length,
+      new: openCases.filter((item) => item.status === "new").length,
+      in_progress: openCases.filter((item) => item.status === "in_progress").length,
+      closed: openCases.filter((item) => item.status === "closed").length,
+    };
+  }, [suggestions]);
+
+  const visible = suggestions.filter((item) => {
+    if (stage && item.stage !== stage) return false;
     if (status && item.status !== status) return false;
     if (!query) return true;
-    return [item.sender?.name, item.receiver?.name, item.caseNumber, item.sender?.city, item.receiver?.city]
+    return [
+      item.sender?.name,
+      item.receiver?.name,
+      item.sender?.email,
+      item.receiver?.email,
+      item.sender?.phone,
+      item.receiver?.phone,
+      item.caseNumber,
+      item.sender?.city,
+      item.receiver?.city,
+    ]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(query));
   });
@@ -90,8 +114,17 @@ export default function AdminCasesPage() {
     return undefined;
   }, [focus, loading, visible.length]);
 
+  const setStage = (value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set("stage", value);
+    else next.delete("stage");
+    next.delete("status");
+    setParams(next, { replace: true });
+  };
+
   const setStatus = (value) => {
     const next = new URLSearchParams(params);
+    next.set("stage", "matchmaker");
     if (value) next.set("status", value);
     else next.delete("status");
     setParams(next, { replace: true });
@@ -120,7 +153,10 @@ export default function AdminCasesPage() {
 
   return (
     <Box sx={{ maxWidth: 1280, mx: "auto" }}>
-      <AdminHeading title="הצעות בטיפול" subtitle="הצעות ששני הצדדים העבירו לטיפולך" />
+      <AdminHeading
+        title="הצעות"
+        subtitle="כל שלב, כולל נדחו. שם, קשר, תמונה ורזומה של שני הצדדים גלויים"
+      />
 
       {error || profileError ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -128,24 +164,37 @@ export default function AdminCasesPage() {
         </Alert>
       ) : null}
 
-      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2.5 }}>
-        {TABS.map((tab) => {
-          const on = status === tab.value;
+      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+        {STAGE_TABS.map((tab) => {
+          const on = stage === tab.value;
           return (
-            <Box key={tab.label} component="button" type="button" onClick={() => setStatus(tab.value)} sx={tabSx(on)}>
+            <Box key={tab.value || "all"} component="button" type="button" onClick={() => setStage(tab.value)} sx={tabSx(on)}>
               {tab.label} ({counts[tab.value] || 0})
             </Box>
           );
         })}
       </Box>
 
-      {loading && cases.length === 0 ? (
+      {stage === "matchmaker" ? (
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2.5 }}>
+          {WORK_TABS.map((tab) => {
+            const on = status === tab.value;
+            return (
+              <Box key={tab.label} component="button" type="button" onClick={() => setStatus(tab.value)} sx={tabSx(on)}>
+                {tab.label} ({workCounts[tab.value] || 0})
+              </Box>
+            );
+          })}
+        </Box>
+      ) : null}
+
+      {loading && suggestions.length === 0 ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
         </Box>
       ) : visible.length === 0 ? (
         <Typography sx={{ color: brand.mut, py: 4, textAlign: "center" }}>
-          {cases.length === 0 ? "אין הצעות שהועברו לטיפול" : "אין תיקים בלשונית הזו"}
+          {suggestions.length === 0 ? "אין הצעות להצגה" : "אין הצעות בלשונית הזו"}
         </Typography>
       ) : (
         <Box
@@ -159,7 +208,7 @@ export default function AdminCasesPage() {
             <CaseCard
               key={item._id}
               item={item}
-              reveal={reveal}
+              reveal
               focused={focus === String(item._id)}
               onProfile={openProfile}
               onResume={(url) => openProtectedFile(toSafeFileUrl(url))}
@@ -224,7 +273,6 @@ export default function AdminCasesPage() {
         onClose={closeProfile}
         data={profile}
         loading={profileLoading}
-        revealIdentity={reveal}
       />
     </Box>
   );

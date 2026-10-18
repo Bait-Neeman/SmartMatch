@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   getPending,
+  getSuggestions,
   removePending,
   getUsers,
   getUserProfile,
@@ -30,6 +31,7 @@ router.post("/candidates", postCandidate);
 router.post("/matchmakers", postMatchmaker);
 
 router.get("/cases", getCases);
+router.get("/suggestions", getSuggestions);
 router.patch("/cases/:id", patchCase);
 
 router.get("/pending-matches", getPending);

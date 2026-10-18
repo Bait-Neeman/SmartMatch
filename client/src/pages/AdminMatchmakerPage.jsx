@@ -6,11 +6,6 @@ import {
   Button,
   Card,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
   Typography,
 } from "@mui/material";
 import {
@@ -32,10 +27,9 @@ import {
 import { getAdminUserProfile } from "../services/admin.service.js";
 import { brand } from "../theme/tokens.js";
 import { toSafeFileUrl } from "../utils/files.js";
-import ProtectedImage from "../components/common/ProtectedFile.jsx";
 import { openProtectedFile } from "../utils/protectedFile.js";
-import { appearanceOptions, labelOf, roleLabel, styleOptions } from "../constants/profileOptions.js";
-import PersonAvatar from "../components/common/PersonAvatar.jsx";
+import AdminAvatar from "../components/admin/AdminAvatar.jsx";
+import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
 import MatchRing from "../components/common/MatchRing.jsx";
 
 const personId = (person) => {
@@ -69,39 +63,12 @@ const isMatchmakerCase = (match) =>
   match?.senderApprovedToManager === true &&
   match?.receiverApprovedToManager === true;
 
-function SidePortrait({ name, profile }) {
-  const image = toSafeFileUrl(profile?.image);
-  const ring = `0 0 0 3px ${brand.paper}, 0 0 0 4px ${brand.goldLight}`;
-
-  if (image) {
-    return (
-      <Box
-        sx={{
-          width: 72,
-          height: 72,
-          borderRadius: "50%",
-          overflow: "hidden",
-          flexShrink: 0,
-          boxShadow: ring,
-        }}
-      >
-        <ProtectedImage
-          url={image}
-          alt={name}
-          sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
-      </Box>
-    );
-  }
-
-  return <PersonAvatar size={72} sx={{ boxShadow: ring }} />;
-}
-
 function PersonSide({ person, details, onOpenProfile }) {
-  const profile = details?.profile;
+  const profile = person?.profile || details?.profile;
   const name = person?.name || details?.user?.name || "לא צוין";
   const line = ageAndCity(profile);
-  const resume = toSafeFileUrl(profile?.resumePdf);
+  const contact = [person?.phone || details?.user?.phone, person?.email || details?.user?.email].filter(Boolean).join(" · ");
+  const resume = toSafeFileUrl(person?.resumePdf || profile?.resumePdf);
   const id = personId(person);
 
   return (
@@ -116,11 +83,16 @@ function PersonSide({ person, details, onOpenProfile }) {
         minWidth: 0,
       }}
     >
-      <SidePortrait name={name} profile={profile} />
+      <AdminAvatar image={person?.image || profile?.image} gender={profile?.gender} size={72} rounded="16px" ring />
       <Typography sx={{ fontSize: 18, fontWeight: 700, color: brand.navy, mt: "6px" }}>{name}</Typography>
       {line ? (
         <Typography component="small" sx={{ color: "text.secondary", fontSize: 14 }}>
           {line}
+        </Typography>
+      ) : null}
+      {contact ? (
+        <Typography component="small" sx={{ color: brand.ink2, fontSize: 13, wordBreak: "break-word" }}>
+          {contact}
         </Typography>
       ) : null}
       <Box sx={{ display: "flex", gap: "4px", flexWrap: "wrap", justifyContent: "center" }}>
@@ -200,9 +172,6 @@ export default function AdminMatchmakerPage() {
     }
   };
 
-  const profile = selectedProfile?.profile;
-  const user = selectedProfile?.user;
-
   return (
     <Box>
       <Box sx={{ mb: 2 }}>
@@ -276,7 +245,7 @@ export default function AdminMatchmakerPage() {
                 const receiverId = personId(match.receiver);
                 const forwarded = formatForwardedDate(match.updatedAt || match.createdAt);
                 const percent = Number(match.matchPercent);
-                const showPercent = Number.isFinite(percent);
+                const showPercent = match.matchPercent != null && Number.isFinite(percent);
 
                 return (
                   <Card key={match._id || `${senderId}-${receiverId}`} sx={{ p: "22px" }}>
@@ -372,49 +341,7 @@ export default function AdminMatchmakerPage() {
         </Box>
       ) : null}
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>פרופיל משתמש</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={1.5}>
-            <Typography variant="h6">{user?.name || "משתמש"}</Typography>
-            <Typography>מספר מזהה: {user?.idNumber || "לא צוין"}</Typography>
-            <Typography>תפקיד: {roleLabel(user?.role) || "לא צוין"}</Typography>
-            <Typography sx={{ mt: 2 }}>גיל: {profile?.age || "לא צוין"}</Typography>
-            <Typography>עיר: {profile?.city || "לא צוין"}</Typography>
-            <Typography>גובה: {profile?.height || "לא צוין"}</Typography>
-            <Typography>סגנון: {labelOf(styleOptions, profile?.style) || "לא צוין"}</Typography>
-            <Typography>מראה: {labelOf(appearanceOptions, profile?.appearance) || "לא צוין"}</Typography>
-            <Typography>תיאור: {profile?.description || "לא צוין"}</Typography>
-            {profile?.image ? (
-              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-                <ProtectedImage
-                  key={toSafeFileUrl(profile.image)}
-                  url={toSafeFileUrl(profile.image)}
-                  alt="תמונת פרופיל"
-                  sx={{
-                    width: "100%",
-                    maxWidth: 320,
-                    borderRadius: 2,
-                    border: `1px solid ${brand.blueLine}`,
-                    objectFit: "cover",
-                  }}
-                />
-                <Button variant="outlined" onClick={() => openProtectedFile(toSafeFileUrl(profile.image))}>
-                  צפייה בתמונה
-                </Button>
-              </Box>
-            ) : null}
-            {profile?.resumePdf ? (
-              <Button variant="outlined" onClick={() => openProtectedFile(toSafeFileUrl(profile.resumePdf))}>
-                צפייה בקובץ PDF
-              </Button>
-            ) : null}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>סגירה</Button>
-        </DialogActions>
-      </Dialog>
+      <AdminProfileDialog open={open} onClose={() => setOpen(false)} data={selectedProfile} loading={profileLoading} />
     </Box>
   );
 }
