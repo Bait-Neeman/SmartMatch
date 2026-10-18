@@ -5,8 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "migrate:idNumber": "node scripts/migrate-id-to-idNumber.js",
-    "test": "node --test --test-concurrency=1 tests/*.test.js",
-    "dev": "node --watch server.js"
+    "test": "NODE_ENV=test node --test --test-concurrency=1 tests/*.test.js",
+    "dev": "NODE_ENV=development node --watch server.js"
   },
   "keywords": [],
   "author": "",

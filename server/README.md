@@ -26,9 +26,11 @@ Without `CLOUDINARY_URL` it starts, but file uploads return 503.
 ## Running the Server
 
 ```bash
-npm start      # production
-npm run dev    # restarts on file changes
+npm start      # rate limits on (NODE_ENV is not development or test)
+npm run dev    # restarts on file changes; sets NODE_ENV=development so login and register rate limits are off
 ```
+
+`npm run dev` is the local start. It sets `NODE_ENV=development`, which turns the login and register rate limits off so retries while testing do not lock an account. `npm test` sets `NODE_ENV=test` and does the same. Any other value, including leaving `NODE_ENV` unset, keeps those limits on.
 
 The server will run on http://localhost:3000
 
@@ -101,7 +103,7 @@ Photo and resume bytes are served only from `GET /api/files/:userId/image` and `
 
 ## Security
 
-- Login: max 20 failed attempts per IP address and 10 per account in 15 minutes. Register: 10 per hour per IP address.
+- Login: max 20 failed attempts per IP address and 10 per account in 15 minutes. Register: 10 per hour per IP address. These limits are off when `NODE_ENV` is `development` or `test` (`npm run dev` and `npm test`). They are on otherwise.
 - Passwords are hashed with bcrypt and never returned by queries.
 - Every request re-checks that the user still exists and uses their current role.
 - Only known fields are accepted from requests; IDs are validated before use in queries.

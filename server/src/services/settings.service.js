@@ -4,7 +4,7 @@ const Preference = require("../models/preference.model");
 const Interest = require("../models/interest.model");
 const HttpError = require("../utils/httpError");
 const { comparePassword } = require("../utils/hash");
-const { validateEmail, validatePassword, validatePhone } = require("../utils/validators");
+const { validateEmail, passwordErrorMessage, validatePhone } = require("../utils/validators");
 const { deleteProfileFile } = require("./storage.service");
 
 const NOTIFICATION_KEYS = [
@@ -152,11 +152,17 @@ const updateSettingsForUser = async (userId, body = {}) => {
 
 const changePassword = async (userId, body = {}) => {
   const { currentPassword, newPassword } = body;
-  if (typeof currentPassword !== "string" || !currentPassword || typeof newPassword !== "string" || !newPassword) {
+  if (
+    typeof currentPassword !== "string" ||
+    currentPassword.length === 0 ||
+    typeof newPassword !== "string" ||
+    newPassword.length === 0
+  ) {
     throw new HttpError(400, "יש להזין סיסמה נוכחית וסיסמה חדשה");
   }
-  if (!validatePassword(newPassword)) {
-    throw new HttpError(400, "הסיסמה חייבת להכיל לפחות 8 תווים ולפחות אות אחת באנגלית");
+  const passwordMessage = passwordErrorMessage(newPassword);
+  if (passwordMessage) {
+    throw new HttpError(400, passwordMessage);
   }
 
   const user = await User.findById(userId).select("+password +tokenVersion");

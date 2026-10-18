@@ -49,6 +49,12 @@ const errorHandler = (err, req, res, next) => {
     return res.status(409).json({ message: "הרשומה כבר קיימת" });
   }
 
+  if (typeof err?.message === "string" && err.message.includes("JWT_SECRET")) {
+    return res.status(500).json({
+      message: "השרת לא הוגדר כראוי ולכן אי אפשר להתחבר. בדקו את משתני הסביבה.",
+    });
+  }
+
   console.error(`Unhandled error on ${req.method} ${req.originalUrl}:`, err);
   res.status(500).json({ message: "אירעה שגיאה בשרת. נסו שוב מאוחר יותר." });
 };

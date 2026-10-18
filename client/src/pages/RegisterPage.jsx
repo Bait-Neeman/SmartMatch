@@ -7,6 +7,8 @@ import { registerUser } from "../services/auth.service.js";
 import AuthLayout, { AuthFooter } from "../components/layout/AuthLayout.jsx";
 import { authSubmitSx } from "../components/layout/authStyles.js";
 import { brand } from "../theme/tokens.js";
+import { authErrorMessage, emailError, normalizeEmail, passwordError } from "../utils/authForm.js";
+import { setOnboardingPath } from "../utils/session.js";
 
 const STEPS = ["פרטי חשבון", "הפרופיל"];
 
@@ -29,19 +31,24 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     try {
       const res = await registerUser({
-        email: data.email.trim(),
+        email: normalizeEmail(data.email),
         password: data.password,
       });
       if (res?.token) {
         localStorage.setItem("token", res.token);
         localStorage.setItem("user", JSON.stringify(res.user));
         localStorage.setItem("role", res.user?.role || "user");
+        setOnboardingPath("/profile");
         navigate("/profile");
         return;
       }
-      navigate("/login");
+      navigate("/login", {
+        state: {
+          notice: "החשבון נוצר. התחברו עם האימייל והסיסמה כדי להמשיך.",
+        },
+      });
     } catch (error) {
-      setApiError(error?.response?.data?.message || error.message || "שגיאה בהרשמה");
+      setApiError(authErrorMessage(error, "שגיאה בהרשמה"));
     } finally {
       setIsSubmitting(false);
     }
@@ -100,8 +107,7 @@ export default function RegisterPage() {
               autoComplete="email"
               dir="ltr"
               {...register("email", {
-                required: "אימייל הוא שדה חובה",
-                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "הזן כתובת אימייל תקינה" },
+                validate: (value) => emailError(value) || true,
               })}
               sx={inputSx}
             />
@@ -112,13 +118,9 @@ export default function RegisterPage() {
               component="input"
               id="register-password"
               type={showPassword ? "text" : "password"}
-              placeholder="לפחות 8 תווים"
               autoComplete="new-password"
               {...register("password", {
-                required: "סיסמה היא שדה חובה",
-                minLength: { value: 8, message: "הסיסמה חייבת להכיל לפחות 8 תווים" },
-                maxLength: { value: 72, message: "הסיסמה ארוכה מדי" },
-                pattern: { value: /[A-Za-z]/, message: "הסיסמה חייבת לכלול אות אנגלית אחת לפחות" },
+                validate: (value) => passwordError(value, "סיסמה היא שדה חובה") || true,
               })}
               sx={inputSx}
             />

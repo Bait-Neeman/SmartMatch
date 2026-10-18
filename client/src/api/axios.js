@@ -17,11 +17,17 @@ const api = axios.create({
   baseURL: base,
 });
 
+const isCredentialRequest = (url) => {
+  const path = url || "";
+  return path.includes("/auth/login") || path.includes("/auth/register");
+};
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
-    if (token) {
+    // A stale token must not ride along on a fresh login or registration.
+    if (token && !isCredentialRequest(config.url)) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -37,13 +43,26 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message =
-      error?.response?.data?.message ||
-      error?.response?.data?.error ||
-      error.message ||
-      "שגיאה בפנייה לשרת";
+    if (!error.response) {
+      error.message = "לא הצלחנו להתחבר לשרת. ודאו שהשרת פועל ונסו שוב.";
+      return Promise.reject(error);
+    }
 
-    error.message = message;
+    const serverMessage = error.response.data?.message || error.response.data?.error;
+    if (typeof serverMessage === "string" && serverMessage.trim()) {
+      error.message = serverMessage.trim();
+    } else if (error.response.status === 401) {
+      const sentToken = Boolean(error.config?.headers?.Authorization);
+      error.message = sentToken
+        ? "פג תוקף ההתחברות, יש להתחבר מחדש"
+        : "אימייל או סיסמה שגויים";
+    } else if (error.response.status === 429) {
+      error.message = "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.";
+    } else if (error.response.status >= 500) {
+      error.message = "אירעה שגיאה בשרת. נסו שוב מאוחר יותר.";
+    } else if (!error.message || /request failed with status code/i.test(error.message)) {
+      error.message = "אירעה שגיאה. נסו שוב.";
+    }
 
     // The saved login is no longer valid (expired, or the user was removed): sign out
     const sentToken = Boolean(error?.config?.headers?.Authorization);
