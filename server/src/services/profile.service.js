@@ -226,7 +226,7 @@ const interestsBetween = (userA, userB) =>
 // True when the matching logic would currently offer targetUserId to viewerId.
 const isCurrentCandidate = async (viewerId, targetUserId) => {
   try {
-    const candidates = await getCandidatesForUser(viewerId);
+    const { candidates } = await getCandidatesForUser(viewerId);
     return candidates.some((candidate) => String(candidate._id) === String(targetUserId));
   } catch (error) {
     if (error instanceof HttpError && error.statusCode === 404) return false;

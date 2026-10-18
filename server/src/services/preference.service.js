@@ -1,5 +1,5 @@
 const Preference = require("../models/preference.model");
-const { MARITAL_STATUSES } = require("../models/options");
+const { ETHNICITIES, MARITAL_STATUSES } = require("../models/options");
 const HttpError = require("../utils/httpError");
 
 // The fields a user may set, with their Hebrew names for error messages
@@ -16,6 +16,9 @@ const TEXT_FIELDS = {
   style: "סגנון",
   preferredAppearance: "מראה חיצוני",
   preferredMaritalStatus: "סטטוס משפחתי",
+  preferredEthnicity: "עדה",
+  preferredYeshiva: "ישיבה",
+  preferredSeminar: "סמינר",
 };
 const RANGES = [
   ["ageMin", "ageMax", "הגיל"],
@@ -57,6 +60,9 @@ const parsePreferences = (body = {}) => {
     if (field === "preferredMaritalStatus" && !MARITAL_STATUSES.includes(value)) {
       throw new HttpError(400, "ערך לא תקין בשדה סטטוס משפחתי");
     }
+    if (field === "preferredEthnicity" && !ETHNICITIES.includes(value)) {
+      throw new HttpError(400, "ערך לא תקין בשדה עדה");
+    }
 
     values[field] = value;
   }
@@ -86,6 +92,9 @@ const toPreferenceResponse = (preference) => ({
   financialMin: preference.financialMin,
   financialMax: preference.financialMax,
   preferredMaritalStatus: preference.preferredMaritalStatus ?? null,
+  preferredEthnicity: preference.preferredEthnicity ?? null,
+  preferredYeshiva: preference.preferredYeshiva ?? null,
+  preferredSeminar: preference.preferredSeminar ?? null,
 });
 
 const createPreferenceForUser = async (userId, body) => {

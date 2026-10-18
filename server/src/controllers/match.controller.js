@@ -16,10 +16,10 @@ const parseMinPercent = (raw) => {
 };
 
 const getCandidates = async (req, res) => {
-  const candidates = await getCandidatesForUser(req.user.userId, {
+  const { candidates, hiddenByPreference } = await getCandidatesForUser(req.user.userId, {
     minPercent: parseMinPercent(req.query.percent),
   });
-  res.status(200).json({ candidates });
+  res.status(200).json({ candidates, hiddenByPreference });
 };
 
 module.exports = {

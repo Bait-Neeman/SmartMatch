@@ -73,8 +73,9 @@ const isOutOfRange = (value, min, max) => {
   return (min != null && value < min) || (max != null && value > max);
 };
 
-// Same rules as the matcher: a stated preference counts, a missing financial
-// number is not penalised, and no stated preferences means there is no percent.
+// Separate pass/fail average for the admin case screen. Suggestion matching
+// lives in match.service.js and is not used here. A missing financial number
+// is not penalised, and no stated preferences means there is no percent.
 const statedChecks = (profile, preference) => {
   if (!preference || !profile) return [];
   const checks = [];

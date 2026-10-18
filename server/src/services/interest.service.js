@@ -99,7 +99,7 @@ const mayStartInterest = async (senderId, receiverId) => {
   if (incoming) return true;
 
   try {
-    const candidates = await getCandidatesForUser(senderId);
+    const { candidates } = await getCandidatesForUser(senderId);
     return candidates.some((candidate) => String(candidate._id) === String(receiverId));
   } catch (error) {
     if (error instanceof HttpError && error.statusCode === 404) return false;

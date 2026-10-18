@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   InputAdornment,
   MenuItem,
   TextField,
   Typography,
 } from "@mui/material";
-import { Close, DoNotDisturb, PersonAdd, Search, SearchOff } from "@mui/icons-material";
+import { Close, DoNotDisturb, PersonAdd, Search, SearchOff, Tune } from "@mui/icons-material";
 import MatchCard from "../components/match/MatchCard.jsx";
 import InterestCard from "../components/interest/InterestCard.jsx";
 import SuggestionRow from "../components/suggestion/SuggestionRow.jsx";
@@ -17,6 +18,7 @@ import EmptyState from "../components/common/EmptyState.jsx";
 import useSuggestions from "../hooks/useSuggestions.js";
 import { brand } from "../theme/tokens.js";
 import { filterSuggestions, suggestionHref } from "../utils/suggestionView.js";
+import { hiddenPreferenceEmptyText, hiddenPreferenceSummary } from "../utils/hiddenByPreference.js";
 
 const TABS = [
   { id: "all", label: "הכל" },
@@ -58,6 +60,7 @@ export default function SuggestionsPage() {
     matchesError,
     interestsError,
     needsProfile,
+    hiddenByPreference,
     preview,
     offline,
     showMatchPercent,
@@ -85,6 +88,8 @@ export default function SuggestionsPage() {
     [items, query, city, age, percent]
   );
 
+  const newOnServer = items.filter((item) => item.kind === "new").length;
+  const hiddenText = hiddenPreferenceSummary(hiddenByPreference);
   const activeItems = filtered.filter((item) => item.kind !== "declined");
   const declinedItems = filtered.filter((item) => item.kind === "declined");
 
@@ -131,11 +136,16 @@ export default function SuggestionsPage() {
     }
 
     if (items.length === 0) {
+      const hiddenText = hiddenPreferenceEmptyText(hiddenByPreference);
       return (
         <EmptyState
           icon={<SearchOff />}
           title="אין הצעות כרגע"
-          description="הצעות חדשות, התעניינות שנשלחה והתעניינות שהתקבלה יופיעו כאן. הצעה שנדחתה נשארת בלשונית נדחו."
+          description={
+            hiddenText ||
+            "הצעות חדשות, התעניינות שנשלחה והתעניינות שהתקבלה יופיעו כאן. הצעה שנדחתה נשארת בלשונית נדחו."
+          }
+          actions={[{ label: "עדכון העדפות", to: "/personal-area?edit=preferences", icon: <Tune /> }]}
         />
       );
     }
@@ -338,6 +348,20 @@ export default function SuggestionsPage() {
       {error ? (
         <Alert severity="error" sx={{ mb: 2, maxWidth: 560 }}>
           {error}
+        </Alert>
+      ) : null}
+
+      {!loading && items.length > 0 && newOnServer === 0 && hiddenText ? (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" component={RouterLink} to="/personal-area?edit=preferences">
+              עדכון העדפות
+            </Button>
+          }
+        >
+          {hiddenText}
         </Alert>
       ) : null}
 

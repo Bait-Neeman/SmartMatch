@@ -97,7 +97,7 @@ const toResult = (person, kind, reveal) => {
 const loadVisibleLists = async (userId) => {
   let newSuggestions = [];
   try {
-    newSuggestions = await getCandidatesForUser(userId);
+    newSuggestions = (await getCandidatesForUser(userId)).candidates;
   } catch (error) {
     if (!(error instanceof HttpError && error.statusCode === 404)) throw error;
   }

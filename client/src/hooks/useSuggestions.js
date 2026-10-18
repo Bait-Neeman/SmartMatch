@@ -3,7 +3,7 @@ import { getSuggestionLists, profileRequired } from "../services/suggestion.serv
 import { getSettings } from "../services/settings.service.js";
 import { buildSuggestionList } from "../utils/suggestionView.js";
 
-const EMPTY = { newSuggestions: [], sent: [], received: [], declined: [] };
+const EMPTY = { newSuggestions: [], sent: [], received: [], declined: [], hiddenByPreference: null };
 
 export default function useSuggestions() {
   const [payload, setPayload] = useState(EMPTY);
@@ -68,6 +68,7 @@ export default function useSuggestions() {
     matchesError: null,
     interestsError: error,
     needsProfile,
+    hiddenByPreference: payload.hiddenByPreference || null,
     preview: false,
     offline: false,
     showMatchPercent,

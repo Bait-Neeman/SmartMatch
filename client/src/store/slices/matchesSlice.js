@@ -18,7 +18,10 @@ export const fetchMatches = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const data = await getMatches();
-      return normalizeCandidates(data);
+      return {
+        items: normalizeCandidates(data),
+        hiddenByPreference: data?.hiddenByPreference || null,
+      };
     } catch (error) {
       return rejectWithValue({
         message: error?.message || "לא הצלחנו לטעון התאמות",
@@ -43,6 +46,7 @@ export const sendInterest = createAsyncThunk(
 
 const initialState = {
   items: [],
+  hiddenByPreference: null,
   loading: false,
   error: null,
   needsProfile: false,
@@ -60,12 +64,14 @@ const matchesSlice = createSlice({
         state.needsProfile = false;
       })
       .addCase(fetchMatches.fulfilled, (state, action) => {
-        state.items = action.payload;
+        state.items = action.payload.items;
+        state.hiddenByPreference = action.payload.hiddenByPreference;
         state.loading = false;
       })
       .addCase(fetchMatches.rejected, (state, action) => {
         state.loading = false;
         state.items = [];
+        state.hiddenByPreference = null;
         state.error = action.payload?.message || action.error.message;
         state.needsProfile = Boolean(action.payload?.needsProfile);
       })
@@ -81,6 +87,7 @@ const matchesSlice = createSlice({
 });
 
 export const selectMatches = (state) => state.matches.items;
+export const selectMatchesHidden = (state) => state.matches.hiddenByPreference;
 export const selectMatchesLoading = (state) => state.matches.loading;
 export const selectMatchesError = (state) => state.matches.error;
 export const selectMatchesNeedsProfile = (state) => state.matches.needsProfile;
