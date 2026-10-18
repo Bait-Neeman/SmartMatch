@@ -32,6 +32,7 @@ const detailFor = (person, reveal) => {
 };
 
 const hrefFor = (kind, id) => {
+  if (kind === "matchmaker") return `/matchmaker/${encodeURIComponent(id)}`;
   if (kind === "active") return `/active/${encodeURIComponent(id)}`;
   return `/suggestions/${kind}/${encodeURIComponent(id)}`;
 };
@@ -132,7 +133,7 @@ const eventsForUser = (lists, prefs) => {
       subject: person._id,
       title: TITLES[type],
       detail: detailFor(person, true),
-      href: hrefFor("active", person._id),
+      href: hrefFor(person.stage === "matchmaker" ? "matchmaker" : "active", person._id),
     });
   }
 

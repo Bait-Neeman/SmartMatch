@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test src/utils/suggestionView.test.js src/utils/homeDashboard.test.js",
+    "test": "node --test src/utils/suggestionView.test.js src/utils/homeDashboard.test.js src/utils/matchmakerView.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

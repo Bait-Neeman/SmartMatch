@@ -21,6 +21,7 @@ import {
   HomeOutlined,
   HowToReg,
   Logout,
+  SendOutlined,
   Menu as MenuIcon,
   PeopleAlt,
   Person,
@@ -38,6 +39,7 @@ const USER_LINKS = [
   { to: "/personal-area", label: "האזור האישי", icon: <Person /> },
   { to: "/suggestions", label: "הצעות", icon: <FormatListBulleted />, end: false },
   { to: "/active", label: "הצעות פעילות", icon: <HowToReg />, end: false },
+  { to: "/matchmaker", label: "בטיפול שדכן", icon: <SendOutlined />, end: false },
   { to: "/matches", label: "התאמות", icon: <PeopleAlt /> },
   { to: "/settings", label: "הגדרות", icon: <Settings /> },
 ];
