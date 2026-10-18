@@ -10,6 +10,7 @@ import {
   TextField,
 } from "@mui/material";
 import { genderOptions } from "../../constants/profileOptions.js";
+import { passwordError } from "../../utils/authForm.js";
 
 const empty = (gender) => ({
   name: "",
@@ -27,16 +28,26 @@ export default function AddCandidateDialog({ open, gender, error, onClose, onSub
   const [form, setForm] = useState(() => empty(gender));
   const [seen, setSeen] = useState(open);
   const [busy, setBusy] = useState(false);
+  const [localError, setLocalError] = useState("");
 
   if (open !== seen) {
     setSeen(open);
-    if (open) setForm(empty(gender));
+    if (open) {
+      setForm(empty(gender));
+      setLocalError("");
+    }
   }
 
   const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
   const schoolKey = form.gender === "female" ? "seminar" : "yeshiva";
 
   const submit = async () => {
+    const passwordProblem = passwordError(form.password);
+    if (passwordProblem) {
+      setLocalError(passwordProblem);
+      return;
+    }
+    setLocalError("");
     setBusy(true);
     try {
       await onSubmit({
@@ -60,7 +71,7 @@ export default function AddCandidateDialog({ open, gender, error, onClose, onSub
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
       <DialogTitle>הוספת מועמד/ת</DialogTitle>
       <DialogContent sx={{ display: "grid", gap: 1.5, pt: 1 }}>
-        {error ? <Alert severity="error">{error}</Alert> : null}
+        {localError || error ? <Alert severity="error">{localError || error}</Alert> : null}
         <TextField label="שם" value={form.name} onChange={set("name")} autoComplete="off" />
         <TextField label="תעודת זהות" value={form.idNumber} onChange={set("idNumber")} autoComplete="off" />
         <TextField label="אימייל" value={form.email} onChange={set("email")} autoComplete="off" />

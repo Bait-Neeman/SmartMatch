@@ -20,6 +20,18 @@ import { brand } from "../theme/tokens.js";
 import { loginUser } from "../services/auth.service.js";
 import { getMyProfile } from "../services/profile.service.js";
 import { getMyPreferences } from "../services/preference.service.js";
+import { authErrorMessage, destinationAfterLogin, emailError, normalizeEmail, passwordError } from "../utils/authForm.js";
+import { setOnboardingPath } from "../utils/session.js";
+
+const readOptional = async (request) => {
+  try {
+    await request();
+    return { missing: false };
+  } catch (error) {
+    if (error?.response?.status === 404) return { missing: true };
+    return { error };
+  }
+};
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -48,90 +60,50 @@ export default function LoginPage() {
 
   const onSubmit = async (data) => {
     setApiError("");
-
-    const payload = {
-      email: data.email?.trim(),
-      password: data.password,
-    };
-
     setIsSubmitting(true);
 
     try {
-      const res = await loginUser(payload);
+      const res = await loginUser({
+        email: normalizeEmail(data.email),
+        password: data.password,
+      });
 
-      if (res?.token) {
-        const token = res.token;
-
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(res.user));
-        localStorage.setItem("role", res.user?.role || res.role || "user");  
-              
-
-        const isAdmin = res.user?.role === "admin";
-
-        const shouldOnboard =
-          location.state?.onboarding === true ||
-          localStorage.getItem("onboarding") === "true";
-
-        localStorage.removeItem("onboarding");
-
-        if (isAdmin) {
-          navigate("/admin");
-          return;
-        }
-
-        if (!shouldOnboard) {
-          navigate("/personal-area");
-          return;
-        }
-
-        let hasProfile = false;
-        let hasPreferences = false;
-
-        try {
-          const profileResult = await getMyProfile(token);
-          hasProfile = Boolean(profileResult?.profile);
-        } catch (profileError) {
-          if (profileError?.response?.status !== 404) {
-            console.error("Profile fetch error:", profileError.message);
-          }
-        }
-
-        if (!hasProfile) {
-          navigate("/profile");
-          return;
-        }
-
-        try {
-          const preferencesResult = await getMyPreferences(token);
-          hasPreferences = Boolean(preferencesResult?.preferences);
-        } catch (preferencesError) {
-          if (preferencesError?.response?.status !== 404) {
-            console.error("Preferences fetch error:", preferencesError.message);
-          }
-        }
-
-        if (!hasPreferences) {
-          navigate("/preferences");
-        } else {
-          navigate("/personal-area");
-        }
-      } else {
-        setApiError("ההתחברות נכשלה, נסו שוב");
+      if (!res?.token || !res?.user) {
+        setApiError("ההתחברות נכשלה. נסו שוב.");
+        return;
       }
+
+      localStorage.setItem("token", res.token);
+      localStorage.setItem("user", JSON.stringify(res.user));
+      localStorage.setItem("role", res.user.role || "user");
+
+      if (res.user.role === "admin") {
+        setOnboardingPath(null);
+        navigate("/admin");
+        return;
+      }
+
+      const profile = await readOptional(getMyProfile);
+      if (profile.error) {
+        setApiError(authErrorMessage(profile.error, "לא הצלחנו להשלים את ההתחברות. נסו שוב."));
+        return;
+      }
+
+      const preferences = profile.missing ? { missing: true } : await readOptional(getMyPreferences);
+      if (preferences.error) {
+        setApiError(authErrorMessage(preferences.error, "לא הצלחנו להשלים את ההתחברות. נסו שוב."));
+        return;
+      }
+
+      const destination = destinationAfterLogin({
+        role: res.user.role,
+        hasProfile: !profile.missing,
+        hasPreferences: !preferences.missing,
+      });
+      setOnboardingPath(destination);
+      navigate(destination);
     } catch (err) {
-      const status = err?.response?.status;
-
-      if (status === 401) {
-        setApiError("אימייל או סיסמה שגויים");
-      } else {
-        const message =
-          err?.response?.data?.message ||
-          err.message ||
-          "Login failed";
-
-        setApiError(message);
-      }
+      setApiError(authErrorMessage(err, "ההתחברות נכשלה. נסו שוב."));
     } finally {
       setIsSubmitting(false);
     }
@@ -149,11 +121,7 @@ export default function LoginPage() {
           name="email"
           control={control}
           rules={{
-            required: "אימייל הוא שדה חובה",
-            pattern: {
-              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-              message: "הזן כתובת אימייל תקינה",
-            },
+            validate: (value) => emailError(value) || true,
           }}
           render={({ field }) => (
             <TextField
@@ -174,7 +142,7 @@ export default function LoginPage() {
           name="password"
           control={control}
           rules={{
-            required: "סיסמה היא שדה חובה",
+            validate: (value) => passwordError(value, "סיסמה היא שדה חובה") || true,
           }}
           render={({ field }) => (
             <FormControl fullWidth error={Boolean(errors.password)} sx={authFieldSx}>

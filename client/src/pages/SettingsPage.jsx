@@ -20,6 +20,7 @@ import {
 } from "@mui/icons-material";
 import { changePassword, deleteAccount, getSettings, updateSettings } from "../services/settings.service.js";
 import { clearSession } from "../utils/session.js";
+import { passwordError } from "../utils/authForm.js";
 import { brand } from "../theme/tokens.js";
 
 const NOTIFICATION_ROWS = [
@@ -267,6 +268,11 @@ export default function SettingsPage() {
       setError("יש להזין סיסמה נוכחית וסיסמה חדשה");
       return;
     }
+    const passwordProblem = passwordError(newPassword);
+    if (passwordProblem && newPassword) {
+      setError(passwordProblem);
+      return;
+    }
     setBusy(true);
     try {
       await changePassword({ currentPassword, newPassword });
@@ -441,7 +447,6 @@ export default function SettingsPage() {
                 component="input"
                 type="password"
                 value={newPassword}
-                placeholder="לפחות 8 תווים"
                 autoComplete="new-password"
                 aria-label="סיסמה חדשה"
                 onChange={(event) => setNewPassword(event.target.value)}

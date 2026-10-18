@@ -310,13 +310,22 @@ describe("admin pages", () => {
     assert.equal(stale.status, 401);
 
     const nextHeaders = auth(updated.body.token);
-    const weak = await request(app).put("/api/admin/account").set(nextHeaders).send({
+    const short = await request(app).put("/api/admin/account").set(nextHeaders).send({
       password: "12345678",
       currentPassword: "NewerPass1",
     });
-    assert.equal(weak.status, 400);
+    assert.equal(short.status, 200, JSON.stringify(short.body));
+    assert.equal(typeof short.body.token, "string");
 
-    const settings = await request(app).get("/api/admin/settings").set(nextHeaders);
+    const afterShort = auth(short.body.token);
+    const tooLong = await request(app).put("/api/admin/account").set(afterShort).send({
+      password: "א".repeat(37),
+      currentPassword: "12345678",
+    });
+    assert.equal(tooLong.status, 400);
+    assert.equal(tooLong.body.message, "הסיסמה ארוכה מדי. אפשר עד 72 בתים");
+
+    const settings = await request(app).get("/api/admin/settings").set(afterShort);
     assert.equal(settings.body.team.length, 1);
     assert.equal(settings.body.team[0].role, "admin");
     assert.equal(settings.body.team[0].subtitle, "מנהל מערכת");

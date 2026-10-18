@@ -3,7 +3,7 @@ const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { hashPassword, comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
-const { validateEmail, validateName, validatePassword } = require("../utils/validators");
+const { validateEmail, validateName, passwordErrorMessage } = require("../utils/validators");
 
 const buildUserResponse = (user) => ({
   _id: user._id,
@@ -40,8 +40,9 @@ const registerUser = async ({ name, email, password }) => {
   if (!validateName(cleanName)) {
     throw new HttpError(400, "יש להזין שם מלא");
   }
-  if (!validatePassword(password)) {
-    throw new HttpError(400, "הסיסמה חייבת להכיל לפחות 8 תווים ולפחות אות אחת באנגלית");
+  const passwordMessage = passwordErrorMessage(password);
+  if (passwordMessage) {
+    throw new HttpError(400, passwordMessage);
   }
 
   const existingUser = await User.findOne({ email: cleanEmail }).select("+password +tokenVersion");
@@ -56,11 +57,19 @@ const registerUser = async ({ name, email, password }) => {
     throw new HttpError(409, "לא ניתן להירשם עם הפרטים האלה. אם כבר יש לך חשבון, יש להתחבר.");
   }
 
-  const user = await User.create({
-    name: cleanName,
-    email: cleanEmail,
-    password,
-  });
+  let user;
+  try {
+    user = await User.create({
+      name: cleanName,
+      email: cleanEmail,
+      password,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new HttpError(409, "לא ניתן להירשם עם הפרטים האלה. אם כבר יש לך חשבון, יש להתחבר.");
+    }
+    throw error;
+  }
 
   return { ...buildUserResponse(user), tokenVersion: user.tokenVersion || 0 };
 };
@@ -68,8 +77,13 @@ const registerUser = async ({ name, email, password }) => {
 const loginUser = async ({ email, password }) => {
   const cleanEmail = asTrimmedString(email).toLowerCase();
 
-  if (!cleanEmail || typeof password !== "string" || !password) {
+  if (!cleanEmail || typeof password !== "string" || password.length === 0) {
     throw new HttpError(400, "יש להזין אימייל וסיסמה");
+  }
+  // Reject before bcrypt. A longer value would be silently truncated to 72 bytes.
+  const passwordMessage = passwordErrorMessage(password);
+  if (passwordMessage) {
+    throw new HttpError(400, passwordMessage);
   }
 
   const user = await User.findOne({ email: cleanEmail }).select("+password +tokenVersion");

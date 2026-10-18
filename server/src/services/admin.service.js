@@ -11,7 +11,7 @@ const {
   validateEmail,
   validateIdNumber,
   validateName,
-  validatePassword,
+  passwordErrorMessage,
 } = require("../utils/validators");
 const { comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
@@ -490,8 +490,9 @@ const createManagedUser = async ({ name, idNumber, email, password, role }) => {
   if (!validateEmail(cleanEmail)) {
     throw new HttpError(400, "אימייל לא תקין");
   }
-  if (!validatePassword(password)) {
-    throw new HttpError(400, "הסיסמה חייבת להכיל לפחות 8 תווים ואות באנגלית");
+  const passwordMessage = passwordErrorMessage(password);
+  if (passwordMessage) {
+    throw new HttpError(400, passwordMessage);
   }
 
   try {
@@ -628,8 +629,9 @@ const updateAdminAccount = async (adminId, body = {}) => {
     user.email = nextEmail;
   }
   if (passwordChanges) {
-    if (!validatePassword(nextPassword)) {
-      throw new HttpError(400, "הסיסמה חייבת להכיל לפחות 8 תווים ואות באנגלית");
+    const passwordMessage = passwordErrorMessage(nextPassword);
+    if (passwordMessage) {
+      throw new HttpError(400, passwordMessage);
     }
     user.password = nextPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;

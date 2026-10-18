@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { brand } from "../theme/tokens.js";
+import { setOnboardingPath } from "../utils/session.js";
 import { createPreferences, getMyPreferences, updatePreferences } from "../services/preference.service.js";
 import { getMyProfile, updateProfile } from "../services/profile.service.js";
 import { appearanceOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
@@ -142,6 +143,7 @@ export default function PreferencesPage() {
         });
       }
 
+      setOnboardingPath(null);
       navigate("/personal-area");
     } catch (error) {
       setApiError(error?.response?.data?.message || error.message || "שגיאה בשמירת העדפות");
