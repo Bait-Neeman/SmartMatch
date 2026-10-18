@@ -1,4 +1,6 @@
+import { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -6,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
@@ -19,6 +22,7 @@ import {
 } from "../../constants/profileOptions.js";
 import { toSafeFileUrl } from "../../utils/files.js";
 import { openProtectedFile } from "../../utils/protectedFile.js";
+import { resetAdminUserPassword } from "../../services/admin.service.js";
 import ProtectedImage from "../common/ProtectedFile.jsx";
 import AdminAvatar from "./AdminAvatar.jsx";
 import { formatDotDate } from "./format.js";
@@ -41,6 +45,8 @@ const range = (min, max, unit = "") => {
   return `עד ${max}${suffix}`;
 };
 
+const passwordBytes = (value) => new TextEncoder().encode(value).length;
+
 export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const user = data?.user;
   const profile = data?.profile;
@@ -49,6 +55,49 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const resume = toSafeFileUrl(profile?.resumePdf);
   const school = [profile?.yeshiva, profile?.seminar].filter(Boolean).join(" · ");
   const title = user?.name || "פרופיל";
+  const userId = user?._id ? String(user._id) : "";
+  const [resetOpen, setResetOpen] = useState(false);
+  const [nextPassword, setNextPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const closeReset = () => {
+    setResetOpen(false);
+    setNextPassword("");
+    setCurrentPassword("");
+    setResetError("");
+    setResetSuccess("");
+  };
+
+  const submitReset = async () => {
+    setResetError("");
+    setResetSuccess("");
+    if (!nextPassword) {
+      setResetError("יש להזין סיסמה");
+      return;
+    }
+    if (passwordBytes(nextPassword) > 72) {
+      setResetError("הסיסמה ארוכה מדי");
+      return;
+    }
+    if (!currentPassword) {
+      setResetError("יש להזין את הסיסמה הנוכחית");
+      return;
+    }
+    setResetting(true);
+    try {
+      await resetAdminUserPassword(userId, { password: nextPassword, currentPassword });
+      setNextPassword("");
+      setCurrentPassword("");
+      setResetSuccess("הסיסמה עודכנה. ההתחברות הקיימת של המשתמש נותקה.");
+    } catch (error) {
+      setResetError(error?.message || "לא הצלחנו לעדכן את הסיסמה");
+    } finally {
+      setResetting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -132,8 +181,71 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
         )}
       </DialogContent>
       <DialogActions>
+        {userId ? (
+          <Button
+            onClick={() => {
+              setResetError("");
+              setResetSuccess("");
+              setResetOpen(true);
+            }}
+            sx={{ color: brand.goldDark, fontWeight: 600 }}
+          >
+            איפוס סיסמה
+          </Button>
+        ) : null}
+        <Box sx={{ flexGrow: 1 }} />
         <Button onClick={onClose}>סגירה</Button>
       </DialogActions>
+
+      <Dialog open={resetOpen} onClose={resetting ? undefined : closeReset} maxWidth="xs" fullWidth>
+        <DialogTitle>איפוס סיסמה</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: brand.mut, fontSize: 14, mb: 2 }}>
+            {user?.name ? `סיסמה חדשה עבור ${user.name}. ` : ""}
+            הסיסמה החדשה מחליפה את הקיימת ומנתקת את ההתחברות הפעילה.
+          </Typography>
+          {resetError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {resetError}
+            </Alert>
+          ) : null}
+          {resetSuccess ? (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {resetSuccess}
+            </Alert>
+          ) : null}
+          <Stack spacing={1.5}>
+            <TextField
+              label="סיסמה חדשה"
+              type="password"
+              value={nextPassword}
+              onChange={(event) => setNextPassword(event.target.value)}
+              autoComplete="new-password"
+              fullWidth
+              disabled={resetting || Boolean(resetSuccess)}
+            />
+            <TextField
+              label="הסיסמה שלך לאישור"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              autoComplete="current-password"
+              fullWidth
+              disabled={resetting || Boolean(resetSuccess)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeReset} disabled={resetting}>
+            {resetSuccess ? "סגירה" : "ביטול"}
+          </Button>
+          {resetSuccess ? null : (
+            <Button variant="contained" onClick={submitReset} disabled={resetting}>
+              עדכון סיסמה
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

@@ -855,6 +855,45 @@ const updateAdminAccount = async (adminId, body = {}) => {
   return account;
 };
 
+// Admin chooses the new password. It must be non-empty and at most 72 bytes,
+// which is all bcrypt will hash. The value is stored only as a hash, and it is
+// never written to a log or included in the response.
+const resetUserPassword = async (adminId, userId, body = {}) => {
+  assertObjectId(userId, "מזהה משתמש לא תקין");
+
+  const nextPassword = body.password;
+  if (typeof nextPassword !== "string" || nextPassword.length === 0) {
+    throw new HttpError(400, "יש להזין סיסמה");
+  }
+  if (Buffer.byteLength(nextPassword, "utf8") > 72) {
+    throw new HttpError(400, "הסיסמה ארוכה מדי");
+  }
+
+  if (typeof body.currentPassword !== "string" || body.currentPassword.length === 0) {
+    throw new HttpError(400, "יש להזין את הסיסמה הנוכחית");
+  }
+
+  const admin = await User.findById(adminId).select("+password");
+  if (!admin) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+  const confirmed = await comparePassword(body.currentPassword, admin.password);
+  if (!confirmed) {
+    throw new HttpError(400, "הסיסמה הנוכחית שגויה");
+  }
+
+  const user = await User.findById(userId).select("+password +tokenVersion");
+  if (!user) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+
+  user.password = nextPassword;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+
+  return { message: "הסיסמה עודכנה" };
+};
+
 module.exports = {
   getPendingMatches,
   getAdminSuggestions,
@@ -870,4 +909,5 @@ module.exports = {
   updateAdminAccount,
   createAdminCandidate,
   createAdminMatchmaker,
+  resetUserPassword,
 };

@@ -680,4 +680,87 @@ describe("admin pages", () => {
     await User.updateOne({ _id: boy._id }, { role: "user" });
     await assertFile(girlId, "resume", auth(boyToken), 404);
   });
+
+  it("lets only an admin set a user's password, and signs out the old session", async () => {
+    const fixture = await seed();
+    const boyId = String(fixture.boy._id);
+    const path = `/api/admin/users/${boyId}/password`;
+    const nextPassword = "ResetPass99";
+    const adminHeaders = auth(tokenFor(fixture.admin));
+    const oldToken = tokenFor(fixture.boy);
+
+    const anonymous = await request(app).put(path).send({ password: nextPassword, currentPassword: PASSWORD });
+    assert.equal(anonymous.status, 401);
+
+    const forbidden = await request(app)
+      .put(path)
+      .set(auth(oldToken))
+      .send({ password: nextPassword, currentPassword: PASSWORD });
+    assert.equal(forbidden.status, 403);
+    assert.equal(JSON.stringify(forbidden.body).includes(nextPassword), false);
+
+    const stillOld = await request(app).post("/api/auth/login").send({
+      email: fixture.boy.email,
+      password: PASSWORD,
+    });
+    assert.equal(stillOld.status, 200);
+
+    const empty = await request(app).put(path).set(adminHeaders).send({ password: "", currentPassword: PASSWORD });
+    assert.equal(empty.status, 400);
+
+    const tooLong = await request(app)
+      .put(path)
+      .set(adminHeaders)
+      .send({ password: "a".repeat(73), currentPassword: PASSWORD });
+    assert.equal(tooLong.status, 400);
+    assert.equal(JSON.stringify(tooLong.body).includes("a".repeat(73)), false);
+
+    const wrong = await request(app)
+      .put(path)
+      .set(adminHeaders)
+      .send({ password: nextPassword, currentPassword: "Wrongpass1" });
+    assert.equal(wrong.status, 400);
+    assert.equal(JSON.stringify(wrong.body).includes(nextPassword), false);
+
+    const unchanged = await User.findById(fixture.boy._id).select("+password +tokenVersion");
+    assert.equal(unchanged.tokenVersion || 0, 0);
+    assert.equal(await comparePassword(PASSWORD, unchanged.password), true);
+
+    const reset = await request(app)
+      .put(path)
+      .set(adminHeaders)
+      .send({ password: nextPassword, currentPassword: PASSWORD });
+    assert.equal(reset.status, 200);
+    assert.equal(reset.body.message, "הסיסמה עודכנה");
+    assert.equal(reset.body.password, undefined);
+    assert.equal(JSON.stringify(reset.body).includes(nextPassword), false);
+    assert.equal(JSON.stringify(reset.body).includes(PASSWORD), false);
+
+    const stored = await User.findById(fixture.boy._id).select("+password +tokenVersion");
+    assert.equal(stored.tokenVersion, 1);
+    assert.notEqual(stored.password, nextPassword);
+    assert.equal(stored.password.startsWith("$2"), true);
+    assert.equal(await comparePassword(nextPassword, stored.password), true);
+    assert.equal(await comparePassword(PASSWORD, stored.password), false);
+
+    const stale = await request(app).get("/api/profile/me").set(auth(oldToken));
+    assert.equal(stale.status, 401);
+
+    const oldLogin = await request(app).post("/api/auth/login").send({
+      email: fixture.boy.email,
+      password: PASSWORD,
+    });
+    assert.equal(oldLogin.status, 401);
+
+    const freshLogin = await request(app).post("/api/auth/login").send({
+      email: fixture.boy.email,
+      password: nextPassword,
+    });
+    assert.equal(freshLogin.status, 200);
+    assert.equal(typeof freshLogin.body.token, "string");
+    assert.equal(JSON.stringify(freshLogin.body).includes(nextPassword), false);
+
+    const session = await request(app).get("/api/profile/me").set(auth(freshLogin.body.token));
+    assert.equal(session.status, 200);
+  });
 });
