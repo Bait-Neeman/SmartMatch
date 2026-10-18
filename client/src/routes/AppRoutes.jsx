@@ -12,6 +12,8 @@ import SuggestionsPage from "../pages/SuggestionsPage.jsx";
 import SuggestionDetailPage from "../pages/SuggestionDetailPage.jsx";
 import ActiveSuggestionsPage from "../pages/ActiveSuggestionsPage.jsx";
 import ActiveSuggestionDetailPage from "../pages/ActiveSuggestionDetailPage.jsx";
+import MatchmakerPage from "../pages/MatchmakerPage.jsx";
+import MatchmakerDetailPage from "../pages/MatchmakerDetailPage.jsx";
 import AdminPage from "../pages/AdminPage";
 import AdminDirectoryPage from "../pages/AdminDirectoryPage";
 import AdminCasesPage from "../pages/AdminCasesPage";
@@ -56,6 +58,8 @@ export default function AppRoutes() {
         <Route path="/suggestions" element={<SuggestionsPage />} />
         <Route path="/active/:id" element={<ActiveSuggestionDetailPage />} />
         <Route path="/active" element={<ActiveSuggestionsPage />} />
+        <Route path="/matchmaker/:id" element={<MatchmakerDetailPage />} />
+        <Route path="/matchmaker" element={<MatchmakerPage />} />
         <Route path="/matches" element={<MatchesPage />} />
         <Route path="/interests" element={<InterestsPage />} />
       </Route>
