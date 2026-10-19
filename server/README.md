@@ -101,6 +101,20 @@ The national ID number is still returned only to the user themselves and to admi
 
 Photo and resume bytes are served only from `GET /api/files/:userId/image` and `GET /api/files/:userId/resume`, and only to the owner, an admin, or a pair whose interest is accepted at the moment of the request. An unknown file and a caller who is not allowed get the same not-found response.
 
+## Matching
+
+Suggestions compare structured fields only: age, height, city, marital status, style, appearance, ethnicity, yeshiva, seminar, and the numeric money fields. The free-text description, what the person is looking for, `financialRequirement`, and `financialCapabilities` are stored and shown, and are not compared. There is no AI score.
+
+A missing candidate value is unknown. It does not remove the person, and it is left out of the match percent. When nothing can be compared, the percent is null rather than 100.
+
+City, yeshiva, and seminar are compared after trimming, lowercasing, and treating a hyphen, dash, or Hebrew maqaf as a space. An empty preference does not filter.
+
+Money follows one rule for both stored number shapes. Neither shape deletes the other. `financialParticipation` must meet `financialDemand` when both numbers exist. `financialStatus` must sit inside `[financialMin, financialMax]` when the status and a bound exist. A missing number skips that check. Below a demand, or outside the range, removes the person. The percent uses the same skips: 70 when participation equals the demand and 100 at twice the demand, and the same edge-to-middle closeness as age for the status range.
+
+`GET /api/match/candidates` and `GET /api/suggestions` include `hiddenByPreference`: how many people the viewer's own filters removed, with a count per filter. The object is only numbers. The list is ordered by match percent, highest first. A person with no percent sorts last. `Profile.gender` is indexed because suggestions are looked up by gender.
+
+Admin suggestions, cases, and new pairs use this same percent. Free text is not part of it.
+
 ## Security
 
 - Login: max 20 failed attempts per IP address and 10 per account in 15 minutes. Register: 10 per hour per IP address. These limits are off when `NODE_ENV` is `development` or `test` (`npm run dev` and `npm test`). They are on otherwise.

@@ -17,7 +17,7 @@ const { comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
 const { fileAccessPath } = require("./storage.service");
 const { toOwnerProfile } = require("./profile.service");
-const { getCandidatesForUser } = require("./match.service");
+const { getCandidatesForUser, computeMatchPercent } = require("./match.service");
 const AdminStaff = require("../models/adminStaff.model");
 
 // Admin-only views. Identity and contact stay here.
@@ -152,41 +152,6 @@ const removePendingMatch = async (senderId, receiverId) => {
   return interest.save();
 };
 
-const isOutOfRange = (value, min, max) => {
-  if (min == null && max == null) return false;
-  if (value == null) return true;
-  return (min != null && value < min) || (max != null && value > max);
-};
-
-// Same rules as the matcher: a stated preference counts, a missing financial
-// number is not penalised, and no stated preferences means there is no percent.
-const statedChecks = (profile, preference) => {
-  if (!preference || !profile) return [];
-  const checks = [];
-  if (preference.ageMin != null || preference.ageMax != null) {
-    checks.push(!isOutOfRange(profile.age, preference.ageMin, preference.ageMax));
-  }
-  if (preference.heightMin != null || preference.heightMax != null) {
-    checks.push(!isOutOfRange(profile.height, preference.heightMin, preference.heightMax));
-  }
-  if (preference.style) checks.push(profile.style === preference.style);
-  if (preference.preferredAppearance) checks.push(profile.appearance === preference.preferredAppearance);
-  if (preference.city) checks.push(profile.city === preference.city);
-  if (
-    (preference.financialMin != null || preference.financialMax != null) &&
-    profile.financialStatus != null
-  ) {
-    checks.push(!isOutOfRange(profile.financialStatus, preference.financialMin, preference.financialMax));
-  }
-  return checks;
-};
-
-const compatibilityPercent = (profileA, preferenceA, profileB, preferenceB) => {
-  const checks = [...statedChecks(profileB, preferenceA), ...statedChecks(profileA, preferenceB)];
-  if (!checks.length) return null;
-  return Math.round((100 * checks.filter(Boolean).length) / checks.length);
-};
-
 const caseNumberFrom = (id) => String(parseInt(String(id).slice(-4), 16) % 10000).padStart(4, "0");
 
 const toParty = (user, profile, preference) => toAdminPerson(user, profile, preference);
@@ -285,7 +250,7 @@ const shapeCases = async (interests) => {
       status: record?.status || "new",
       note: record?.note || "",
       transferredAt: item.createdAt,
-      matchPercent: compatibilityPercent(
+      matchPercent: computeMatchPercent(
         senderProfile,
         preferenceByUser.get(senderId),
         receiverProfile,
@@ -414,7 +379,7 @@ const discoverNewPairs = async () => {
   for (const user of users) {
     let candidates = [];
     try {
-      candidates = await getCandidatesForUser(user._id);
+      candidates = (await getCandidatesForUser(user._id)).candidates;
     } catch (error) {
       if (error instanceof HttpError && error.statusCode === 404) continue;
       throw error;
@@ -464,7 +429,7 @@ const getAdminSuggestions = async () => {
       updatedAt: item.updatedAt,
       senderApprovedToManager: Boolean(item.senderApprovedToManager),
       receiverApprovedToManager: Boolean(item.receiverApprovedToManager),
-      matchPercent: compatibilityPercent(
+      matchPercent: computeMatchPercent(
         maps.profileByUser.get(senderId),
         maps.preferenceByUser.get(senderId),
         maps.profileByUser.get(receiverId),
@@ -487,7 +452,7 @@ const getAdminSuggestions = async () => {
     updatedAt: null,
     senderApprovedToManager: false,
     receiverApprovedToManager: false,
-    matchPercent: compatibilityPercent(
+    matchPercent: computeMatchPercent(
       maps.profileByUser.get(pair.viewerId),
       maps.preferenceByUser.get(pair.viewerId),
       maps.profileByUser.get(pair.otherId),

@@ -872,6 +872,15 @@ function PreferencesSummary({ preferences }) {
         <FieldRow icon="user" label="סטטוס מועדף">
           <ReadValue value={labelOf(maritalStatusOptions, preferences?.preferredMaritalStatus)} />
         </FieldRow>
+        <FieldRow icon="star" label="עדה">
+          <ReadValue value={labelOf(ethnicityOptions, preferences?.preferredEthnicity)} pill tone="pending" />
+        </FieldRow>
+        <FieldRow icon="school" label="ישיבה">
+          <ReadValue value={preferences?.preferredYeshiva} />
+        </FieldRow>
+        <FieldRow icon="school" label="סמינר">
+          <ReadValue value={preferences?.preferredSeminar} />
+        </FieldRow>
       </Box>
       <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
         שדה שלא צוין אינו מגביל את ההתאמות.
@@ -981,6 +990,33 @@ function PreferencesForm({ control, onSubmit, submitting, formError, onCancel })
             </FieldRow>
           )}
         />
+        <Controller
+          name="preferredEthnicity"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="star" label="עדה">
+              <SelectField field={field} label="עדה" options={ethnicityOptions} />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="preferredYeshiva"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="school" label="ישיבה">
+              <LineText field={field} label="ישיבה" />
+            </FieldRow>
+          )}
+        />
+        <Controller
+          name="preferredSeminar"
+          control={control}
+          render={({ field }) => (
+            <FieldRow icon="school" label="סמינר">
+              <LineText field={field} label="סמינר" />
+            </FieldRow>
+          )}
+        />
       </Box>
       {formError && (
         <Alert severity="error" sx={{ mt: 2 }}>
@@ -1067,6 +1103,9 @@ export default function PersonalAreaPage() {
       financialMin: "",
       financialMax: "",
       preferredMaritalStatus: "",
+      preferredEthnicity: "",
+      preferredYeshiva: "",
+      preferredSeminar: "",
     },
   });
 
@@ -1113,6 +1152,9 @@ export default function PersonalAreaPage() {
         financialMin: toText(preferences?.financialMin),
         financialMax: toText(preferences?.financialMax),
         preferredMaritalStatus: preferences?.preferredMaritalStatus || "",
+        preferredEthnicity: preferences?.preferredEthnicity || "",
+        preferredYeshiva: preferences?.preferredYeshiva || "",
+        preferredSeminar: preferences?.preferredSeminar || "",
       });
     },
     [resetPreferences]
@@ -1270,6 +1312,9 @@ export default function PersonalAreaPage() {
     financialMin: toNumberOrEmpty(data.financialMin),
     financialMax: toNumberOrEmpty(data.financialMax),
     preferredMaritalStatus: data.preferredMaritalStatus || "",
+    preferredEthnicity: data.preferredEthnicity || "",
+    preferredYeshiva: data.preferredYeshiva || "",
+    preferredSeminar: data.preferredSeminar || "",
   });
 
   const onSavePreferences = async (data) => {

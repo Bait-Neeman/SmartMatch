@@ -17,7 +17,7 @@ import { brand } from "../theme/tokens.js";
 import { setOnboardingPath } from "../utils/session.js";
 import { createPreferences, getMyPreferences, updatePreferences } from "../services/preference.service.js";
 import { getMyProfile, updateProfile } from "../services/profile.service.js";
-import { appearanceOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
+import { appearanceOptions, ethnicityOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
 
 const empty = {
   ageMin: "",
@@ -30,6 +30,9 @@ const empty = {
   financialMin: "",
   financialMax: "",
   preferredMaritalStatus: "",
+  preferredEthnicity: "",
+  preferredYeshiva: "",
+  preferredSeminar: "",
   lookingFor: "",
   maritalStatus: "",
   financialDemand: "",
@@ -82,6 +85,9 @@ export default function PreferencesPage() {
             next.financialMin = preferences.financialMin ?? "";
             next.financialMax = preferences.financialMax ?? "";
             next.preferredMaritalStatus = preferences.preferredMaritalStatus || "";
+            next.preferredEthnicity = preferences.preferredEthnicity || "";
+            next.preferredYeshiva = preferences.preferredYeshiva || "";
+            next.preferredSeminar = preferences.preferredSeminar || "";
           }
         } else if (preferencesResult.reason?.response?.status !== 404) {
           throw preferencesResult.reason;
@@ -124,6 +130,9 @@ export default function PreferencesPage() {
       financialMin: numberOrEmpty(values.financialMin),
       financialMax: numberOrEmpty(values.financialMax),
       preferredMaritalStatus: values.preferredMaritalStatus || "",
+      preferredEthnicity: values.preferredEthnicity || "",
+      preferredYeshiva: values.preferredYeshiva || "",
+      preferredSeminar: values.preferredSeminar || "",
     };
 
     try {
@@ -247,6 +256,17 @@ export default function PreferencesPage() {
           {selectField("preferredMaritalStatus", "סטטוס", maritalStatusOptions)}
           {selectField("style", "סגנון", styleOptions)}
           {selectField("preferredAppearance", "מראה חיצוני", appearanceOptions)}
+          {selectField("preferredEthnicity", "עדה", ethnicityOptions)}
+          <Controller
+            name="preferredYeshiva"
+            control={control}
+            render={({ field }) => <TextField {...field} label="ישיבה" fullWidth />}
+          />
+          <Controller
+            name="preferredSeminar"
+            control={control}
+            render={({ field }) => <TextField {...field} label="סמינר" fullWidth />}
+          />
           {numberField("financialMin", "מצב כלכלי מינימום")}
           {numberField("financialMax", "מצב כלכלי מקסימום")}
           {selectField("maritalStatus", "הסטטוס שלי", maritalStatusOptions)}

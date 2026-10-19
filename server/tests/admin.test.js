@@ -174,7 +174,7 @@ describe("admin pages", () => {
     assert.equal(summary.body.recent.length, 1);
     assert.equal(summary.body.recent[0].sender.name, "יוסי כהן");
     assert.equal(summary.body.recent[0].receiver.email, "sara@example.test");
-    assert.equal(summary.body.recent[0].matchPercent, 50);
+    assert.equal(summary.body.recent[0].matchPercent, 97);
     assert.equal(JSON.stringify(summary.body).includes(PASSWORD), false);
     assert.equal(JSON.stringify(summary.body).includes(IMAGE_ID), false);
   });
@@ -616,7 +616,10 @@ describe("admin pages", () => {
 
     const hiddenNew = await request(app).get("/api/suggestions").set(boyHeaders);
     assert.equal(hiddenNew.status, 200);
-    assert.ok(hiddenNew.body.newSuggestions.some((item) => String(item._id) === girlId));
+    const userGirl = hiddenNew.body.newSuggestions.find((item) => String(item._id) === girlId);
+    assert.ok(userGirl);
+    assert.equal(pairOf(listed.body).matchPercent, userGirl.matchPercent);
+    assert.notEqual(userGirl.matchPercent, 100);
     assertUserHidden(hiddenNew.body);
     await assertFile(girlId, "image", boyHeaders, 404);
     await assertFile(girlId, "resume", boyHeaders, 404);

@@ -7,7 +7,7 @@ const profileSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
 
-    gender: { ...choiceField(GENDERS, "מגדר"), required: [true, "מגדר הוא שדה חובה"] },
+    gender: { ...choiceField(GENDERS, "מגדר"), required: [true, "מגדר הוא שדה חובה"], index: true },
     age: {
       type: Number,
       required: [true, "גיל הוא שדה חובה"],
@@ -43,8 +43,10 @@ const profileSchema = new mongoose.Schema(
     // One number matched against a preference min/max range. Not demand or participation.
     financialStatus: { type: Number, min: [0, "המדד הכספי לא יכול להיות שלילי"] },
 
-    // Numeric pair used by matching. financialDemand is the minimum this side requires.
-    // financialParticipation is what this side can give. Both are amounts, not text.
+    // Numeric pair used by matching (finance shape A). financialDemand is the
+    // minimum this side requires. financialParticipation is what this side can
+    // give. financialStatus is shape B, against the preference range. A missing
+    // number does not exclude. Free-text money fields are not compared.
     financialDemand: {
       type: Number,
       min: [0, "ערך לא תקין בשדה דרישה כספית"],

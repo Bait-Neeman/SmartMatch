@@ -8,16 +8,19 @@ import PageHeader from "../components/common/PageHeader.jsx";
 import {
   fetchMatches,
   selectMatches,
+  selectMatchesHidden,
   selectMatchesLoading,
   selectMatchesError,
   selectMatchesNeedsProfile,
 } from "../store/slices/matchesSlice.js";
+import { hiddenPreferenceEmptyText } from "../utils/hiddenByPreference.js";
 
 const backToPersonalArea = { label: "חזרה לאזור האישי", to: "/personal-area", variant: "outlined", icon: <ArrowForward /> };
 
 const MatchesPage = () => {
   const dispatch = useDispatch();
   const matches = useSelector(selectMatches);
+  const hiddenByPreference = useSelector(selectMatchesHidden);
   const loading = useSelector(selectMatchesLoading);
   const error = useSelector(selectMatchesError);
   const needsProfile = useSelector(selectMatchesNeedsProfile);
@@ -60,11 +63,15 @@ const MatchesPage = () => {
     }
 
     if (matches.length === 0) {
+      const hiddenText = hiddenPreferenceEmptyText(hiddenByPreference);
       return (
         <EmptyState
           icon={<SearchOff />}
           title="לא נמצאו התאמות כרגע"
-          description="ייתכן שההעדפות שלך מצמצמות מאוד את החיפוש. אפשר לעדכן אותן, או לחזור לבדוק מאוחר יותר."
+          description={
+            hiddenText ||
+            "ייתכן שההעדפות שלך מצמצמות מאוד את החיפוש. אפשר לעדכן אותן, או לחזור לבדוק מאוחר יותר."
+          }
           actions={[
             { label: "עדכון העדפות", to: "/personal-area?edit=preferences", icon: <Tune /> },
             backToPersonalArea,

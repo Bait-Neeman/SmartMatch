@@ -9,7 +9,7 @@ const ACTIVE_STAGES = new Set(["active", "forwarded", "other-forwarded"]);
 // A declined row is passed through the allow-list serializer with identity closed,
 // even if an earlier response had revealed it.
 const getSuggestionLists = async (userId) => {
-  const [newSuggestions, incoming, outgoing, matches] = await Promise.all([
+  const [found, incoming, outgoing, matches] = await Promise.all([
     getCandidatesForUser(userId),
     getIncomingInterests(userId),
     getOutgoingInterests(userId),
@@ -21,7 +21,8 @@ const getSuggestionLists = async (userId) => {
     .map((item) => redactIdentity(item, { revealIdentity: false }));
 
   return {
-    newSuggestions,
+    newSuggestions: found.candidates,
+    hiddenByPreference: found.hiddenByPreference,
     sent: outgoing.filter((item) => item.status === "pending"),
     received: incoming.filter((item) => item.status === "pending"),
     active: matches.filter((item) => ACTIVE_STAGES.has(item.stage)),

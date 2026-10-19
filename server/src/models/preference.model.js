@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { STYLES, APPEARANCES, MARITAL_STATUSES, textField, choiceField } = require("./options");
+const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES, textField, choiceField } = require("./options");
 
 const rangeField = (label) => ({ type: Number, min: [0, `ערך לא תקין בשדה ${label}`] });
 const ageField = (label) => ({
@@ -24,12 +24,20 @@ const preferenceSchema = new mongoose.Schema(
 
     preferredAppearance: choiceField(APPEARANCES, "מראה חיצוני"),
 
-    // Range for the profile's financialStatus number. Not דרישה כספית vs השתתפות כספית.
+    // Range for the profile's financialStatus number (finance shape B).
+    // Shape A is financialDemand vs financialParticipation on the profile.
+    // See the finance rule in match.service.js. Empty bounds do not filter.
     financialMin: rangeField("מצב כלכלי מינימלי"),
     financialMax: rangeField("מצב כלכלי מקסימלי"),
 
     // Empty means any marital status is acceptable.
     preferredMaritalStatus: choiceField(MARITAL_STATUSES, "סטטוס משפחתי"),
+
+    // Community and institution. Empty means no filter. A candidate who left
+    // the field blank is unknown and is not removed.
+    preferredEthnicity: choiceField(ETHNICITIES, "עדה"),
+    preferredYeshiva: textField(100, "ישיבה"),
+    preferredSeminar: textField(100, "סמינר"),
   },
   { timestamps: true }
 );
