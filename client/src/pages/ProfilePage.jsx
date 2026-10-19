@@ -1,28 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
-import {
-  Alert,
-  Box,
-  Button,
-  FormControl,
-  FormHelperText,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { useForm, useWatch } from "react-hook-form";
+import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import { createProfile, getMyProfile, updateProfile } from "../services/profile.service.js";
 import { getImageFileError, getPdfFileError, IMAGE_ACCEPT } from "../utils/files.js";
-import {
-  appearanceOptions,
-  ethnicityOptions,
-  genderOptions,
-  maritalStatusOptions,
-  styleOptions,
-} from "../constants/profileOptions.js";
 import { brand } from "../theme/tokens.js";
+import { buildProfileFields } from "../utils/genderForms.js";
+import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
 import { getSession, setOnboardingPath } from "../utils/session.js";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
 
@@ -35,43 +19,6 @@ const pageTitleSx = {
   color: brand.navy,
   fontSize: "clamp(22px, 1.9vw, 28px)",
   lineHeight: 1.2,
-};
-
-const listSx = {
-  listStyle: "none",
-  m: 0,
-  p: 0,
-  display: "grid",
-  rowGap: 1.5,
-};
-
-const fieldRowSx = {
-  display: "grid",
-  gridTemplateColumns: { xs: "18px minmax(0, 1fr)", sm: "18px 160px minmax(0, 360px)" },
-  columnGap: 1.25,
-  rowGap: 0.5,
-  alignItems: "center",
-};
-
-const lineFieldSx = {
-  "& .MuiInputBase-root": {
-    fontWeight: 600,
-    color: brand.navy,
-    fontSize: "15.5px",
-  },
-  "& .MuiInput-underline:before": {
-    borderBottomColor: brand.fieldLine,
-  },
-  "& .MuiInput-underline:hover:not(.Mui-disabled, .Mui-error):before": {
-    borderBottomColor: brand.gold,
-  },
-  "& .MuiInput-underline:after": {
-    borderBottomColor: brand.gold,
-  },
-  "& .MuiInputBase-input, & .MuiSelect-select": {
-    padding: "6px 2px",
-    scrollMarginTop: `${brand.topBarHeight + 16}px`,
-  },
 };
 
 const blockTitleSx = {
@@ -175,64 +122,6 @@ function StrokeIcon({ name, size = 16 }) {
   );
 }
 
-function FieldRow({ icon, label, required = false, children }) {
-  return (
-    <Box component="li" sx={fieldRowSx}>
-      <Box sx={{ color: "primary.main", opacity: 0.75, display: "flex" }}>
-        <StrokeIcon name={icon} />
-      </Box>
-      <Typography component="span" sx={{ color: "text.secondary", fontSize: "15.5px" }}>
-        {label}
-        {required ? (
-          <Box component="span" sx={{ color: "error.main" }}>
-            {" "}
-            *
-          </Box>
-        ) : null}
-      </Typography>
-      <Box sx={{ gridColumn: { xs: "1 / -1", sm: "auto" }, minWidth: 0 }}>{children}</Box>
-    </Box>
-  );
-}
-
-function LineText({ field, label, error, ...rest }) {
-  return (
-    <TextField
-      {...field}
-      {...rest}
-      variant="standard"
-      fullWidth
-      hiddenLabel
-      error={Boolean(error)}
-      helperText={error?.message || ""}
-      slotProps={{ htmlInput: { "aria-label": label } }}
-      sx={lineFieldSx}
-    />
-  );
-}
-
-function SelectField({ field, label, options, error, required = false }) {
-  return (
-    <FormControl fullWidth required={required} error={Boolean(error)} variant="standard" sx={lineFieldSx}>
-      <Select {...field} displayEmpty slotProps={{ input: { "aria-label": label } }}>
-        {required ? (
-          <MenuItem value="" disabled>
-            בחירה
-          </MenuItem>
-        ) : (
-          <MenuItem value="">לא נבחר</MenuItem>
-        )}
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </Select>
-      {error && <FormHelperText>{error.message}</FormHelperText>}
-    </FormControl>
-  );
-}
-
 function ResumeThumb() {
   const line = { height: 3, borderRadius: "2px", bgcolor: brand.fieldLine };
   return (
@@ -320,12 +209,7 @@ export default function ProfilePage() {
   const [profileExists, setProfileExists] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm({
+  const { control, handleSubmit, reset } = useForm({
     defaultValues: {
       gender: "",
       ethnicity: "",
@@ -338,16 +222,15 @@ export default function ProfilePage() {
       occupation: "",
       yeshiva: "",
       seminar: "",
-      financialStatus: "",
+      working: false,
+      workingInProfession: false,
+      workplace: "",
       financialDemand: "",
       financialParticipation: "",
-      lookingFor: "",
       description: "",
-      ageMin: "",
-      ageMax: "",
-      preferredMaritalStatus: "",
     },
   });
+  const gender = useWatch({ control, name: "gender" });
 
   useEffect(() => {
     let ignore = false;
@@ -368,14 +251,12 @@ export default function ProfilePage() {
           occupation: profile.occupation || "",
           yeshiva: profile.yeshiva || "",
           seminar: profile.seminar || "",
-          financialStatus: profile.financialStatus ?? "",
+          working: Boolean(profile.working),
+          workingInProfession: Boolean(profile.workingInProfession),
+          workplace: profile.workplace || "",
           financialDemand: profile.financialDemand ?? "",
           financialParticipation: profile.financialParticipation ?? "",
-          lookingFor: profile.lookingFor || "",
           description: profile.description || "",
-          ageMin: profile.ageMin ?? "",
-          ageMax: profile.ageMax ?? "",
-          preferredMaritalStatus: profile.preferredMaritalStatus || "",
         });
       })
       .catch((error) => {
@@ -423,27 +304,7 @@ export default function ProfilePage() {
       return;
     }
 
-    const fields = {
-      gender: data.gender,
-      age: data.age === "" ? "" : Number(data.age),
-      city: data.city || "",
-      height: data.height === "" ? "" : Number(data.height),
-      ethnicity: data.ethnicity || "",
-      style: data.style || "",
-      appearance: data.appearance || "",
-      maritalStatus: data.maritalStatus || "",
-      occupation: data.occupation || "",
-      yeshiva: data.yeshiva || "",
-      seminar: data.seminar || "",
-      financialStatus: data.financialStatus === "" ? "" : Number(data.financialStatus),
-      financialDemand: data.financialDemand === "" ? "" : Number(data.financialDemand),
-      financialParticipation: data.financialParticipation === "" ? "" : Number(data.financialParticipation),
-      lookingFor: data.lookingFor || "",
-      description: data.description || "",
-      ageMin: data.ageMin === "" ? "" : Number(data.ageMin),
-      ageMax: data.ageMax === "" ? "" : Number(data.ageMax),
-      preferredMaritalStatus: data.preferredMaritalStatus || "",
-    };
+    const fields = buildProfileFields(data);
 
     const hasFiles = Boolean(imageFile || pdfFile);
     const requestData = hasFiles ? new FormData() : fields;
@@ -514,7 +375,7 @@ export default function ProfilePage() {
               {imagePreview ? (
                 <Box component="img" src={imagePreview} alt="תצוגה מקדימה של תמונת הפרופיל" sx={photoImgSx} />
               ) : (
-                <PersonAvatar size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
+                <PersonAvatar gender={gender} size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
               )}
             </Box>
             <Button component="label" variant="outlined" fullWidth disabled={isSubmitting} startIcon={<StrokeIcon name="camera" size={17} />}>
@@ -574,236 +435,8 @@ export default function ProfilePage() {
               </Box>
             )}
 
-            <Box component="ul" sx={{ ...listSx, mt: 2.5 }}>
-              <Controller
-                name="gender"
-                control={control}
-                rules={{ required: "מגדר הוא שדה חובה" }}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="מגדר" required>
-                    <SelectField field={field} label="מגדר" options={genderOptions} error={errors.gender} required />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="ethnicity"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="star" label="עדה">
-                    <SelectField field={field} label="עדה" options={ethnicityOptions} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="age"
-                control={control}
-                rules={{
-                  required: "גיל הוא שדה חובה",
-                  pattern: { value: /^[0-9]+$/, message: "הזן גיל תקין" },
-                }}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="גיל" required>
-                    <LineText field={field} label="גיל" type="number" error={errors.age} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="city"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="pin" label="עיר">
-                    <LineText field={field} label="עיר" error={errors.city} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="height"
-                control={control}
-                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן גובה תקין" } }}
-                render={({ field }) => (
-                  <FieldRow icon="ruler" label='גובה (בס"מ)'>
-                    <LineText field={field} label='גובה (בס"מ)' type="number" error={errors.height} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="style"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="sliders" label="סגנון">
-                    <SelectField field={field} label="סגנון" options={styleOptions} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="appearance"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="spark" label="מראה חיצוני">
-                    <SelectField field={field} label="מראה חיצוני" options={appearanceOptions} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="financialStatus"
-                control={control}
-                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן מצב כלכלי תקין" } }}
-                render={({ field }) => (
-                  <FieldRow icon="sliders" label="מצב כלכלי">
-                    <LineText field={field} label="מצב כלכלי" type="number" error={errors.financialStatus} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="maritalStatus"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="סטטוס">
-                    <SelectField field={field} label="סטטוס" options={maritalStatusOptions} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="occupation"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="עיסוק">
-                    <LineText field={field} label="עיסוק" error={errors.occupation} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="yeshiva"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="ישיבה">
-                    <LineText field={field} label="ישיבה" />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="seminar"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="סמינר">
-                    <LineText field={field} label="סמינר" />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="financialDemand"
-                control={control}
-                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן דרישה כספית תקינה" } }}
-                render={({ field }) => (
-                  <FieldRow icon="sliders" label="דרישה כספית">
-                    <LineText field={field} label="דרישה כספית" type="number" error={errors.financialDemand} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="financialParticipation"
-                control={control}
-                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן השתתפות כספית תקינה" } }}
-                render={({ field }) => (
-                  <FieldRow icon="sliders" label="השתתפות כספית">
-                    <LineText field={field} label="השתתפות כספית" type="number" error={errors.financialParticipation} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="ageMin"
-                control={control}
-                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן גיל מינימום תקין" } }}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="גיל מועדף מ-">
-                    <LineText field={field} label="גיל מועדף מ-" type="number" error={errors.ageMin} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="ageMax"
-                control={control}
-                rules={{ pattern: { value: /^[0-9]*$/, message: "הזן גיל מקסימום תקין" } }}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="גיל מועדף עד">
-                    <LineText field={field} label="גיל מועדף עד" type="number" error={errors.ageMax} />
-                  </FieldRow>
-                )}
-              />
-
-              <Controller
-                name="preferredMaritalStatus"
-                control={control}
-                render={({ field }) => (
-                  <FieldRow icon="user" label="סטטוס מועדף">
-                    <SelectField field={field} label="סטטוס מועדף" options={maritalStatusOptions} />
-                  </FieldRow>
-                )}
-              />
-            </Box>
-
-            <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
-              <Typography component="h3" sx={blockTitleSx}>
-                קצת עליי / תכונות
-              </Typography>
-              <Controller
-                name="description"
-                control={control}
-                rules={{ maxLength: { value: 500, message: "תיאור יכול להכיל עד 500 תווים" } }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    hiddenLabel
-                    multiline
-                    minRows={4}
-                    fullWidth
-                    placeholder="תיאור"
-                    error={Boolean(errors.description)}
-                    helperText={errors.description ? errors.description.message : ""}
-                    slotProps={{ htmlInput: { "aria-label": "תיאור" } }}
-                    sx={{
-                      "& .MuiInputBase-root": { lineHeight: 1.75 },
-                      "& .MuiInputBase-input": { scrollMarginTop: `${brand.topBarHeight + 16}px` },
-                    }}
-                  />
-                )}
-              />
-              <Typography component="h3" sx={blockTitleSx}>
-                מה אני מחפש/ת
-              </Typography>
-              <Controller
-                name="lookingFor"
-                control={control}
-                rules={{ maxLength: { value: 1000, message: "הטקסט יכול להכיל עד 1000 תווים" } }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    hiddenLabel
-                    multiline
-                    minRows={3}
-                    fullWidth
-                    placeholder="מה אני מחפש/ת"
-                    error={Boolean(errors.lookingFor)}
-                    helperText={errors.lookingFor ? errors.lookingFor.message : ""}
-                    slotProps={{ htmlInput: { "aria-label": "מה אני מחפש/ת" } }}
-                  />
-                )}
-              />
+            <Box sx={{ mt: 2.5 }}>
+              <GenderProfileFields control={control} />
             </Box>
 
             <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>

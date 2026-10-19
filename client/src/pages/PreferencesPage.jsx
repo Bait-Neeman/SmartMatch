@@ -7,7 +7,6 @@ import {
   Button,
   CircularProgress,
   FormControl,
-  FormHelperText,
   MenuItem,
   Select,
   TextField,
@@ -17,29 +16,37 @@ import { brand } from "../theme/tokens.js";
 import { setOnboardingPath } from "../utils/session.js";
 import { createPreferences, getMyPreferences, updatePreferences } from "../services/preference.service.js";
 import { getMyProfile, updateProfile } from "../services/profile.service.js";
-import { appearanceOptions, ethnicityOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
+import { appearanceOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
+import useInstitutionLists from "../hooks/useInstitutionLists.js";
+import InstitutionChecklist from "../components/profile/InstitutionChecklist.jsx";
+import RangePair from "../components/profile/RangePair.jsx";
+import WorkFilters from "../components/profile/WorkFilters.jsx";
+import {
+  asNameList,
+  buildPreferenceFields,
+  lookingForHelp,
+  lookingForTitle,
+  NO_OCCUPATION_PREFERENCE,
+  NO_SEMINAR_PREFERENCE,
+  NO_YESHIVA_PREFERENCE,
+} from "../utils/genderForms.js";
 
 const empty = {
   ageMin: "",
   ageMax: "",
-  city: "",
   heightMin: "",
   heightMax: "",
+  city: "",
   style: "",
   preferredAppearance: "",
-  financialMin: "",
-  financialMax: "",
-  preferredMaritalStatus: "",
-  preferredEthnicity: "",
-  preferredYeshiva: "",
-  preferredSeminar: "",
+  preferredMaritalStatus: "single",
+  preferredYeshiva: [],
+  preferredSeminar: [],
+  preferredOccupation: [],
+  onlyWorking: false,
+  onlyWorkingInProfession: false,
   lookingFor: "",
-  maritalStatus: "",
-  financialDemand: "",
-  financialParticipation: "",
 };
-
-const numberOrEmpty = (value) => (value === "" || value == null ? "" : Number(value));
 
 const pageTitleSx = {
   m: 0,
@@ -57,20 +64,26 @@ export default function PreferencesPage() {
   const [loading, setLoading] = useState(true);
   const [preferencesExist, setPreferencesExist] = useState(false);
   const [profileExists, setProfileExists] = useState(false);
+  const [gender, setGender] = useState("");
+  const { yeshivas, seminars, professions, error: listError } = useInstitutionLists();
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm({ defaultValues: empty });
+  const { control, handleSubmit, reset, setValue } = useForm({ defaultValues: empty });
 
   useEffect(() => {
     let ignore = false;
     Promise.allSettled([getMyPreferences(), getMyProfile()])
       .then(([preferencesResult, profileResult]) => {
         if (ignore) return;
-        const next = { ...empty };
+        const next = { ...empty, preferredYeshiva: [], preferredSeminar: [], preferredOccupation: [] };
+        let profile = null;
+        if (profileResult.status === "fulfilled") {
+          profile = profileResult.value?.profile;
+          setProfileExists(Boolean(profile));
+          setGender(profile?.gender === "male" || profile?.gender === "female" ? profile.gender : "");
+          next.lookingFor = profile?.lookingFor || "";
+        } else if (profileResult.reason?.response?.status !== 404) {
+          throw profileResult.reason;
+        }
         if (preferencesResult.status === "fulfilled") {
           const preferences = preferencesResult.value?.preferences;
           setPreferencesExist(Boolean(preferences));
@@ -82,25 +95,15 @@ export default function PreferencesPage() {
             next.heightMax = preferences.heightMax ?? "";
             next.style = preferences.style || "";
             next.preferredAppearance = preferences.preferredAppearance || "";
-            next.financialMin = preferences.financialMin ?? "";
-            next.financialMax = preferences.financialMax ?? "";
             next.preferredMaritalStatus = preferences.preferredMaritalStatus || "";
-            next.preferredEthnicity = preferences.preferredEthnicity || "";
-            next.preferredYeshiva = preferences.preferredYeshiva || "";
-            next.preferredSeminar = preferences.preferredSeminar || "";
+            next.preferredYeshiva = asNameList(preferences.preferredYeshiva);
+            next.preferredSeminar = asNameList(preferences.preferredSeminar);
+            next.preferredOccupation = asNameList(preferences.preferredOccupation);
+            next.onlyWorkingInProfession = Boolean(preferences.onlyWorkingInProfession);
+            next.onlyWorking = Boolean(preferences.onlyWorking) || next.onlyWorkingInProfession;
           }
         } else if (preferencesResult.reason?.response?.status !== 404) {
           throw preferencesResult.reason;
-        }
-        if (profileResult.status === "fulfilled") {
-          const profile = profileResult.value?.profile;
-          setProfileExists(Boolean(profile));
-          if (profile) {
-            next.lookingFor = profile.lookingFor || "";
-            next.maritalStatus = profile.maritalStatus || "";
-            next.financialDemand = profile.financialDemand ?? "";
-            next.financialParticipation = profile.financialParticipation ?? "";
-          }
         }
         reset(next);
       })
@@ -118,38 +121,14 @@ export default function PreferencesPage() {
   const onSubmit = async (values) => {
     setApiError("");
     setIsSubmitting(true);
-
-    const preferencePayload = {
-      ageMin: numberOrEmpty(values.ageMin),
-      ageMax: numberOrEmpty(values.ageMax),
-      city: values.city || "",
-      heightMin: numberOrEmpty(values.heightMin),
-      heightMax: numberOrEmpty(values.heightMax),
-      style: values.style || "",
-      preferredAppearance: values.preferredAppearance || "",
-      financialMin: numberOrEmpty(values.financialMin),
-      financialMax: numberOrEmpty(values.financialMax),
-      preferredMaritalStatus: values.preferredMaritalStatus || "",
-      preferredEthnicity: values.preferredEthnicity || "",
-      preferredYeshiva: values.preferredYeshiva || "",
-      preferredSeminar: values.preferredSeminar || "",
-    };
-
     try {
+      const preferencePayload = buildPreferenceFields(values, gender);
       if (preferencesExist) await updatePreferences(preferencePayload);
       else await createPreferences(preferencePayload);
       setPreferencesExist(true);
 
       if (profileExists) {
-        await updateProfile({
-          lookingFor: values.lookingFor || "",
-          maritalStatus: values.maritalStatus || "",
-          financialDemand: numberOrEmpty(values.financialDemand),
-          financialParticipation: numberOrEmpty(values.financialParticipation),
-          ageMin: numberOrEmpty(values.ageMin),
-          ageMax: numberOrEmpty(values.ageMax),
-          preferredMaritalStatus: values.preferredMaritalStatus || "",
-        });
+        await updateProfile({ lookingFor: values.lookingFor || "" });
       }
 
       setOnboardingPath(null);
@@ -160,25 +139,6 @@ export default function PreferencesPage() {
       setIsSubmitting(false);
     }
   };
-
-  const numberField = (name, label, sx) => (
-    <Controller
-      name={name}
-      control={control}
-      rules={{ pattern: { value: /^[0-9]*$/, message: "הזן מספר תקין" } }}
-      render={({ field }) => (
-        <TextField
-          {...field}
-          label={label}
-          type="number"
-          error={Boolean(errors[name])}
-          helperText={errors[name]?.message || ""}
-          fullWidth={!sx}
-          sx={sx}
-        />
-      )}
-    />
-  );
 
   const selectField = (name, label, options) => (
     <Controller
@@ -197,7 +157,6 @@ export default function PreferencesPage() {
               </MenuItem>
             ))}
           </Select>
-          {errors[name] && <FormHelperText error>{errors[name].message}</FormHelperText>}
         </FormControl>
       )}
     />
@@ -211,6 +170,11 @@ export default function PreferencesPage() {
     );
   }
 
+  const male = gender === "male";
+  const female = gender === "female";
+  const title = lookingForTitle(gender);
+  const help = lookingForHelp(gender);
+
   return (
     <Box sx={{ maxWidth: 760 }}>
       <Typography component="h1" sx={pageTitleSx}>
@@ -220,88 +184,133 @@ export default function PreferencesPage() {
         מה חשוב לך אצל הצד השני – לפי ההעדפות האלה נבחרות ההצעות שלך
       </Typography>
 
-      <Box
-        component="form"
-        onSubmit={handleSubmit(onSubmit)}
-        noValidate
-        sx={{
-          p: "clamp(16px, 1.6vw, 24px)",
-          borderRadius: `${brand.radiusCard}px`,
-          border: `1px solid ${brand.line}`,
-          boxShadow: brand.shadow,
-          bgcolor: "background.paper",
-          maxWidth: 640,
-        }}
-      >
-        <Typography component="h2" sx={{ m: 0, mb: 1.5, color: brand.navy, fontWeight: 600, fontSize: 15 }}>
-          טווח גילאים
-        </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, maxWidth: 420, mb: 2 }}>
-          {numberField("ageMin", "מגיל", { width: 110, flex: "none" })}
-          <Box sx={{ flex: 1, height: 4, borderRadius: 3, bgcolor: brand.navyWash }} />
-          {numberField("ageMax", "עד גיל", { width: 110, flex: "none" })}
-        </Box>
-
-        <Typography component="h2" sx={{ m: 0, mb: 1, color: brand.navy, fontWeight: 600, fontSize: 15 }}>
-          פרטים מועדפים
-        </Typography>
-        <Box sx={{ display: "grid", rowGap: 1.25 }}>
-          {numberField("heightMin", 'גובה מינימום (ס"מ)')}
-          {numberField("heightMax", 'גובה מקסימום (ס"מ)')}
-          <Controller
-            name="city"
+      {!gender ? (
+        <Alert severity="info">יש ליצור פרופיל ולבחור מגדר לפני מילוי ההעדפות.</Alert>
+      ) : (
+        <Box
+          component="form"
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          sx={{
+            p: "clamp(16px, 1.6vw, 24px)",
+            borderRadius: `${brand.radiusCard}px`,
+            border: `1px solid ${brand.line}`,
+            boxShadow: brand.shadow,
+            bgcolor: "background.paper",
+            maxWidth: 640,
+          }}
+        >
+          <RangePair title="טווח גילאים" minName="ageMin" maxName="ageMax" minLabel="מגיל" maxLabel="עד גיל" control={control} />
+          <RangePair
+            title="טווח גובה"
+            minName="heightMin"
+            maxName="heightMax"
+            minLabel='מגובה (ס"מ)'
+            maxLabel='עד גובה (ס"מ)'
             control={control}
-            render={({ field }) => <TextField {...field} label="מגורים" placeholder="עיר או כמה ערים" fullWidth />}
           />
-          {selectField("preferredMaritalStatus", "סטטוס", maritalStatusOptions)}
-          {selectField("style", "סגנון", styleOptions)}
-          {selectField("preferredAppearance", "מראה חיצוני", appearanceOptions)}
-          {selectField("preferredEthnicity", "עדה", ethnicityOptions)}
+
+          <Box sx={{ display: "grid", rowGap: 1.25 }}>
+            {male ? (
+              <Controller
+                name="preferredSeminar"
+                control={control}
+                render={({ field }) => (
+                  <InstitutionChecklist
+                    label="סמינר"
+                    noneLabel={NO_SEMINAR_PREFERENCE}
+                    options={seminars}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            ) : null}
+            {male ? (
+              <Controller
+                name="preferredOccupation"
+                control={control}
+                render={({ field }) => (
+                  <InstitutionChecklist
+                    label="מקצוע"
+                    noneLabel={NO_OCCUPATION_PREFERENCE}
+                    options={professions}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            ) : null}
+            {male ? <WorkFilters control={control} setValue={setValue} /> : null}
+            {selectField("preferredMaritalStatus", "סטטוס", maritalStatusOptions)}
+            {selectField("style", "סגנון", styleOptions)}
+            {selectField("preferredAppearance", "מראה חיצוני", appearanceOptions)}
+            <Controller
+              name="city"
+              control={control}
+              render={({ field }) => <TextField {...field} label="עיר" fullWidth />}
+            />
+            {female ? (
+              <Controller
+                name="preferredYeshiva"
+                control={control}
+                render={({ field }) => (
+                  <InstitutionChecklist
+                    label="ישיבה"
+                    noneLabel={NO_YESHIVA_PREFERENCE}
+                    options={yeshivas}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            ) : null}
+          </Box>
+
+          {listError ? (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {listError}
+            </Alert>
+          ) : null}
+
+          <Typography component="h3" sx={{ mt: 2.5, mb: 0.75, color: brand.navy, fontWeight: 600, fontSize: 17 }}>
+            {title}
+          </Typography>
+          <Typography sx={{ color: "text.secondary", fontSize: 13, lineHeight: 1.5, mb: 1 }}>{help}</Typography>
           <Controller
-            name="preferredYeshiva"
+            name="lookingFor"
             control={control}
-            render={({ field }) => <TextField {...field} label="ישיבה" fullWidth />}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                hiddenLabel
+                multiline
+                minRows={4}
+                fullWidth
+                placeholder={title}
+                slotProps={{ htmlInput: { "aria-label": title } }}
+              />
+            )}
           />
-          <Controller
-            name="preferredSeminar"
-            control={control}
-            render={({ field }) => <TextField {...field} label="סמינר" fullWidth />}
-          />
-          {numberField("financialMin", "מצב כלכלי מינימום")}
-          {numberField("financialMax", "מצב כלכלי מקסימום")}
-          {selectField("maritalStatus", "הסטטוס שלי", maritalStatusOptions)}
-          {numberField("financialDemand", "דרישה כספית")}
-          {numberField("financialParticipation", "השתתפות כספית")}
+
+          {!profileExists ? (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              {title} נשמר אחרי יצירת פרופיל.
+            </Alert>
+          ) : null}
+          {apiError ? (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {apiError}
+            </Alert>
+          ) : null}
+
+          <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mt: 3, pt: 3, borderTop: `1px solid ${brand.line}` }}>
+            <Button type="submit" variant="contained" disabled={isSubmitting}>
+              {isSubmitting ? "שומר..." : "שמירת העדפות"}
+            </Button>
+          </Box>
         </Box>
-
-        <Typography component="h3" sx={{ mt: 2.5, mb: 1, color: brand.navy, fontWeight: 600, fontSize: 17 }}>
-          מה אני מחפש/ת
-        </Typography>
-        <Controller
-          name="lookingFor"
-          control={control}
-          render={({ field }) => (
-            <TextField {...field} hiddenLabel multiline minRows={4} fullWidth placeholder="מה אני מחפש/ת" slotProps={{ htmlInput: { "aria-label": "מה אני מחפש/ת" } }} />
-          )}
-        />
-
-        {!profileExists && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            סטטוס, דרישה כספית ומה אני מחפש/ת נשמרים אחרי יצירת פרופיל.
-          </Alert>
-        )}
-        {apiError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {apiError}
-          </Alert>
-        )}
-
-        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mt: 3, pt: 3, borderTop: `1px solid ${brand.line}` }}>
-          <Button type="submit" variant="contained" disabled={isSubmitting}>
-            {isSubmitting ? "שומר..." : "שמירת העדפות"}
-          </Button>
-        </Box>
-      </Box>
+      )}
     </Box>
   );
 }

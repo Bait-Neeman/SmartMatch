@@ -287,7 +287,7 @@ export default function SuggestionDetail({
               top: { lg: 24 },
             }}
           >
-            {photo || <LockedPhoto />}
+            {photo || <LockedPhoto gender={view?.gender} />}
             {actions ? (
               <Box
                 sx={{

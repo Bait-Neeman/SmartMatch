@@ -8,6 +8,9 @@ const FILTERS = [
   ["maritalStatus", "סטטוס"],
   ["ethnicity", "עדה"],
   ["institution", "מוסד"],
+  ["profession", "מקצוע"],
+  ["working", "עבודה"],
+  ["workingInProfession", "מקצוע נלמד"],
   ["financialStatus", "מצב כלכלי"],
   ["financialDemand", "דרישה כספית"],
 ];

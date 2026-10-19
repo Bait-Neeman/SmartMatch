@@ -69,6 +69,9 @@ const PROFILE_DETAIL_FIELDS = [
   "lookingFor",
   "maritalStatus",
   "occupation",
+  "working",
+  "workingInProfession",
+  "workplace",
   "yeshiva",
   "seminar",
   "financialRequirement",
@@ -91,6 +94,12 @@ const PREFERENCE_FIELDS = [
   "financialMin",
   "financialMax",
   "preferredMaritalStatus",
+  "preferredEthnicity",
+  "preferredYeshiva",
+  "preferredSeminar",
+  "preferredOccupation",
+  "onlyWorking",
+  "onlyWorkingInProfession",
 ];
 
 const blankFields = (fields) => Object.fromEntries(fields.map((field) => [field, null]));

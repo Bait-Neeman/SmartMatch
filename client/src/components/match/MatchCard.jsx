@@ -93,7 +93,7 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
       <CardContent
         sx={{ p: 3, flexGrow: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
       >
-        <PersonAvatar size={72} />
+        <PersonAvatar size={72} gender={match?.gender} />
         {matchPercent !== undefined && <MatchRing value={matchPercent} />}
 
         <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>

@@ -36,8 +36,20 @@ const preferenceSchema = new mongoose.Schema(
     // Community and institution. Empty means no filter. A candidate who left
     // the field blank is unknown and is not removed.
     preferredEthnicity: choiceField(ETHNICITIES, "עדה"),
-    preferredYeshiva: textField(100, "ישיבה"),
-    preferredSeminar: textField(100, "סמינר"),
+    // A list of names. Older documents stored one string; both shapes are read.
+    // Empty, or the "אין העדפה" choice (it is not stored), means no filter.
+    // Mixed so a legacy string is not split into letters by an array cast.
+    preferredYeshiva: { type: mongoose.Schema.Types.Mixed },
+    preferredSeminar: { type: mongoose.Schema.Types.Mixed },
+    // Same shape as the institution lists. Empty means no profession filter.
+    // A candidate who left מקצוע blank is unknown and is not removed.
+    preferredOccupation: { type: mongoose.Schema.Types.Mixed },
+
+    // Hard filters. Checked means the candidate must have answered yes.
+    // A missing or false answer is excluded. These are not "unknown, keep".
+    // onlyWorkingInProfession ("רק בחורה שעובדת במקצוע שלמדה") implies onlyWorking.
+    onlyWorking: { type: Boolean },
+    onlyWorkingInProfession: { type: Boolean },
   },
   { timestamps: true }
 );
