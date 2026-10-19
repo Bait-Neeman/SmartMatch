@@ -123,4 +123,5 @@ module.exports = {
   registerUser,
   loginUser,
   getUserById,
+  findUserByEmail,
 };

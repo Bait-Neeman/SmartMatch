@@ -19,6 +19,12 @@ Copy `.env.example` to `.env` and fill in the values:
 | `CLOUDINARY_FOLDER` | no | Folder for uploaded files, default `smartmatch` |
 | `CORS_ORIGINS` | no | Comma-separated sites allowed to call the API. Default: localhost:5173 and the Vercel site |
 | `TRUST_PROXY` | no | Number of proxies in front of the server, default `3` (Render) |
+| `SMTP_HOST` | for reset email | SMTP hostname. If this or `MAIL_FROM` is empty, a reset request still succeeds. Outside production the reset link is printed in the server log. In production the server logs a warning and does not send mail. |
+| `SMTP_PORT` | no | Default `587`. Port `465` uses implicit TLS. |
+| `SMTP_USER` | no | SMTP username, when the server requires authentication |
+| `SMTP_PASS` | no | SMTP password, when the server requires authentication |
+| `MAIL_FROM` | for reset email | From address, for example `בית נאמן <no-reply@example.com>` |
+| `CLIENT_URL` | for reset email | Site origin used in the reset link, such as `http://localhost:5173`. Outside production, an empty value falls back to `http://localhost:5173` for the logged link. |
 
 The server refuses to start without `MONGO_URI` and `JWT_SECRET`, or when the database can't be reached.
 Without `CLOUDINARY_URL` it starts, but file uploads return 503.
@@ -27,10 +33,10 @@ Without `CLOUDINARY_URL` it starts, but file uploads return 503.
 
 ```bash
 npm start      # rate limits on (NODE_ENV is not development or test)
-npm run dev    # restarts on file changes; sets NODE_ENV=development so login and register rate limits are off
+npm run dev    # restarts on file changes; sets NODE_ENV=development so auth rate limits are off
 ```
 
-`npm run dev` is the local start. It sets `NODE_ENV=development`, which turns the login and register rate limits off so retries while testing do not lock an account. `npm test` sets `NODE_ENV=test` and does the same. Any other value, including leaving `NODE_ENV` unset, keeps those limits on.
+`npm run dev` is the local start. It sets `NODE_ENV=development`, which turns the login, register, and password-reset rate limits off so retries while testing do not lock an account. `npm test` sets `NODE_ENV=test` and does the same. Any other value, including leaving `NODE_ENV` unset, keeps those limits on.
 
 The server will run on http://localhost:3000
 
@@ -39,6 +45,8 @@ The server will run on http://localhost:3000
 ### Authentication
 - `POST /api/auth/register` - Register a new user
 - `POST /api/auth/login` - Login user
+- `POST /api/auth/forgot-password` - Ask for a password reset link. The reply is the same whether or not the account exists.
+- `POST /api/auth/reset-password` - Set a new password with the single-use token from that link.
 - `GET /api/auth/me` - Get current user (requires token)
 
 ### Profile
@@ -117,8 +125,8 @@ Admin suggestions, cases, and new pairs use this same percent. Free text is not 
 
 ## Security
 
-- Login: max 20 failed attempts per IP address and 10 per account in 15 minutes. Register: 10 per hour per IP address. These limits are off when `NODE_ENV` is `development` or `test` (`npm run dev` and `npm test`). They are on otherwise.
-- Passwords are hashed with bcrypt and never returned by queries.
+- Login: max 20 failed attempts per IP address and 10 per account in 15 minutes. Register: 10 per hour per IP address. Password reset requests: 5 per 15 minutes per IP address. These limits are off when `NODE_ENV` is `development` or `test` (`npm run dev` and `npm test`). They are on otherwise.
+- Passwords are hashed with bcrypt and never returned by queries. A reset email contains a random token, not the password. Only a SHA-256 hash of the token is stored. The link expires after one hour, after it is used, and when a newer link is requested. The API response never includes the token. Setting a new password increases `tokenVersion`, so older login sessions stop working.
 - Every request re-checks that the user still exists and uses their current role.
 - Only known fields are accepted from requests; IDs are validated before use in queries.
 - Security headers (helmet), CORS restricted to the client's sites, request bodies limited to 100kb.
