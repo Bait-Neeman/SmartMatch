@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "migrate:idNumber": "node scripts/migrate-id-to-idNumber.js",
+    "fix:idNumberIndex": "node scripts/fix-idnumber-index.js",
     "test": "NODE_ENV=test node --test --test-concurrency=1 tests/*.test.js",
     "dev": "NODE_ENV=development node --watch server.js"
   },
@@ -22,7 +23,8 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.11.2",
-    "multer": "^2.4.0"
+    "multer": "^2.4.0",
+    "nodemailer": "^10.1.6"
   },
   "engines": {
     "node": ">=20"

@@ -63,4 +63,19 @@ const registerLimiter = createLimiter({
   message: "יותר מדי ניסיונות הרשמה. נסו שוב מאוחר יותר.",
 });
 
-module.exports = { apiLimiter, loginIpLimiter, loginAccountLimiter, registerLimiter };
+// A reset request always answers with success, so every request counts.
+// Same on/off switch as login and register: off in development and test, on otherwise.
+const passwordResetLimiter = createLimiter({
+  windowMs: FIFTEEN_MINUTES,
+  limit: 5,
+  skip: () => !authLimitsActive(),
+  message: "יותר מדי בקשות לאיפוס סיסמה. נסו שוב מאוחר יותר.",
+});
+
+module.exports = {
+  apiLimiter,
+  loginIpLimiter,
+  loginAccountLimiter,
+  registerLimiter,
+  passwordResetLimiter,
+};

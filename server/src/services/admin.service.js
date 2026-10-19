@@ -668,8 +668,15 @@ const createManagedUser = async ({ name, idNumber, email, password, role }) => {
       role,
     });
   } catch (error) {
+    // The admin form sends an ID number, so a duplicate email or ID number is a 409.
+    // Any other unique index is unexpected.
     if (error.code === 11000) {
-      throw new HttpError(409, "תעודת הזהות או האימייל כבר רשומים");
+      const duplicateEmail = error.keyPattern?.email || error.keyValue?.email;
+      const duplicateIdNumber = error.keyPattern?.idNumber || error.keyValue?.idNumber;
+      if (duplicateEmail || duplicateIdNumber) {
+        throw new HttpError(409, "תעודת הזהות או האימייל כבר רשומים");
+      }
+      console.error(error.code, error.keyPattern);
     }
     throw error;
   }
