@@ -1,6 +1,6 @@
 import { Box, Checkbox, FormControlLabel, FormHelperText, Typography } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
-import { asNameList, normaliseInstitution } from "../../utils/genderForms.js";
+import { asNameList, institutionKey, normaliseInstitution } from "../../utils/genderForms.js";
 
 const checkboxSx = {
   color: brand.gold,
@@ -9,17 +9,18 @@ const checkboxSx = {
 
 // Scrollable list. The first row means no filter. Picking a name clears it,
 // and picking it again clears every name.
-export default function InstitutionChecklist({ label, noneLabel, options = [], value, onChange }) {
-  const selected = asNameList(value);
+export default function InstitutionChecklist({ label, noneLabel, options = [], value, onChange, institutions = false }) {
+  const keyOf = institutions ? institutionKey : normaliseInstitution;
+  const selected = asNameList(value, keyOf);
   const none = selected.length === 0;
-  const known = new Set(options.map((name) => normaliseInstitution(name)));
-  const extras = selected.filter((name) => !known.has(normaliseInstitution(name)));
+  const known = new Set(options.map((name) => keyOf(name)));
+  const extras = selected.filter((name) => !known.has(keyOf(name)));
   const rows = [...extras, ...options];
 
   const toggleName = (name) => {
-    const key = normaliseInstitution(name);
-    const exists = selected.some((item) => normaliseInstitution(item) === key);
-    const next = exists ? selected.filter((item) => normaliseInstitution(item) !== key) : [...selected, name];
+    const key = keyOf(name);
+    const exists = selected.some((item) => keyOf(item) === key);
+    const next = exists ? selected.filter((item) => keyOf(item) !== key) : [...selected, name];
     onChange(next);
   };
 
@@ -49,7 +50,7 @@ export default function InstitutionChecklist({ label, noneLabel, options = [], v
           label={noneLabel}
         />
         {rows.map((name) => {
-          const checked = selected.some((item) => normaliseInstitution(item) === normaliseInstitution(name));
+          const checked = selected.some((item) => keyOf(item) === keyOf(name));
           return (
             <FormControlLabel
               key={name}

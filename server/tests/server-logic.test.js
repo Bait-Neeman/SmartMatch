@@ -452,6 +452,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(under.body.matchmaker.length, 1);
     assert.equal(under.body.matchmaker[0].stage, "matchmaker");
     assert.equal(under.body.active.length, 0);
+    assert.equal(JSON.stringify(under.body).includes("0503333333"), false);
+    assert.equal(Object.hasOwn(under.body.matchmaker[0], "phone"), false);
 
     const admin = await createUser({ n: 39, role: "admin", idNumber: "311111119" });
     const pending = await request(app).get("/api/admin/pending-matches").set(auth(tokenFor(admin)));

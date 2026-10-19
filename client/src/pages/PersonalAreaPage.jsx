@@ -53,6 +53,7 @@ import WorkFilters from "../components/profile/WorkFilters.jsx";
 import useInstitutionLists from "../hooks/useInstitutionLists.js";
 import {
   asNameList,
+  institutionKey,
   buildPreferenceFields,
   buildProfileFields,
   lookingForHelp,
@@ -228,6 +229,9 @@ const ICONS = {
   sliders: <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />,
   spark: (
     <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5" />
+  ),
+  phone: (
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
   ),
   school: <path d="M22 10 12 5 2 10l10 5zM6 12v5c3 3 9 3 12 0v-5" />,
   work: (
@@ -583,17 +587,22 @@ function ProfileSummary({ profile }) {
           </FieldRow>
         ) : null}
         {female && profile?.working ? (
-          <FieldRow icon="work" label="מקצוע נלמד">
-            <ReadValue value={profile?.workingInProfession === true ? "עובדת במקצוע שלמדתי" : "לא"} />
-          </FieldRow>
-        ) : null}
-        {female && profile?.working ? (
           <FieldRow icon="work" label="מקום עבודה">
             <ReadValue value={profile?.workplace} />
           </FieldRow>
         ) : null}
+        {female && profile?.working ? (
+          <FieldRow icon="work" label="מקצוע נלמד">
+            <ReadValue value={profile?.workingInProfession === true ? "עובדת במקצוע שלמדתי" : "לא"} />
+          </FieldRow>
+        ) : null}
         <FieldRow icon="pin" label="עיר">
           <ReadValue value={profile?.city} />
+        </FieldRow>
+        <FieldRow icon="phone" label="טלפון נייד ליצירת קשר">
+          <Box dir="ltr" sx={{ textAlign: "right" }}>
+            <ReadValue value={profile?.phone} />
+          </Box>
         </FieldRow>
         <FieldRow icon="ruler" label='גובה (בס"מ)'>
           <ReadValue value={height} />
@@ -679,7 +688,7 @@ function ProfileForm({
 function PreferencesSummary({ preferences, profile }) {
   const female = profile?.gender === "female";
   const male = profile?.gender === "male";
-  const names = asNameList(female ? preferences?.preferredYeshiva : preferences?.preferredSeminar);
+  const names = asNameList(female ? preferences?.preferredYeshiva : preferences?.preferredSeminar, institutionKey);
   const occupations = asNameList(preferences?.preferredOccupation);
   const schoolLabel = female ? "ישיבה" : "סמינר";
   const noneLabel = female ? NO_YESHIVA_PREFERENCE : NO_SEMINAR_PREFERENCE;
@@ -718,10 +727,10 @@ function PreferencesSummary({ preferences, profile }) {
           <ReadValue value={labelOf(maritalStatusOptions, preferences?.preferredMaritalStatus) || "לא משנה"} />
         </FieldRow>
         <FieldRow icon="sliders" label="סגנון">
-          <ReadValue value={labelOf(styleOptions, preferences?.style)} pill tone="pending" />
+          <ReadValue value={labelOf(styleOptions, preferences?.style) || "לא משנה"} pill tone="pending" />
         </FieldRow>
         <FieldRow icon="spark" label="מראה חיצוני">
-          <ReadValue value={labelOf(appearanceOptions, preferences?.preferredAppearance)} pill />
+          <ReadValue value={labelOf(appearanceOptions, preferences?.preferredAppearance) || "לא משנה"} pill />
         </FieldRow>
         <FieldRow icon="pin" label="עיר">
           <ReadValue value={preferences?.city} />
@@ -790,6 +799,7 @@ function PreferencesForm({
                   label="סמינר"
                   noneLabel={NO_SEMINAR_PREFERENCE}
                   options={seminars}
+                  institutions
                   value={field.value}
                   onChange={field.onChange}
                 />
@@ -833,7 +843,7 @@ function PreferencesForm({
           control={control}
           render={({ field }) => (
             <FieldRow icon="sliders" label="סגנון">
-              <SelectField field={field} label="סגנון" options={styleOptions} />
+              <SelectField field={field} label="סגנון" options={styleOptions} emptyLabel="לא משנה" />
             </FieldRow>
           )}
         />
@@ -842,7 +852,7 @@ function PreferencesForm({
           control={control}
           render={({ field }) => (
             <FieldRow icon="spark" label="מראה חיצוני">
-              <SelectField field={field} label="מראה חיצוני" options={appearanceOptions} />
+              <SelectField field={field} label="מראה חיצוני" options={appearanceOptions} emptyLabel="לא משנה" />
             </FieldRow>
           )}
         />
@@ -865,6 +875,7 @@ function PreferencesForm({
                   label="ישיבה"
                   noneLabel={NO_YESHIVA_PREFERENCE}
                   options={yeshivas}
+                  institutions
                   value={field.value}
                   onChange={field.onChange}
                 />
@@ -974,6 +985,7 @@ export default function PersonalAreaPage() {
       working: false,
       workingInProfession: false,
       workplace: "",
+      phone: "",
       description: "",
     },
   });
@@ -1030,6 +1042,7 @@ export default function PersonalAreaPage() {
         working: Boolean(profile?.working),
         workingInProfession: Boolean(profile?.workingInProfession),
         workplace: profile?.workplace || "",
+        phone: profile?.phone || "",
         description: profile?.description || "",
       });
     },
@@ -1053,8 +1066,8 @@ export default function PersonalAreaPage() {
         financialMax: toText(preferences?.financialMax),
         preferredMaritalStatus: preferences ? preferences.preferredMaritalStatus || "" : "single",
         preferredEthnicity: preferences?.preferredEthnicity || "",
-        preferredYeshiva: asNameList(preferences?.preferredYeshiva),
-        preferredSeminar: asNameList(preferences?.preferredSeminar),
+        preferredYeshiva: asNameList(preferences?.preferredYeshiva, institutionKey),
+        preferredSeminar: asNameList(preferences?.preferredSeminar, institutionKey),
         preferredOccupation: asNameList(preferences?.preferredOccupation),
         onlyWorkingInProfession,
         onlyWorking: Boolean(preferences?.onlyWorking) || onlyWorkingInProfession,

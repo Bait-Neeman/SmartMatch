@@ -11,26 +11,46 @@ const normaliseInstitution = (value) =>
 
 const cleanDisplay = (value) => String(value ?? "").trim().replace(/\s+/g, " ");
 
-// Seed names keep their order. Names typed by users are added after them,
-// once each, skipping a spelling that already matches a seed.
-const mergeInstitutions = (seeds, entered) => {
-  const seen = new Set();
-  const result = [];
+// "ישיבת חברון" and "חברון" are the same place, and so are "סמינר אור החיים" and "אור החיים".
+const institutionKey = (value) => normaliseInstitution(value).replace(/^(?:ישיבת|סמינר)\s+/, "");
 
-  const take = (name, bucket) => {
+const hasInstitutionPrefix = (value) => /^(?:ישיבת|סמינר)\s+/.test(normaliseInstitution(value));
+
+// Seed names keep their order. Names typed by users are added after them,
+// once each. A name that matches after dropping ישיבת/סמינר is the same row.
+// The label without that prefix is the one shown.
+const mergeInstitutions = (seeds, entered, keyOf = normaliseInstitution) => {
+  const chosen = new Map();
+
+  const consider = (name) => {
     const display = cleanDisplay(name);
-    const key = normaliseInstitution(display);
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    bucket.push(display);
+    const key = keyOf(display);
+    if (!key) return;
+    const current = chosen.get(key);
+    if (!current) {
+      chosen.set(key, display);
+      return;
+    }
+    if (hasInstitutionPrefix(current) && !hasInstitutionPrefix(display)) chosen.set(key, display);
   };
 
-  for (const name of seeds) take(name, result);
+  for (const name of seeds) consider(name);
+  for (const name of entered) consider(name);
 
-  const extras = [];
-  for (const name of entered) take(name, extras);
-  extras.sort((left, right) => left.localeCompare(right, "he"));
-  return result.concat(extras);
+  const seedKeys = [];
+  const seenSeeds = new Set();
+  for (const name of seeds) {
+    const key = keyOf(cleanDisplay(name));
+    if (!key || seenSeeds.has(key)) continue;
+    seenSeeds.add(key);
+    seedKeys.push(key);
+  }
+
+  const extras = [...chosen.keys()]
+    .filter((key) => !seenSeeds.has(key))
+    .sort((left, right) => chosen.get(left).localeCompare(chosen.get(right), "he"));
+
+  return [...seedKeys, ...extras].map((key) => chosen.get(key));
 };
 
 const distinctNames = async (field, gender) => {
@@ -52,8 +72,8 @@ const getInstitutionLists = async () => {
   ]);
 
   return {
-    yeshivas: mergeInstitutions(YESHIVAS, yeshivas),
-    seminars: mergeInstitutions(SEMINARS, seminars),
+    yeshivas: mergeInstitutions(YESHIVAS, yeshivas, institutionKey),
+    seminars: mergeInstitutions(SEMINARS, seminars, institutionKey),
     professions: mergeInstitutions(PROFESSIONS, professions),
   };
 };
@@ -62,4 +82,5 @@ module.exports = {
   getInstitutionLists,
   mergeInstitutions,
   normaliseInstitution,
+  institutionKey,
 };

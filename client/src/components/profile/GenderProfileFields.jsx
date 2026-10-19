@@ -18,7 +18,7 @@ import {
   maritalStatusOptions,
   styleOptions,
 } from "../../constants/profileOptions.js";
-import { ABOUT_ME_HELP, ABOUT_ME_TITLE } from "../../utils/genderForms.js";
+import { ABOUT_ME_HELP, ABOUT_ME_TITLE, PHONE_HINT, PHONE_LABEL, phoneRules } from "../../utils/genderForms.js";
 
 const listSx = {
   listStyle: "none",
@@ -72,6 +72,9 @@ const ICONS = {
   spark: (
     <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5" />
   ),
+  phone: (
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
+  ),
   school: <path d="M22 10 12 5 2 10l10 5zM6 12v5c3 3 9 3 12 0v-5" />,
   work: (
     <>
@@ -119,7 +122,7 @@ function FieldRow({ icon, label, required = false, children }) {
   );
 }
 
-function LineText({ field, label, error, ...rest }) {
+function LineText({ field, label, error, dir, ...rest }) {
   return (
     <TextField
       {...field}
@@ -129,7 +132,7 @@ function LineText({ field, label, error, ...rest }) {
       hiddenLabel
       error={Boolean(error)}
       helperText={error?.message || ""}
-      slotProps={{ htmlInput: { "aria-label": label } }}
+      slotProps={{ htmlInput: { "aria-label": label, dir } }}
       sx={lineFieldSx}
     />
   );
@@ -159,7 +162,7 @@ function SelectField({ field, label, options, error, required = false }) {
 
 const digits = { pattern: { value: /^[0-9]*$/, message: "הזן מספר תקין" } };
 
-function TextRow({ control, name, icon, label, rules, type }) {
+function TextRow({ control, name, icon, label, rules, type, dir, hint }) {
   return (
     <Controller
       name={name}
@@ -167,7 +170,10 @@ function TextRow({ control, name, icon, label, rules, type }) {
       rules={rules}
       render={({ field, fieldState }) => (
         <FieldRow icon={icon} label={label} required={Boolean(rules?.required)}>
-          <LineText field={field} label={label} type={type} error={fieldState.error} />
+          <LineText field={field} label={label} type={type} dir={dir} error={fieldState.error} />
+          {hint ? (
+            <Typography sx={{ color: "text.secondary", fontSize: 13, lineHeight: 1.4, mt: 0.5 }}>{hint}</Typography>
+          ) : null}
         </FieldRow>
       )}
     />
@@ -251,6 +257,7 @@ export default function GenderProfileFields({ control }) {
                 )}
               />
             ) : null}
+            {female && working ? <TextRow control={control} name="workplace" icon="work" label="מקום עבודה" /> : null}
             {female && working ? (
               <Controller
                 name="workingInProfession"
@@ -272,8 +279,17 @@ export default function GenderProfileFields({ control }) {
                 )}
               />
             ) : null}
-            {female && working ? <TextRow control={control} name="workplace" icon="work" label="מקום עבודה" /> : null}
             <TextRow control={control} name="city" icon="pin" label="עיר" />
+            <TextRow
+              control={control}
+              name="phone"
+              icon="phone"
+              label={PHONE_LABEL}
+              type="tel"
+              dir="ltr"
+              rules={phoneRules}
+              hint={PHONE_HINT}
+            />
             <TextRow
               control={control}
               name="height"

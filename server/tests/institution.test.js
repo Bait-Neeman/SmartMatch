@@ -11,6 +11,7 @@ const app = require("../app");
 const { generateToken } = require("../src/config/jwt");
 const User = require("../src/models/user.model");
 const Profile = require("../src/models/profile.model");
+const Preference = require("../src/models/preference.model");
 
 const PASSWORD = "Password1";
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
@@ -78,7 +79,7 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
         user: man._id,
         gender: "male",
         age: 24,
-        yeshiva: "  ישיבה   לבדיקה ",
+        yeshiva: "  ישיבת   חברון ",
         seminar: "סמינר של בחור",
         occupation: "נהג",
       },
@@ -93,7 +94,10 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(seminars.includes("סמינר לבדיקה"), true);
     assert.equal(seminars.filter((name) => name === "אור החיים").length, 1);
     assert.equal(seminars.includes("סמינר של בחור"), false);
-    assert.equal(yeshivas.includes("ישיבה לבדיקה"), true);
+    assert.equal(yeshivas.includes("ישיבה לבדיקה"), false);
+    assert.equal(yeshivas.filter((name) => name === "חברון").length, 1);
+    assert.equal(yeshivas.includes("ישיבת חברון"), false);
+    assert.equal(seminars.includes("סמינר אור החיים"), false);
     assert.equal(yeshivas.includes("ישיבה של בחורה"), false);
     assert.equal(yeshivas.includes("חברון"), true);
     assert.equal(new Set(yeshivas).size, yeshivas.length);
@@ -141,5 +145,94 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
 
     const invalid = await request(app).put("/api/profile").set(headers).send({ working: "maybe" });
     assert.equal(invalid.status, 400);
+  });
+
+  it("stores a normalized contact phone and still lets an account without one sign in", async () => {
+    const woman = await createUser(8);
+    const headers = auth(tokenFor(woman));
+
+    const created = await request(app).post("/api/profile").set(headers).send({
+      gender: "female",
+      age: 22,
+      phone: "+972-52-123-4567",
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(created.body.profile.phone, "0521234567");
+    assert.equal((await User.findById(woman._id).lean()).phone, "0521234567");
+
+    const spaced = await request(app).put("/api/profile").set(headers).send({ phone: "052 987 6543" });
+    assert.equal(spaced.status, 200, JSON.stringify(spaced.body));
+    assert.equal(spaced.body.profile.phone, "0529876543");
+
+    const untouched = await request(app).put("/api/profile").set(headers).send({ city: "חיפה" });
+    assert.equal(untouched.status, 200, JSON.stringify(untouched.body));
+    assert.equal(untouched.body.profile.phone, "0529876543");
+    assert.equal(untouched.body.profile.city, "חיפה");
+
+    const missing = await request(app).put("/api/profile").set(headers).send({ phone: "  " });
+    assert.equal(missing.status, 400);
+    assert.match(missing.body.message, /טלפון/);
+    const landline = await request(app).put("/api/profile").set(headers).send({ phone: "03-1234567" });
+    assert.equal(landline.status, 400);
+    assert.equal((await User.findById(woman._id).lean()).phone, "0529876543");
+
+    const man = await createUser(9);
+    const manHeaders = auth(tokenFor(man));
+    const withoutPhone = await request(app).post("/api/profile").set(manHeaders).send({ gender: "male", age: 29 });
+    assert.equal(withoutPhone.status, 201, JSON.stringify(withoutPhone.body));
+    assert.equal(withoutPhone.body.profile.phone, null);
+
+    const login = await request(app).post("/api/auth/login").send({
+      email: man.email,
+      password: PASSWORD,
+    });
+    assert.equal(login.status, 200, JSON.stringify(login.body));
+    const mine = await request(app).get("/api/profile/me").set(auth(login.body.token));
+    assert.equal(mine.status, 200);
+    assert.equal(mine.body.profile.phone, null);
+  });
+
+  it("does not clear a stored occupation or older preference fields the form omits", async () => {
+    const man = await createUser(10);
+    const headers = auth(tokenFor(man));
+    const created = await request(app).post("/api/profile").set(headers).send({
+      gender: "male",
+      age: 30,
+      occupation: "מלמד",
+      yeshiva: "חברון",
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+
+    const saved = await request(app).put("/api/profile").set(headers).send({
+      gender: "male",
+      age: 31,
+      yeshiva: "חברון",
+      city: "ירושלים",
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.profile.occupation, "מלמד");
+    assert.equal(saved.body.profile.yeshiva, "חברון");
+    assert.equal(saved.body.profile.age, 31);
+
+    await Preference.create({
+      user: man._id,
+      preferredEthnicity: "ashkenazi",
+      financialMin: 1000,
+      financialMax: 5000,
+      ageMin: 20,
+      ageMax: 30,
+    });
+    const prefs = await request(app).put("/api/preference").set(headers).send({
+      ageMin: 22,
+      ageMax: 32,
+      preferredSeminar: ["חברון"],
+      onlyWorking: false,
+    });
+    assert.equal(prefs.status, 200, JSON.stringify(prefs.body));
+    assert.equal(prefs.body.preferences.preferredEthnicity, "ashkenazi");
+    assert.equal(prefs.body.preferences.financialMin, 1000);
+    assert.equal(prefs.body.preferences.financialMax, 5000);
+    assert.equal(prefs.body.preferences.ageMin, 22);
+    assert.deepEqual(prefs.body.preferences.preferredSeminar, ["חברון"]);
   });
 });

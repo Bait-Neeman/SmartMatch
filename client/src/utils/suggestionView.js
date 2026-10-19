@@ -39,6 +39,7 @@ const IDENTITY_KEYS = [
   "resumeUrl",
   "imageUrl",
   "contact",
+  "workplace",
 ];
 
 export const SUGGESTION_KINDS = {

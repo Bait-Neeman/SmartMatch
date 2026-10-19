@@ -8,7 +8,6 @@ import {
   School,
   Stars,
   Payments,
-  Phone,
   Work,
 } from "@mui/icons-material";
 import { brand, statusTones } from "../../theme/tokens.js";
@@ -27,7 +26,6 @@ const FIELD_ICONS = {
   financialRequirement: Payments,
   financialDemand: Payments,
   financialParticipation: Payments,
-  phone: Phone,
 };
 
 export default function SuggestionDetail({

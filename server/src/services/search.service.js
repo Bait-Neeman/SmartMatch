@@ -54,8 +54,8 @@ const labelsFor = (person) => {
   return labels;
 };
 
-// Public profile fields only. Name and email are added solely when this viewer
-// is already allowed to see them. Phone, photos, resumes, and a national ID
+// Public profile fields only. Name, email, and workplace are added solely when this
+// viewer is already allowed to see them. Phone, photos, resumes, and a national ID
 // are never part of the search text.
 const haystack = (person, reveal) => {
   const bits = [anonymousTitle(person), ...labelsFor(person)];
@@ -64,7 +64,7 @@ const haystack = (person, reveal) => {
     if (text) bits.push(text);
   }
   if (reveal) {
-    for (const field of ["name", "email"]) {
+    for (const field of ["name", "email", "workplace"]) {
       const text = textOf(person?.[field]);
       if (text) bits.push(text);
     }
@@ -142,7 +142,7 @@ const searchAdmin = async (needle) => {
   const userIds = users.map((user) => user._id);
   const [profiles, cases] = await Promise.all([
     Profile.find({ user: { $in: userIds } })
-      .select(["user", ...PUBLIC_PROFILE_FIELDS].join(" "))
+      .select(["user", "workplace", ...PUBLIC_PROFILE_FIELDS].join(" "))
       .lean(),
     Interest.find({
       status: "accepted",

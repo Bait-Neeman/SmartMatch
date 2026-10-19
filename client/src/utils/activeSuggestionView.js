@@ -80,8 +80,9 @@ const revealedTitle = (person, name) => {
   return `${name}, ${anonymous}`;
 };
 
-// Returns null unless this row is a mutually approved stage. Name, photo, and
-// resume are copied only in that case. Phone is never copied onto a user view.
+// Returns null unless this row is a mutually approved stage. Name, photo,
+// and resume are copied only in that case, and only from the fields the server sends.
+// A phone number is never copied onto a user view.
 export const toActiveView = (person) => {
   if (!person || typeof person !== "object") return null;
   const stage = textOf(person.stage);
@@ -110,6 +111,8 @@ export const toActiveView = (person) => {
   if (demand && !fields.some((field) => field.key === "financialRequirement" || field.key === "financialDemand")) {
     fields.push({ key: "financialDemand", label: "דרישה כספית", value: demand });
   }
+  const workplace = textOf(person.workplace);
+  if (workplace) fields.push({ key: "workplace", label: "מקום עבודה", value: workplace });
 
   const viewerForwarded = person.viewerForwarded === true || stage === "forwarded" || stage === "matchmaker";
   const otherForwarded = person.otherForwarded === true || stage === "other-forwarded" || stage === "matchmaker";

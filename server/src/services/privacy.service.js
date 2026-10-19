@@ -11,6 +11,9 @@ const { fileAccessPath } = require("./storage.service");
 // yeshiva and seminar are the learning institution (מוסד).
 // lookingFor, maritalStatus, financialDemand, and financialParticipation are
 // visible before approval, the same as age, city, and the other public fields.
+// workplace (where she works) can name an employer, so it stays hidden until
+// mutual approval, like a name. A phone number is never sent to another user,
+// at any stage. The work checkboxes and מקצוע stay public.
 const PUBLIC_PROFILE_FIELDS = [
   "age",
   "height",
@@ -22,7 +25,6 @@ const PUBLIC_PROFILE_FIELDS = [
   "occupation",
   "working",
   "workingInProfession",
-  "workplace",
   "description",
   "lookingFor",
   "maritalStatus",
@@ -36,7 +38,7 @@ const PUBLIC_PROFILE_FIELDS = [
 ];
 
 // Never sent to another user, at any stage, including after mutual approval.
-// Phone stays with the account owner (settings) and with an admin.
+// Phone stays with the account owner and with an admin.
 // A leftover national ID is omitted even if an old document still has one.
 const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber", "phone", "mobile", "telephone"]);
 
@@ -55,6 +57,7 @@ const IDENTITY_KEYS = new Set([
   "imageUrl",
   "resumeSize",
   "resumeUploadedAt",
+  "workplace",
 ]);
 
 const asPlain = (value) => {
@@ -116,6 +119,7 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
     person.resumePdf = fileAccessPath(id, "resumePdf", plainProfile?.resumePdf);
     if (plainProfile?.resumeSize != null) person.resumeSize = plainProfile.resumeSize;
     if (plainProfile?.resumeUploadedAt) person.resumeUploadedAt = plainProfile.resumeUploadedAt;
+    if (plainProfile?.workplace) person.workplace = plainProfile.workplace;
   }
 
   return redactIdentity(person, { revealIdentity });

@@ -85,6 +85,7 @@ export default function HomeSuggestionCard({ card, onOpen, onInterest, sending =
         >
           <PersonAvatar
             gender={card.gender}
+            fit="contain"
             size="100%"
             sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: 0 }}
           />
