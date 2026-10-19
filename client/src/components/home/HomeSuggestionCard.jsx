@@ -140,10 +140,6 @@ export default function HomeSuggestionCard({ card, onOpen, onInterest, sending =
             );
           })}
 
-          {card.percent != null ? (
-            <Typography sx={{ mt: 1, fontWeight: 700, fontSize: 14, color: brand.pillGreenText }}>התאמה {card.percent}%</Typography>
-          ) : null}
-
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: "14px" }}>
             <Box
               component="span"

@@ -34,12 +34,6 @@ const AGE_OPTIONS = [
   { value: "31+", label: "31+" },
 ];
 
-const PERCENT_OPTIONS = [
-  { value: "90", label: "90% ומעלה" },
-  { value: "80", label: "80% ומעלה" },
-  { value: "70", label: "70% ומעלה" },
-];
-
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
     height: 46,
@@ -63,7 +57,6 @@ export default function SuggestionsPage() {
     hiddenByPreference,
     preview,
     offline,
-    showMatchPercent,
     onSent,
     onDeclined,
     onAccepted,
@@ -72,7 +65,6 @@ export default function SuggestionsPage() {
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("");
   const [age, setAge] = useState("");
-  const [percent, setPercent] = useState("");
   const [localNotice, setLocalNotice] = useState("");
   const [seenDecline, setSeenDecline] = useState(null);
   const declineStamp = location.state?.declinedStamp ?? null;
@@ -84,8 +76,8 @@ export default function SuggestionsPage() {
   }, [items]);
 
   const filtered = useMemo(
-    () => filterSuggestions(items, { query, city, age, percent }),
-    [items, query, city, age, percent]
+    () => filterSuggestions(items, { query, city, age }),
+    [items, query, city, age]
   );
 
   const newOnServer = items.filter((item) => item.kind === "new").length;
@@ -102,7 +94,6 @@ export default function SuggestionsPage() {
   };
 
   const shown = tab === "declined" ? declinedItems : tab === "all" ? activeItems : activeItems.filter((item) => item.kind === tab);
-  const reservePercent = showMatchPercent && shown.some((item) => item.view.percent != null);
   const error = matchesError || interestsError;
 
   const dismissNotice = () => {
@@ -161,13 +152,11 @@ export default function SuggestionsPage() {
     }
 
     return shown.map((item) => {
-      const view = showMatchPercent ? item.view : { ...item.view, percent: null };
       if (item.kind === "declined") {
         return (
           <SuggestionRow
             key={`declined-${item.id}`}
-            view={view}
-            reservePercent={reservePercent && showMatchPercent}
+            view={item.view}
             onOpen={() => navigate(suggestionHref(item, preview))}
           />
         );
@@ -176,10 +165,9 @@ export default function SuggestionsPage() {
         <MatchCard
           key={`new-${item.id}`}
           match={item.match}
-          view={view}
+          view={item.view}
           variant="row"
           offline={offline}
-          reservePercent={reservePercent && showMatchPercent}
           onOpen={() => navigate(suggestionHref(item, preview))}
           onSent={onSent}
         />
@@ -188,10 +176,9 @@ export default function SuggestionsPage() {
           key={`${item.kind}-${item.id}`}
           interest={item.interest}
           type={item.kind === "received" ? "incoming" : "outgoing"}
-          view={view}
+          view={item.view}
           variant="row"
           offline={offline}
-          reservePercent={reservePercent && showMatchPercent}
           onOpen={() => navigate(suggestionHref(item, preview))}
           onDeclined={handleDeclined}
           onAccepted={onAccepted}
@@ -245,13 +232,6 @@ export default function SuggestionsPage() {
           sx={{ flex: "1 1 140px" }}
         />
         <FilterSelect label="גיל" value={age} onChange={setAge} options={AGE_OPTIONS} sx={{ flex: "1 1 140px" }} />
-        <FilterSelect
-          label="אחוז התאמה"
-          value={percent}
-          onChange={setPercent}
-          options={PERCENT_OPTIONS}
-          sx={{ flex: "1 1 160px" }}
-        />
       </Box>
 
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: "22px" }}>

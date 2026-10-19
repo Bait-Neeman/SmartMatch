@@ -153,7 +153,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(created.body.profile.financialParticipation, 80);
     assert.equal(created.body.profile.ageMin, 22);
     assert.equal(created.body.profile.ageMax, 30);
-    assert.equal(created.body.profile.preferredMaritalStatus, "single");
+    assert.deepEqual(created.body.profile.preferredMaritalStatus, ["single"]);
     assert.equal(created.body.profile.resumeSize, pdf.length);
     assert.ok(created.body.profile.resumeUploadedAt);
     assert.equal(created.body.profile.idNumber, undefined);

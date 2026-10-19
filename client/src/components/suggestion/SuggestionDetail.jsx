@@ -12,7 +12,6 @@ import {
 } from "@mui/icons-material";
 import { brand, statusTones } from "../../theme/tokens.js";
 import StatusPill from "../common/StatusPill.jsx";
-import MatchRing from "../common/MatchRing.jsx";
 import { LockedPhoto } from "./LockedMedia.jsx";
 import { SUGGESTION_KINDS } from "../../utils/suggestionView.js";
 
@@ -159,7 +158,6 @@ export default function SuggestionDetail({
                   </Typography>
                 ) : null}
               </Box>
-              {view.percent != null ? <MatchRing value={view.percent} size={84} caption="התאמה" /> : null}
             </Box>
 
             {view.fields.length > 0 ? (

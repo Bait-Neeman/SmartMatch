@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES, textField, choiceField } = require("./options");
 
 const rangeField = (label) => ({ type: Number, min: [0, `ערך לא תקין בשדה ${label}`] });
 const ageField = (label) => ({
@@ -15,14 +14,14 @@ const preferenceSchema = new mongoose.Schema(
     ageMin: ageField("גיל מינימלי"),
     ageMax: ageField("גיל מקסימלי"),
 
-    city: textField(100, "עיר"),
-
     heightMin: rangeField("גובה מינימלי"),
     heightMax: rangeField("גובה מקסימלי"),
 
-    style: choiceField(STYLES, "סגנון"),
-
-    preferredAppearance: choiceField(APPEARANCES, "מראה חיצוני"),
+    // Lists. An older document may still store one string. Empty means no filter.
+    // "לא משנה" and "אין העדפת עיר" are form state and are not stored.
+    city: { type: mongoose.Schema.Types.Mixed },
+    style: { type: mongoose.Schema.Types.Mixed },
+    preferredAppearance: { type: mongoose.Schema.Types.Mixed },
 
     // Range for the profile's financialStatus number (finance shape B).
     // Shape A is financialDemand vs financialParticipation on the profile.
@@ -30,12 +29,12 @@ const preferenceSchema = new mongoose.Schema(
     financialMin: rangeField("מצב כלכלי מינימלי"),
     financialMax: rangeField("מצב כלכלי מקסימלי"),
 
-    // Empty means any marital status is acceptable.
-    preferredMaritalStatus: choiceField(MARITAL_STATUSES, "סטטוס משפחתי"),
+    // Empty means any marital status is acceptable. Default for a new form is רווק/ה.
+    preferredMaritalStatus: { type: mongoose.Schema.Types.Mixed },
 
     // Community and institution. Empty means no filter. A candidate who left
     // the field blank is unknown and is not removed.
-    preferredEthnicity: choiceField(ETHNICITIES, "עדה"),
+    preferredEthnicity: { type: mongoose.Schema.Types.Mixed },
     // A list of names. Older documents stored one string; both shapes are read.
     // Empty, or the "אין העדפה" choice (it is not stored), means no filter.
     // Mixed so a legacy string is not split into letters by an array cast.
@@ -50,6 +49,10 @@ const preferenceSchema = new mongoose.Schema(
     // onlyWorkingInProfession ("רק בחורה שעובדת במקצוע שלמדה") implies onlyWorking.
     onlyWorking: { type: Boolean },
     onlyWorkingInProfession: { type: Boolean },
+
+    // Unchecked by default. A document without the field keeps the old rule:
+    // a blank value in a filtered field stays unknown and is still shown.
+    excludeIncomplete: { type: Boolean },
   },
   { timestamps: true }
 );

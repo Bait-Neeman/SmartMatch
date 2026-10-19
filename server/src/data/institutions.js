@@ -74,6 +74,49 @@ const SEMINARS = [
   "פלך",
 ];
 
+// Cities offered in the preference checklist and as profile autocomplete.
+// A city someone typed is added beside these.
+const CITIES = [
+  "ירושלים",
+  "בני ברק",
+  "בית שמש",
+  "מודיעין עילית",
+  "ביתר עילית",
+  "אלעד",
+  "תל אביב",
+  "פתח תקווה",
+  "חיפה",
+  "אשדוד",
+  "אשקלון",
+  "באר שבע",
+  "נתניה",
+  "רחובות",
+  "ראשון לציון",
+  "רמת גן",
+  "גבעתיים",
+  "חולון",
+  "בת ים",
+  "רעננה",
+  "הרצליה",
+  "כפר סבא",
+  "מודיעין",
+  "לוד",
+  "רמלה",
+  "צפת",
+  "טבריה",
+  "עפולה",
+  "נהריה",
+  "חדרה",
+  "גבעת זאב",
+  "מעלה אדומים",
+  "אפרת",
+  "עמנואל",
+  "רכסים",
+  "נתיבות",
+  "אופקים",
+  "ערד",
+];
+
 // Common professions for the male preference checklist.
 // A profession a woman types on her profile is added beside these.
 const PROFESSIONS = [
@@ -111,4 +154,4 @@ const PROFESSIONS = [
   "תרגום",
 ];
 
-module.exports = { YESHIVAS, SEMINARS, PROFESSIONS };
+module.exports = { YESHIVAS, SEMINARS, PROFESSIONS, CITIES };

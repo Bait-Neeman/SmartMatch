@@ -65,6 +65,7 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
         seminar: "  סמינר   לבדיקה ",
         yeshiva: "ישיבה של בחורה",
         occupation: "מורה",
+        city: "תל-אביב",
         working: true,
         workplace: "בית ספר",
       },
@@ -82,13 +83,14 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
         yeshiva: "  ישיבת   חברון ",
         seminar: "סמינר של בחור",
         occupation: "נהג",
+        city: "עיר-לבדיקה",
       },
     ]);
 
     const response = await request(app).get("/api/institutions").set(auth(tokenFor(woman)));
     assert.equal(response.status, 200, JSON.stringify(response.body));
 
-    const { yeshivas, seminars, professions } = response.body;
+    const { yeshivas, seminars, professions, cities } = response.body;
     assert.equal(yeshivas.includes("חברון"), true);
     assert.equal(seminars.includes("אור החיים"), true);
     assert.equal(seminars.includes("סמינר לבדיקה"), true);
@@ -107,11 +109,18 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(professions.includes("מורה לחינוך"), true);
     assert.equal(professions.includes("נהג"), false);
     assert.equal(new Set(professions).size, professions.length);
+    assert.equal(cities.includes("תל אביב"), true);
+    assert.equal(cities.includes("תל-אביב"), false);
+    assert.equal(cities.filter((name) => name === "תל אביב").length, 1);
+    assert.equal(cities.includes("עיר-לבדיקה"), true);
+    assert.equal(cities.includes("ירושלים"), true);
+    assert.equal(new Set(cities).size, cities.length);
 
     const duplicate = await request(app).get("/api/institutions").set(auth(tokenFor(man)));
     assert.deepEqual(duplicate.body.yeshivas, yeshivas);
     assert.deepEqual(duplicate.body.seminars, seminars);
     assert.deepEqual(duplicate.body.professions, professions);
+    assert.deepEqual(duplicate.body.cities, cities);
   });
 
   it("stores the female work fields and drops a workplace when she is not working", async () => {
@@ -229,7 +238,8 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
       onlyWorking: false,
     });
     assert.equal(prefs.status, 200, JSON.stringify(prefs.body));
-    assert.equal(prefs.body.preferences.preferredEthnicity, "ashkenazi");
+    assert.deepEqual(prefs.body.preferences.preferredEthnicity, ["ashkenazi"]);
+    assert.equal(prefs.body.preferences.excludeIncomplete, false);
     assert.equal(prefs.body.preferences.financialMin, 1000);
     assert.equal(prefs.body.preferences.financialMax, 5000);
     assert.equal(prefs.body.preferences.ageMin, 22);

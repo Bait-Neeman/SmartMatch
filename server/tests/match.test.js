@@ -30,6 +30,7 @@ const HIDDEN_KEYS = [
   "workingInProfession",
   "financialStatus",
   "financialDemand",
+  "missing",
 ];
 
 const traits = {
@@ -221,6 +222,11 @@ describe("match percent formula", () => {
     assert.equal(computeMatchPercent({}, { onlyWorking: true }, {}, {}), 0);
     assert.equal(computeMatchPercent({}, { onlyWorkingInProfession: true }, { working: true, workingInProfession: true }, {}), 100);
     assert.equal(computeMatchPercent({}, { onlyWorkingInProfession: true }, { working: true }, {}), 50);
+    assert.equal(computeMatchPercent({ style: "classic" }, { style: ["modern", "open"] }, { style: "conservative" }, {}), 0);
+    assert.equal(computeMatchPercent({ style: "classic" }, { style: "open" }, { style: "open" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { style: ["modern"] }, {}, {}), null);
+    assert.equal(computeMatchPercent({ city: "תל אביב" }, { city: ["תל-אביב"] }, { city: "חיפה" }, {}), 0);
+    assert.equal(computeMatchPercent({ city: "חיפה" }, { city: "תל אביב" }, { city: "תל-אביב" }, {}), 100);
     assert.equal(computeMatchPercent({}, {}, { working: true, workingInProfession: true }, {}), null);
   });
 });
@@ -440,7 +446,7 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
       preferredSeminar: "אור-החיים",
     });
     assert.equal(saved.status, 201, JSON.stringify(saved.body));
-    assert.equal(saved.body.preferences.preferredEthnicity, "sephardic");
+    assert.deepEqual(saved.body.preferences.preferredEthnicity, ["sephardic"]);
     assert.deepEqual(saved.body.preferences.preferredYeshiva, ["חברון"]);
     assert.deepEqual(saved.body.preferences.preferredSeminar, ["אור-החיים"]);
 
@@ -675,5 +681,108 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
       .set(auth(tokenFor(viewer)))
       .send({ onlyWorking: "maybe" });
     assert.equal(invalid.status, 400);
+  });
+
+  it("filters choice lists and hides a blank only when excludeIncomplete is checked", async () => {
+    const viewer = await createUser({ n: 591, name: "SECRET-LISTS" });
+    const fit = await createUser({ n: 592, name: "SECRET-FIT" });
+    const wrongStyle = await createUser({ n: 593, name: "SECRET-STYLE" });
+    const wrongLook = await createUser({ n: 594, name: "SECRET-LOOK" });
+    const wrongStatus = await createUser({ n: 595, name: "SECRET-STATUS" });
+    const wrongCommunity = await createUser({ n: 596, name: "SECRET-COMMUNITY" });
+    const wrongCity = await createUser({ n: 597, name: "SECRET-CITY" });
+    const blankCity = await createUser({ n: 598, name: "SECRET-BLANK-CITY" });
+    const blankStyle = await createUser({ n: 599, name: "SECRET-BLANK-STYLE" });
+    const shared = {
+      gender: "male",
+      city: "ירושלים",
+      style: "modern",
+      appearance: "average",
+      ethnicity: "ashkenazi",
+      maritalStatus: "single",
+    };
+
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female" }) },
+      { user: fit._id, ...baseProfile(shared) },
+      { user: wrongStyle._id, ...baseProfile({ ...shared, style: "conservative" }) },
+      { user: wrongLook._id, ...baseProfile({ ...shared, appearance: "slim" }) },
+      { user: wrongStatus._id, ...baseProfile({ ...shared, maritalStatus: "divorced" }) },
+      { user: wrongCommunity._id, ...baseProfile({ ...shared, ethnicity: "sephardic" }) },
+      { user: wrongCity._id, ...baseProfile({ ...shared, city: "חיפה" }) },
+      { user: blankCity._id, ...baseProfile(shared) },
+      { user: blankStyle._id, ...baseProfile(shared) },
+    ]);
+    await Profile.updateOne({ user: blankCity._id }, { $unset: { city: 1 } });
+    await Profile.updateOne({ user: blankStyle._id }, { $unset: { style: 1 } });
+
+    const saved = await request(app)
+      .post("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({
+        style: ["modern", "open"],
+        preferredAppearance: ["average", "full"],
+        preferredMaritalStatus: ["single"],
+        preferredEthnicity: ["ashkenazi"],
+        city: ["ירושלים", "תל אביב"],
+        excludeIncomplete: false,
+      });
+    assert.equal(saved.status, 201, JSON.stringify(saved.body));
+    assert.equal(saved.body.preferences.excludeIncomplete, false);
+    assert.deepEqual(saved.body.preferences.style, ["modern", "open"]);
+
+    const open = await listed(viewer);
+    assert.equal(open.status, 200, JSON.stringify(open.body));
+    assert.deepEqual(idsOf(open.body).sort(), [String(fit._id), String(blankCity._id), String(blankStyle._id)].sort());
+    assert.equal(open.body.hiddenByPreference.style, 1);
+    assert.equal(open.body.hiddenByPreference.appearance, 1);
+    assert.equal(open.body.hiddenByPreference.maritalStatus, 1);
+    assert.equal(open.body.hiddenByPreference.ethnicity, 1);
+    assert.equal(open.body.hiddenByPreference.city, 1);
+    assert.equal(open.body.hiddenByPreference.missing, 0);
+    assert.equal(open.body.hiddenByPreference.total, 5);
+    assertCountsOnly(open.body.hiddenByPreference, ["SECRET-STYLE", "SECRET-LOOK"]);
+
+    const strict = await request(app).put("/api/preference").set(auth(tokenFor(viewer))).send({ excludeIncomplete: true });
+    assert.equal(strict.status, 200, JSON.stringify(strict.body));
+    assert.equal(strict.body.preferences.excludeIncomplete, true);
+    const hiddenBlanks = await listed(viewer);
+    assert.deepEqual(idsOf(hiddenBlanks.body), [String(fit._id)]);
+    assert.equal(hiddenBlanks.body.hiddenByPreference.missing, 2);
+    assert.equal(hiddenBlanks.body.hiddenByPreference.style, 1);
+    assert.equal(hiddenBlanks.body.hiddenByPreference.total, 7);
+
+    await Preference.updateOne({ user: viewer._id }, { $unset: { excludeIncomplete: 1 } });
+    const omitted = await listed(viewer);
+    assert.equal(omitted.body.hiddenByPreference.missing, 0);
+    assert.deepEqual(idsOf(omitted.body).sort(), [String(fit._id), String(blankCity._id), String(blankStyle._id)].sort());
+  });
+
+  it("reads a legacy single choice and still shows a blank city", async () => {
+    const viewer = await createUser({ n: 601, name: "SECRET-LEGACY-CHOICE" });
+    const telAviv = await createUser({ n: 602, name: "SECRET-TELAVIV" });
+    const haifa = await createUser({ n: 603, name: "SECRET-HAIFA-CITY" });
+    const blank = await createUser({ n: 604, name: "SECRET-NO-CITY" });
+
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female" }) },
+      { user: telAviv._id, ...baseProfile({ gender: "male", city: "תל אביב", style: "modern" }) },
+      { user: haifa._id, ...baseProfile({ gender: "male", city: "חיפה", style: "modern" }) },
+      { user: blank._id, ...baseProfile({ gender: "male", style: "modern" }) },
+    ]);
+    await Profile.updateOne({ user: blank._id }, { $unset: { city: 1 } });
+    await Preference.create({ user: viewer._id, style: "modern", city: "תל-אביב" });
+
+    const stored = await request(app).get("/api/preference/me").set(auth(tokenFor(viewer)));
+    assert.equal(stored.status, 200, JSON.stringify(stored.body));
+    assert.deepEqual(stored.body.preferences.style, ["modern"]);
+    assert.deepEqual(stored.body.preferences.city, ["תל-אביב"]);
+    assert.equal(stored.body.preferences.excludeIncomplete, false);
+
+    const response = await listed(viewer);
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.deepEqual(idsOf(response.body).sort(), [String(telAviv._id), String(blank._id)].sort());
+    assert.equal(response.body.hiddenByPreference.city, 1);
+    assert.equal(response.body.hiddenByPreference.missing, 0);
   });
 });

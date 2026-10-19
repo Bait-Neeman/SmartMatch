@@ -13,7 +13,7 @@ const KINDS = new Set(["new", "sent", "received", "declined"]);
 export default function SuggestionDetailPage() {
   const { kind, id } = useParams();
   const navigate = useNavigate();
-  const { items, loading, preview, offline, showMatchPercent, onSent, onDeclined, onAccepted } = useSuggestions();
+  const { items, loading, preview, offline, onSent, onDeclined, onAccepted } = useSuggestions();
   const decodedId = decodeURIComponent(id || "");
   const home = suggestionsHome(preview);
 
@@ -42,7 +42,7 @@ export default function SuggestionDetailPage() {
     );
   }
 
-  const view = showMatchPercent ? item.view : { ...item.view, percent: null };
+  const view = item.view;
 
   if (item.kind === "declined") {
     const meta = SUGGESTION_KINDS[view.kind] || SUGGESTION_KINDS.declined;

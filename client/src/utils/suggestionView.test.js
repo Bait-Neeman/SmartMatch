@@ -35,14 +35,14 @@ describe("suggestion list", () => {
     assert.equal(declined.length, 1);
     assert.equal(declined[0].view.kind, "declined-self");
     assert.equal(declined[0].view.title, "בן 28");
-    assert.equal(declined[0].view.percent, 88);
+    assert.equal(declined[0].view.percent, null);
     assert.equal(declined[0].view.city, "אלעד");
     assert.equal(identityLeak(declined[0].view, declined[0].interest.receiver), "");
     assert.equal(JSON.stringify(declined[0].view).includes("שם סודי"), false);
     assert.equal(JSON.stringify(declined[0].view).includes("secret@example.test"), false);
 
     const fresh = items.find((item) => item.kind === "new");
-    assert.equal(fresh.view.percent, 95);
+    assert.equal(fresh.view.percent, null);
     assert.equal(fresh.view.title, "בן 26");
     assert.equal(JSON.stringify(fresh.view).includes("סודי"), false);
   });

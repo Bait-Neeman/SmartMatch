@@ -5,6 +5,7 @@ export default function useInstitutionLists() {
   const [yeshivas, setYeshivas] = useState([]);
   const [seminars, setSeminars] = useState([]);
   const [professions, setProfessions] = useState([]);
+  const [cities, setCities] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -15,6 +16,7 @@ export default function useInstitutionLists() {
         setYeshivas(Array.isArray(data?.yeshivas) ? data.yeshivas : []);
         setSeminars(Array.isArray(data?.seminars) ? data.seminars : []);
         setProfessions(Array.isArray(data?.professions) ? data.professions : []);
+        setCities(Array.isArray(data?.cities) ? data.cities : []);
       })
       .catch(() => {
         if (!ignore) setError("לא הצלחנו לטעון את הרשימות");
@@ -24,5 +26,5 @@ export default function useInstitutionLists() {
     };
   }, []);
 
-  return { yeshivas, seminars, professions, error };
+  return { yeshivas, seminars, professions, cities, error };
 }

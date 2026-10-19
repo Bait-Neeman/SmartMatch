@@ -1,5 +1,5 @@
 const Profile = require("../models/profile.model");
-const { YESHIVAS, SEMINARS, PROFESSIONS } = require("../data/institutions");
+const { YESHIVAS, SEMINARS, PROFESSIONS, CITIES } = require("../data/institutions");
 
 // Same comparison as match.service: trim, case, and hyphen/maqaf insensitive.
 const normaliseInstitution = (value) =>
@@ -61,20 +61,28 @@ const distinctNames = async (field, gender) => {
   return names.filter((name) => typeof name === "string");
 };
 
+const distinctCities = async () => {
+  const names = await Profile.distinct("city", { city: { $nin: [null, ""] } });
+  return names.filter((name) => typeof name === "string");
+};
+
 // Yeshivas: the seed list, plus every yeshiva a male profile stored.
 // Seminars: the seed list, plus every seminar a female profile stored.
 // Professions: the seed list, plus every profession a female profile stored.
+// Cities: the seed list, plus every city stored on a profile.
 const getInstitutionLists = async () => {
-  const [yeshivas, seminars, professions] = await Promise.all([
+  const [yeshivas, seminars, professions, cities] = await Promise.all([
     distinctNames("yeshiva", "male"),
     distinctNames("seminar", "female"),
     distinctNames("occupation", "female"),
+    distinctCities(),
   ]);
 
   return {
     yeshivas: mergeInstitutions(YESHIVAS, yeshivas, institutionKey),
     seminars: mergeInstitutions(SEMINARS, seminars, institutionKey),
     professions: mergeInstitutions(PROFESSIONS, professions),
+    cities: mergeInstitutions(CITIES, cities),
   };
 };
 

@@ -174,7 +174,9 @@ describe("admin pages", () => {
     assert.equal(summary.body.recent.length, 1);
     assert.equal(summary.body.recent[0].sender.name, "יוסי כהן");
     assert.equal(summary.body.recent[0].receiver.email, "sara@example.test");
-    assert.equal(summary.body.recent[0].matchPercent, 97);
+    // Age 24 is near the middle of 20–30 (94). The stored city preference is חיפה
+    // and her city is ירושלים, so that known mismatch scores 0. (94 + 0) / 2 = 47.
+    assert.equal(summary.body.recent[0].matchPercent, 47);
     assert.equal(JSON.stringify(summary.body).includes(PASSWORD), false);
     assert.equal(JSON.stringify(summary.body).includes(IMAGE_ID), false);
   });

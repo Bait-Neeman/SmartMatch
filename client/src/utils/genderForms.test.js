@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildPreferenceFields, buildProfileFields, normalizeIsraeliMobile } from "./genderForms.js";
+import {
+  buildPreferenceFields,
+  buildProfileFields,
+  EXCLUDE_INCOMPLETE_HELP,
+  EXCLUDE_INCOMPLETE_LABEL,
+  EXCLUDE_INCOMPLETE_WARNING,
+  normalizeIsraeliMobile,
+} from "./genderForms.js";
 
 describe("contact phone", () => {
   it("normalizes an Israeli mobile and rejects anything else", () => {
@@ -33,13 +40,29 @@ describe("contact phone", () => {
     assert.equal(Object.hasOwn(female, "yeshiva"), false);
   });
 
-  it("does not send older preference fields the form no longer shows", () => {
+  it("sends community as a list and leaves the financial range untouched", () => {
     const fields = buildPreferenceFields(
-      { ageMin: 20, ageMax: 30, preferredSeminar: ["ישיבת חברון", "חברון"], preferredEthnicity: "ashkenazi", financialMin: 5 },
+      {
+        ageMin: 20,
+        ageMax: 30,
+        preferredSeminar: ["ישיבת חברון", "חברון"],
+        preferredEthnicity: "ashkenazi",
+        financialMin: 5,
+        excludeIncomplete: "yes",
+      },
       "male"
     );
     assert.deepEqual(fields.preferredSeminar, ["ישיבת חברון"]);
-    assert.equal(Object.hasOwn(fields, "preferredEthnicity"), false);
+    assert.deepEqual(fields.preferredEthnicity, ["ashkenazi"]);
+    assert.equal(fields.excludeIncomplete, false);
     assert.equal(Object.hasOwn(fields, "financialMin"), false);
+  });
+
+  it("keeps the incomplete-details copy, with the box off unless it is exactly true", () => {
+    assert.equal(EXCLUDE_INCOMPLETE_LABEL, "אני לא רוצה שיוצגו לי הצעות שחסרים בהן פרטים");
+    assert.equal(EXCLUDE_INCOMPLETE_HELP, "כברירת מחדל מוצגות גם הצעות שלא מולאו בהן כל הפרטים.");
+    assert.equal(EXCLUDE_INCOMPLETE_WARNING, "שימו לב: ייתכן שתפספסו הצעות מתאימות. הפרטים החסרים עשויים להתאים לכם.");
+    assert.equal(buildPreferenceFields({ excludeIncomplete: true }, "female").excludeIncomplete, true);
+    assert.equal(buildPreferenceFields({}, "female").excludeIncomplete, false);
   });
 });

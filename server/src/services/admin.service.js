@@ -88,6 +88,7 @@ const PREFERENCE_FIELDS = [
   "preferredOccupation",
   "onlyWorking",
   "onlyWorkingInProfession",
+  "excludeIncomplete",
 ];
 
 const blankFields = (fields) => Object.fromEntries(fields.map((field) => [field, null]));
@@ -98,6 +99,7 @@ const toAdminPreference = (preference) => {
   for (const field of PREFERENCE_FIELDS) {
     if (preference[field] != null && preference[field] !== "") full[field] = preference[field];
   }
+  full.excludeIncomplete = preference.excludeIncomplete === true;
   return full;
 };
 
