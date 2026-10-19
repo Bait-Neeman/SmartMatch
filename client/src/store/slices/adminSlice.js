@@ -76,10 +76,12 @@ export const fetchAdminCases = createAsyncThunk("admin/fetchAdminCases", async (
 
 export const saveAdminCase = createAsyncThunk(
   "admin/saveAdminCase",
-  async ({ id, status, note }, { rejectWithValue }) => {
+  async ({ id, status, meetingNumber, note, action }, { rejectWithValue }) => {
     try {
       const payload = {};
+      if (action !== undefined) payload.action = action;
       if (status !== undefined) payload.status = status;
+      if (meetingNumber !== undefined) payload.meetingNumber = meetingNumber;
       if (note !== undefined) payload.note = note;
       const data = await updateAdminCaseApi(id, payload);
       return data?.case;
@@ -234,7 +236,16 @@ const adminSlice = createSlice({
         state.cases = state.cases.map((item) => (String(item._id) === String(saved._id) ? saved : item));
         state.suggestions = state.suggestions.map((item) =>
           String(item._id) === String(saved._id)
-            ? { ...item, status: saved.status, note: saved.note, manageable: true, stage: item.stage || "matchmaker" }
+            ? {
+                ...item,
+                status: saved.status,
+                meetingNumber: saved.meetingNumber,
+                label: saved.label,
+                history: saved.history,
+                note: saved.note,
+                manageable: true,
+                stage: item.stage || "matchmaker",
+              }
             : item
         );
         if (state.summary?.recent) {

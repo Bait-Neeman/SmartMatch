@@ -60,7 +60,7 @@ const search = async (req, res) => {
 };
 
 const patchCase = async (req, res) => {
-  const item = await updateAdminCase(req.params.id, req.body || {});
+  const item = await updateAdminCase(req.params.id, req.body || {}, req.user.userId);
   res.status(200).json({ case: item });
 };
 

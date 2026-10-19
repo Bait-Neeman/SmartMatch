@@ -30,6 +30,7 @@ import AdminAvatar from "../components/admin/AdminAvatar.jsx";
 import AdminHeading from "../components/admin/AdminHeading.jsx";
 import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
 import { CANDIDATE_STATUS, institutionLine } from "../components/admin/format.js";
+import { DIRECTORY_TABS } from "../utils/caseStatus.js";
 import StatusPill from "../components/common/StatusPill.jsx";
 import { openProtectedFile } from "../utils/protectedFile.js";
 import { toSafeFileUrl } from "../utils/files.js";
@@ -44,12 +45,8 @@ const AGE_RANGES = [
   { value: "27-30", label: "27–30" },
   { value: "31-120", label: "31+" },
 ];
-const TABS = [
-  { value: "", label: "הכל" },
-  { value: "active", label: "פעילים" },
-  { value: "in_process", label: "בתהליך" },
-  { value: "engaged", label: "מאורסים" },
-];
+const TABS = DIRECTORY_TABS;
+const STATUS_FILTERS = [{ value: "", label: "סטטוס" }, ...DIRECTORY_TABS.filter((tab) => tab.value)];
 
 const inAge = (age, range) => {
   if (!range) return true;
@@ -208,12 +205,7 @@ export default function AdminDirectoryPage({ gender }) {
           label="סטטוס"
           value={status}
           onChange={(value) => { setStatus(value); setPage(1); }}
-          options={[
-            { value: "", label: "סטטוס" },
-            { value: "active", label: "פעיל/ה" },
-            { value: "in_process", label: "בתהליך" },
-            { value: "engaged", label: "מאורס/ת" },
-          ]}
+          options={STATUS_FILTERS}
         />
       </Box>
 
@@ -251,7 +243,7 @@ export default function AdminDirectoryPage({ gender }) {
             </Paper>
           ) : (
             shown.map((user) => {
-              const tone = CANDIDATE_STATUS[user.status] || CANDIDATE_STATUS.active;
+              const tone = CANDIDATE_STATUS[user.status];
               const resume = toSafeFileUrl(user.profile?.resumePdf);
               const contact = [user.phone, user.email].filter(Boolean).join(" · ");
               const meta = [
@@ -321,7 +313,7 @@ export default function AdminDirectoryPage({ gender }) {
                         רזומה
                       </Box>
                     ) : null}
-                    <StatusPill tone={tone.tone} label={tone.label} icon={<StatusIcon Icon={tone.Icon} />} />
+                    {tone ? <StatusPill tone={tone.tone} label={tone.label} icon={<StatusIcon Icon={tone.Icon} />} /> : null}
                     <Box sx={{ color: brand.goldDeep, display: "grid" }}>
                       <ChevronLeft />
                     </Box>

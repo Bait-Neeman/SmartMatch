@@ -1,15 +1,24 @@
-import { AutoAwesome, Check, HourglassTop, WorkspacePremium } from "@mui/icons-material";
+import { AutoAwesome, Close, HourglassTop, WorkspacePremium } from "@mui/icons-material";
+import { adminStatusLabel } from "../../utils/caseStatus.js";
 
 export const CASE_STATUS = {
-  new: { tone: "received", label: "חדש", Icon: AutoAwesome },
-  in_progress: { tone: "progress", label: "בתהליך", Icon: HourglassTop },
-  closed: { tone: "pending", label: "נסגר · מזל טוב", Icon: WorkspacePremium },
+  new: { tone: "received", label: "הועבר לשדכן", Icon: AutoAwesome },
+  coordinating: { tone: "progress", label: "בתיאום פגישה", Icon: HourglassTop },
+  meeting: { tone: "matchmaker", label: "פגישה", Icon: HourglassTop },
+  ended: { tone: "neutral", label: "השידוך ירד", Icon: Close },
+  engaged: { tone: "pending", label: "התארסו", Icon: WorkspacePremium },
 };
 
 export const CANDIDATE_STATUS = {
-  active: { tone: "accepted", label: "פעיל/ה", Icon: Check },
-  in_process: { tone: "progress", label: "בתהליך", Icon: HourglassTop },
+  in_process: { tone: "progress", label: "בטיפול שדכן", Icon: HourglassTop },
+  ended: { tone: "neutral", label: "השידוך ירד", Icon: Close },
   engaged: { tone: "pending", label: "מאורס/ת", Icon: WorkspacePremium },
+};
+
+export const casePill = (status, meetingNumber) => {
+  const meta = CASE_STATUS[status] || CASE_STATUS.new;
+  const label = adminStatusLabel(status, meetingNumber) || meta.label;
+  return { ...meta, label };
 };
 
 export const formatDotDate = (value) => {
@@ -44,6 +53,23 @@ export const monthTrend = (count) => (count > 0 ? `+${count} החודש` : "0 ה
 export const freshTrend = (count) => (count === 1 ? "חדשה אחת" : `${count} חדשות`);
 
 export const closedTrend = (count) => (count > 0 ? "מזל טוב!" : "אין עדיין");
+
+export const endedTrend = (count) => (count > 0 ? "הסתיימו" : "אין עדיין");
+
+export const formatHistoryWhen = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${formatDotDate(date)} · ${hours}:${minutes}`;
+};
+
+export const historyWho = (entry) => {
+  if (entry?.source === "migration") return "מיגרציה";
+  const name = entry?.changedBy?.name;
+  if (entry?.source === "autoClose") return name ? `${name} · סגירה אוטומטית` : "סגירה אוטומטית";
+  return name || "שדכן";
+};
 
 export const SUGGESTION_STAGE = {
   new: { tone: "pending", label: "הצעה חדשה" },

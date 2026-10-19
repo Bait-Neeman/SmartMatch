@@ -10,8 +10,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Menu,
-  MenuItem,
   TextField,
   Typography,
 } from "@mui/material";
@@ -31,21 +29,34 @@ import {
 import AdminHeading from "../components/admin/AdminHeading.jsx";
 import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
 import { CaseCard } from "../components/admin/CaseWidgets.jsx";
-import { CASE_STATUS, SUGGESTION_STAGE } from "../components/admin/format.js";
+import { SUGGESTION_STAGE } from "../components/admin/format.js";
 import { openProtectedFile } from "../utils/protectedFile.js";
 import { toSafeFileUrl } from "../utils/files.js";
+import { CASE_WORK_TABS, isFinalCase } from "../utils/caseStatus.js";
 
 const STAGE_TABS = [
   { value: "", label: "הכל" },
   ...Object.entries(SUGGESTION_STAGE).map(([value, meta]) => ({ value, label: meta.label })),
 ];
 
-const WORK_TABS = [
-  { value: "", label: "כל התיקים" },
-  { value: "new", label: "חדשות" },
-  { value: "in_progress", label: "בתהליך" },
-  { value: "closed", label: "נסגרו" },
-];
+const CONFIRM_COPY = {
+  ended: {
+    title: "לסמן שהשידוך ירד?",
+    body: "שני הצדדים יחזרו להיות פנויים להצעות חדשות, ולא יוצעו שוב זה לזה.",
+  },
+  engaged: {
+    title: "לסמן שהתארסו?",
+    body: "שני הצדדים יוצגו כמאורסים ולא יוצעו יותר לאף אחד.",
+  },
+  coordinating: {
+    title: "לעדכן את שלב התיק?",
+    body: "התיק יסומן כבתיאום פגישה.",
+  },
+  nextMeeting: {
+    title: "לעדכן את שלב התיק?",
+    body: "התיק יחזור לטיפול, והשלב הבא יהיה פגישה.",
+  },
+};
 
 export default function AdminCasesPage() {
   const dispatch = useDispatch();
@@ -62,10 +73,10 @@ export default function AdminCasesPage() {
   const focus = params.get("case") || "";
   const query = (params.get("q") || "").trim().toLowerCase();
   const [profileOpen, setProfileOpen] = useState(false);
-  const [menu, setMenu] = useState(null);
   const [noteFor, setNoteFor] = useState(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirm, setConfirm] = useState(null);
 
   useEffect(() => {
     dispatch(fetchAdminCases());
@@ -81,12 +92,12 @@ export default function AdminCasesPage() {
 
   const workCounts = useMemo(() => {
     const openCases = suggestions.filter((item) => item.stage === "matchmaker");
-    return {
-      "": openCases.length,
-      new: openCases.filter((item) => item.status === "new").length,
-      in_progress: openCases.filter((item) => item.status === "in_progress").length,
-      closed: openCases.filter((item) => item.status === "closed").length,
-    };
+    const counts = { "": openCases.length };
+    for (const tab of CASE_WORK_TABS) {
+      if (!tab.value) continue;
+      counts[tab.value] = openCases.filter((item) => item.status === tab.value).length;
+    }
+    return counts;
   }, [suggestions]);
 
   const visible = suggestions.filter((item) => {
@@ -177,7 +188,7 @@ export default function AdminCasesPage() {
 
       {stage === "matchmaker" ? (
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2.5 }}>
-          {WORK_TABS.map((tab) => {
+          {CASE_WORK_TABS.map((tab) => {
             const on = status === tab.value;
             return (
               <Box key={tab.label} component="button" type="button" onClick={() => setStatus(tab.value)} sx={tabSx(on)}>
@@ -216,28 +227,38 @@ export default function AdminCasesPage() {
                 setNoteFor(current);
                 setNote(current.note || "");
               }}
-              onStatus={(current, anchor) => setMenu({ anchor, item: current })}
+              onAction={(current, action) => {
+                if (action === "ended" || action === "engaged" || isFinalCase(current.status)) {
+                  setConfirm({ item: current, action });
+                  return;
+                }
+                save(current._id, { action });
+              }}
             />
           ))}
         </Box>
       )}
 
-      <Menu anchorEl={menu?.anchor} open={Boolean(menu)} onClose={() => setMenu(null)}>
-        {Object.entries(CASE_STATUS).map(([value, meta]) => (
-          <MenuItem
-            key={value}
-            selected={menu?.item?.status === value}
+      <Dialog open={Boolean(confirm)} onClose={() => setConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{CONFIRM_COPY[confirm?.action]?.title || "לעדכן את שלב התיק?"}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ color: brand.ink2 }}>{CONFIRM_COPY[confirm?.action]?.body}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirm(null)}>ביטול</Button>
+          <Button
+            variant="contained"
             disabled={saving}
-            onClick={() => {
-              const id = menu.item._id;
-              setMenu(null);
-              save(id, { status: value });
+            onClick={async () => {
+              const pending = confirm;
+              setConfirm(null);
+              if (pending?.item?._id) await save(pending.item._id, { action: pending.action });
             }}
           >
-            {meta.label}
-          </MenuItem>
-        ))}
-      </Menu>
+            אישור
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(noteFor)} onClose={() => setNoteFor(null)} maxWidth="xs" fullWidth>
         <DialogTitle>הערה לתיק</DialogTitle>

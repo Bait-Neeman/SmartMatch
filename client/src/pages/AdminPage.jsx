@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Box, Button, CircularProgress, Paper, Typography } from "@mui/material";
-import { AutoAwesome, FolderOutlined, GroupsOutlined, WorkspacePremium } from "@mui/icons-material";
+import { AutoAwesome, FolderOutlined, GroupsOutlined, HighlightOff, WorkspacePremium } from "@mui/icons-material";
 import { brand } from "../theme/tokens.js";
 import { getSession } from "../utils/session.js";
 import {
@@ -12,7 +12,7 @@ import {
   selectAdminSummaryLoading,
 } from "../store/slices/adminSlice.js";
 import { CaseStrip } from "../components/admin/CaseWidgets.jsx";
-import { closedTrend, freshCaseLine, freshTrend, greeting, monthTrend, todayLine } from "../components/admin/format.js";
+import { closedTrend, endedTrend, freshCaseLine, freshTrend, greeting, monthTrend, todayLine } from "../components/admin/format.js";
 
 const heroBackground = `radial-gradient(400px 200px at 0% 0%, ${brand.goldGlow}, transparent 70%), linear-gradient(90deg, ${brand.paper}, ${brand.heroEnd})`;
 
@@ -124,15 +124,16 @@ export default function AdminPage() {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
+              gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, 1fr)", lg: "repeat(5, 1fr)" },
               gap: "clamp(12px, 1.3vw, 20px)",
               mt: "20px",
             }}
           >
             <Stat icon={<GroupsOutlined />} value={summary.boys.total} label="בחורים במערכת" trend={monthTrend(summary.boys.addedThisMonth)} />
             <Stat icon={<GroupsOutlined />} value={summary.girls.total} label="בחורות במערכת" trend={monthTrend(summary.girls.addedThisMonth)} />
-            <Stat icon={<FolderOutlined />} value={summary.cases.total} label="הצעות שהועברו לטיפולך" trend={freshTrend(summary.cases.fresh)} />
-            <Stat icon={<WorkspacePremium />} value={summary.closed.total} label="שידוכים שנסגרו" trend={closedTrend(summary.closed.total)} />
+            <Stat icon={<FolderOutlined />} value={summary.cases.total} label="בטיפול שדכן" trend={freshTrend(summary.cases.fresh)} />
+            <Stat icon={<HighlightOff />} value={summary.ended?.total || 0} label="שידוכים שירדו" trend={endedTrend(summary.ended?.total || 0)} />
+            <Stat icon={<WorkspacePremium />} value={summary.engaged?.total || 0} label="מאורסים" trend={closedTrend(summary.engaged?.total || 0)} />
           </Box>
 
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mt: 4, mb: 2, gap: 2, flexWrap: "wrap" }}>

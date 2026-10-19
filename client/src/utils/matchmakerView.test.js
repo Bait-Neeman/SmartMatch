@@ -63,6 +63,35 @@ describe("matchmaker page rows", () => {
     assert.equal(Object.hasOwn(item.view, "contact"), false);
   });
 
+  it("shows the current matchmaker stage and leaves the case note off the view", () => {
+    const [meeting] = buildMatchmakerItems({
+      matchmaker: [
+        {
+          ...revealed,
+          caseStatus: "meeting",
+          meetingNumber: 2,
+          note: "SECRET-ADMIN-NOTE",
+          history: [{ changedBy: "הרב", status: "meeting" }],
+        },
+      ],
+    });
+    assert.equal(meeting.view.statusLabel, "פגישה שנייה");
+    assert.equal(meeting.view.caseStatus, "meeting");
+    assert.equal(JSON.stringify(meeting).includes("SECRET-ADMIN-NOTE"), false);
+    assert.equal(JSON.stringify(meeting).includes("history"), false);
+
+    const [ended] = buildMatchmakerItems({
+      matchmaker: [{ ...revealed, caseStatus: "ended" }],
+    });
+    assert.equal(ended.view.statusLabel, "השידוך ירד");
+
+    const [engaged] = buildMatchmakerItems({
+      matchmaker: [{ ...revealed, caseStatus: "engaged" }],
+    });
+    assert.equal(engaged.view.statusLabel, "מזל טוב, התארסתם");
+    assert.equal(JSON.stringify(engaged).includes("dan@example.test"), false);
+  });
+
   it("leaves matchmaker rows off the active suggestions list", () => {
     const items = buildActiveItems({
       active: [

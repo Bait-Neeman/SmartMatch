@@ -5,7 +5,18 @@ import { brand } from "../../theme/tokens.js";
 import MatchRing from "../common/MatchRing.jsx";
 import StatusPill from "../common/StatusPill.jsx";
 import AdminAvatar from "./AdminAvatar.jsx";
-import { CASE_STATUS, EMPTY_NOTE, SUGGESTION_STAGE, contactLine, displayName, formatDotDate, partyLine } from "./format.js";
+import { nextMeetingCaption } from "../../utils/caseStatus.js";
+import {
+  EMPTY_NOTE,
+  SUGGESTION_STAGE,
+  casePill,
+  contactLine,
+  displayName,
+  formatDotDate,
+  formatHistoryWhen,
+  historyWho,
+  partyLine,
+} from "./format.js";
 
 export function MatchMark() {
   return (
@@ -94,8 +105,8 @@ export function CaseStrip({ item, reveal = true }) {
   );
 }
 
-export function CaseCard({ item, reveal = true, focused = false, onProfile, onResume, onNote, onStatus }) {
-  const tone = CASE_STATUS[item.status] || CASE_STATUS.new;
+export function CaseCard({ item, reveal = true, focused = false, onProfile, onResume, onNote, onAction }) {
+  const tone = casePill(item.status, item.meetingNumber);
   const stage = SUGGESTION_STAGE[item.stage];
   const unknown = item.matchPercent == null;
   const manageable = item.manageable === true || item.stage === "matchmaker";
@@ -163,17 +174,57 @@ export function CaseCard({ item, reveal = true, focused = false, onProfile, onRe
         </Box>
       ) : null}
 
+      {manageable ? <CaseHistory history={item.history} /> : null}
+
       {manageable ? (
-        <Box sx={{ display: "flex", gap: 1.25, justifyContent: "flex-end", mt: 1.75 }}>
+        <Box sx={{ display: "flex", gap: 1.25, justifyContent: "flex-end", flexWrap: "wrap", mt: 1.75 }}>
           <Button variant="outlined" size="small" onClick={() => onNote(item)}>
             הוסף הערה
           </Button>
-          <Button variant="contained" size="small" onClick={(event) => onStatus(item, event.currentTarget)}>
-            עדכן סטטוס
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={item.status === "coordinating"}
+            onClick={() => onAction(item, "coordinating")}
+          >
+            בתיאום פגישה
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            disabled={item.status === "meeting" && Number(item.meetingNumber) >= 99}
+            onClick={() => onAction(item, "nextMeeting")}
+          >
+            {nextMeetingCaption(item.status, item.meetingNumber)}
+          </Button>
+          <Button variant="outlined" size="small" disabled={item.status === "ended"} onClick={() => onAction(item, "ended")}>
+            השידוך ירד
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={item.status === "engaged"}
+            onClick={() => onAction(item, "engaged")}
+          >
+            התארסו
           </Button>
         </Box>
       ) : null}
     </Paper>
+  );
+}
+
+function CaseHistory({ history }) {
+  if (!history?.length) return null;
+  return (
+    <Box sx={{ mt: 1.5 }}>
+      <Typography sx={{ color: brand.navy, fontWeight: 600, fontSize: 14, mb: 0.75 }}>היסטוריית סטטוס</Typography>
+      {history.map((entry, index) => (
+        <Typography key={`${entry.changedAt || index}-${entry.status}-${index}`} sx={{ color: brand.ink2, fontSize: 13, mb: 0.25 }}>
+          {formatHistoryWhen(entry.changedAt)} · {entry.label} · {historyWho(entry)}
+        </Typography>
+      ))}
+    </Box>
   );
 }
 
