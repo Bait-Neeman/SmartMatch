@@ -1,5 +1,5 @@
 import { AutoAwesome, Close, HourglassTop, WorkspacePremium } from "@mui/icons-material";
-import { adminStatusLabel } from "../../utils/caseStatus.js";
+import { adminStatusLabel, normalizeCaseStatus } from "../../utils/caseStatus.js";
 
 export const CASE_STATUS = {
   new: { tone: "received", label: "הועבר לשדכן", Icon: AutoAwesome },
@@ -16,7 +16,8 @@ export const CANDIDATE_STATUS = {
 };
 
 export const casePill = (status, meetingNumber) => {
-  const meta = CASE_STATUS[status] || CASE_STATUS.new;
+  const normalized = normalizeCaseStatus(status) || "new";
+  const meta = CASE_STATUS[normalized] || CASE_STATUS.new;
   const label = adminStatusLabel(status, meetingNumber) || meta.label;
   return { ...meta, label };
 };
@@ -75,9 +76,19 @@ export const SUGGESTION_STAGE = {
   new: { tone: "pending", label: "הצעה חדשה" },
   interest: { tone: "received", label: "התעניינות" },
   active: { tone: "accepted", label: "אושרה הדדית" },
-  forwarded: { tone: "forwarded", label: "הועבר לשדכן" },
+  forwarded: { tone: "forwarded", label: "ממתין לצד השני" },
   matchmaker: { tone: "matchmaker", label: "בטיפול שדכן" },
   declined: { tone: "rejected", label: "נדחה" },
+};
+
+// Matchmaker rows show the case status. Earlier rows show the interest stage.
+export const caseBadge = (item) => {
+  if (!item) return null;
+  if (item.stage === "matchmaker" || item.manageable === true) {
+    return casePill(item.status, item.meetingNumber);
+  }
+  const stage = SUGGESTION_STAGE[item.stage];
+  return stage ? { tone: stage.tone, label: stage.label, Icon: null } : null;
 };
 
 export const partyLine = (party) => {

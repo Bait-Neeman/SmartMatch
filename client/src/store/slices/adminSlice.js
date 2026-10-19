@@ -233,8 +233,7 @@ const adminSlice = createSlice({
       .addCase(saveAdminCase.fulfilled, (state, action) => {
         const saved = action.payload;
         if (!saved) return;
-        state.cases = state.cases.map((item) => (String(item._id) === String(saved._id) ? saved : item));
-        state.suggestions = state.suggestions.map((item) =>
+        const applySaved = (item) =>
           String(item._id) === String(saved._id)
             ? {
                 ...item,
@@ -246,8 +245,10 @@ const adminSlice = createSlice({
                 manageable: true,
                 stage: item.stage || "matchmaker",
               }
-            : item
-        );
+            : item;
+        state.cases = state.cases.map((item) => (String(item._id) === String(saved._id) ? saved : item));
+        state.suggestions = state.suggestions.map(applySaved);
+        state.pendingMatches = state.pendingMatches.map(applySaved);
         if (state.summary?.recent) {
           state.summary.recent = state.summary.recent.map((item) =>
             String(item._id) === String(saved._id) ? saved : item

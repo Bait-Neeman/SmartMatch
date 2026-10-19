@@ -106,7 +106,7 @@ export default function AdminPage() {
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1.25, flexWrap: "wrap" }}>
-          <Button component={RouterLink} to="/admin/cases?status=new" variant="contained">
+          <Button component={RouterLink} to="/admin/cases?group=in_process" variant="contained">
             לתיקים החדשים
           </Button>
           <Button component={RouterLink} to="/admin/boys" variant="outlined">

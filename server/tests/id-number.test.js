@@ -9,7 +9,7 @@ const mongoose = require("mongoose");
 const { MongoMemoryServer } = require("mongodb-memory-server");
 
 const User = require("../src/models/user.model");
-const { removeStoredIdNumbers } = require("../scripts/fix-idnumber-index");
+const { removeStoredIdNumbers, reportStoredIdNumbers } = require("../scripts/fix-idnumber-index");
 
 const idNumberIndexes = async () => {
   const indexes = await User.collection.indexes();
@@ -28,6 +28,35 @@ describe("stored ID numbers", () => {
   after(async () => {
     await mongoose.disconnect();
     if (mongo) await mongo.stop();
+  });
+
+  it("reports idNumber and idNumber_1 without changing them", async () => {
+    await User.collection.insertMany([
+      { name: "דוח", email: "dry@example.test", password: "hashed", idNumber: "200000001" },
+    ]);
+    await User.collection.createIndex({ idNumber: 1 }, { unique: true, name: "idNumber_1" });
+
+    const report = await reportStoredIdNumbers(mongoose.connection.db);
+    assert.equal(report.withIdNumber, 1);
+    assert.equal(report.idNumberIndex, true);
+
+    const result = spawnSync(process.execPath, ["scripts/fix-idnumber-index.js", "--dry-run"], {
+      cwd: path.join(__dirname, ".."),
+      env: { PATH: process.env.PATH, HOME: process.env.HOME || "", MONGO_URI: mongo.getUri() },
+      encoding: "utf8",
+      timeout: 20000,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Users with idNumber: 1/);
+    assert.match(result.stdout, /idNumber_1 exists: yes/);
+    assert.equal(/Unset idNumber/.test(result.stdout), false);
+
+    const still = await User.collection.findOne({ email: "dry@example.test" });
+    assert.equal(still.idNumber, "200000001");
+    assert.equal((await idNumberIndexes()).some((index) => index.name === "idNumber_1"), true);
+
+    await User.collection.deleteMany({ email: "dry@example.test" });
+    await User.collection.dropIndex("idNumber_1");
   });
 
   it("drops every idNumber index, unsets the field, and can run again", async () => {

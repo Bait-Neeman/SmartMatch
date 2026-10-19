@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ADMIN_CASE_TABS,
   CASE_WORK_TABS,
   DIRECTORY_TABS,
+  MATCHMAKER_CASE_TABS,
   adminStatusLabel,
+  countByTab,
+  groupFromCaseQuery,
   isOpenCase,
+  matchesAdminCaseTab,
   matchesCaseWorkTab,
   matchesDirectoryTab,
+  matchesMatchmakerTab,
   meetingLabel,
   normalizeCaseStatus,
+  suggestionGroup,
   userStageLabel,
 } from "./caseStatus.js";
 
@@ -79,5 +86,98 @@ describe("directory and case tabs", () => {
     assert.equal(matchesCaseWorkTab("in_progress", "coordinating"), true);
     assert.equal(matchesCaseWorkTab("ended", "engaged"), false);
     assert.equal(matchesCaseWorkTab("new", ""), true);
+  });
+});
+
+describe("admin suggestion grouping", () => {
+  const rows = [
+    { stage: "new", status: null },
+    { stage: "interest", status: null },
+    { stage: "active", status: null },
+    { stage: "forwarded", status: null },
+    { stage: "declined", status: null },
+    { stage: "matchmaker", status: "new" },
+    { stage: "matchmaker", status: "coordinating" },
+    { stage: "matchmaker", status: "meeting", meetingNumber: 2 },
+    { stage: "matchmaker", status: "in_progress" },
+    { stage: "matchmaker", status: null },
+    { stage: "matchmaker", status: "ended" },
+    { stage: "matchmaker", status: "closed" },
+    { stage: "matchmaker", status: "engaged" },
+  ];
+
+  it("keeps pre-matchmaker stages, and groups matchmaker cases by the new status", () => {
+    assert.deepEqual(
+      ADMIN_CASE_TABS.map((tab) => tab.label),
+      [
+        "הכל",
+        "הצעה חדשה",
+        "התעניינות",
+        "אושרה הדדית",
+        "ממתין לצד השני",
+        "בטיפול שדכן",
+        "שידוכים שירדו",
+        "מאורסים",
+        "נדחה",
+      ]
+    );
+    assert.equal(ADMIN_CASE_TABS.some((tab) => tab.label.includes("פעיל")), false);
+    assert.deepEqual(rows.map(suggestionGroup), [
+      "new",
+      "interest",
+      "active",
+      "forwarded",
+      "declined",
+      "in_process",
+      "in_process",
+      "in_process",
+      "in_process",
+      "in_process",
+      "ended",
+      "ended",
+      "engaged",
+    ]);
+  });
+
+  it("puts every row in one group, with ended and engaged out of בטיפול שדכן", () => {
+    for (const row of rows) {
+      const hits = ADMIN_CASE_TABS.filter((tab) => tab.value && matchesAdminCaseTab(row, tab.value));
+      assert.equal(hits.length, 1, suggestionGroup(row));
+    }
+    const counts = countByTab(rows, ADMIN_CASE_TABS, matchesAdminCaseTab);
+    assert.equal(counts[""], rows.length);
+    assert.equal(counts.in_process, 5);
+    assert.equal(counts.ended, 2);
+    assert.equal(counts.engaged, 1);
+    assert.equal(counts.forwarded, 1);
+    assert.equal(matchesAdminCaseTab(rows[10], "in_process"), false);
+    assert.equal(matchesAdminCaseTab(rows[11], "ended"), true);
+    assert.equal(matchesAdminCaseTab(rows[11], "engaged"), false);
+  });
+
+  it("counts the matchmaker page by open, ended, and engaged", () => {
+    assert.deepEqual(
+      MATCHMAKER_CASE_TABS.map((tab) => tab.label),
+      ["הכל", "בטיפול שדכן", "שידוכים שירדו", "מאורסים"]
+    );
+    assert.equal(MATCHMAKER_CASE_TABS.some((tab) => tab.label.includes("פעיל")), false);
+    const cases = rows.filter((row) => row.stage === "matchmaker");
+    const counts = countByTab(cases, MATCHMAKER_CASE_TABS, matchesMatchmakerTab);
+    assert.equal(counts[""], cases.length);
+    assert.equal(counts.in_process, 5);
+    assert.equal(counts.ended, 2);
+    assert.equal(counts.engaged, 1);
+    assert.equal(matchesMatchmakerTab({ status: "closed" }, "in_process"), false);
+    assert.equal(matchesMatchmakerTab({ status: "closed" }, "ended"), true);
+  });
+
+  it("reads an older cases link as the group that now holds that status", () => {
+    assert.equal(groupFromCaseQuery({ status: "new" }), "in_process");
+    assert.equal(groupFromCaseQuery({ status: "in_progress" }), "in_process");
+    assert.equal(groupFromCaseQuery({ status: "closed" }), "ended");
+    assert.equal(groupFromCaseQuery({ stage: "matchmaker", status: "engaged" }), "engaged");
+    assert.equal(groupFromCaseQuery({ stage: "forwarded" }), "forwarded");
+    assert.equal(groupFromCaseQuery({ group: "declined", status: "ended" }), "declined");
+    assert.equal(groupFromCaseQuery({}), "");
   });
 });

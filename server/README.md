@@ -45,10 +45,11 @@ The server will run on http://localhost:3000
 Accounts do not store a national ID. From the `server` directory, with `MONGO_URI` in `.env`:
 
 ```bash
+npm run fix:idNumberIndex -- --dry-run
 npm run fix:idNumberIndex
 ```
 
-The script drops every `users` index whose key is exactly `{ idNumber: 1 }` (including `idNumber_1`, whatever its options) and unsets `idNumber` on existing users. It is safe to run again. `npm run migrate:idNumber` does not copy an ID; it prints that IDs are not stored and exits.
+`--dry-run` only prints how many users still have `idNumber` and whether the `idNumber_1` index exists. It does not drop an index or unset a field. Without `--dry-run`, the script drops every `users` index whose key is exactly `{ idNumber: 1 }` (including `idNumber_1`, whatever its options) and unsets `idNumber` on existing users. It is safe to run again. `npm run migrate:idNumber` does not copy an ID; it prints that IDs are not stored and exits.
 
 ## API Endpoints
 
