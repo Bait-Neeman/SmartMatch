@@ -58,6 +58,23 @@ const validatePhone = (phone) => {
   return digits.length >= 9 && digits.length <= 15;
 };
 
+// Israeli mobile, loosely: digits with optional spaces, dashes, parentheses, and +972.
+// Stored as 10 digits starting with 05, for example 0521234567.
+const normalizeIsraeliMobile = (value) => {
+  if (typeof value !== "string") return null;
+  let text = value.trim().replace(/[\s\-().]/g, "");
+  if (text.startsWith("+")) text = text.slice(1);
+  if (!/^\d+$/.test(text)) return null;
+  if (text.startsWith("972")) {
+    text = text.slice(3);
+    if (!text.startsWith("0")) text = `0${text}`;
+  } else if (text.length === 9 && text.startsWith("5")) {
+    text = `0${text}`;
+  }
+  if (!/^05\d{8}$/.test(text)) return null;
+  return text;
+};
+
 module.exports = {
   isObjectId,
   assertObjectId,
@@ -70,4 +87,5 @@ module.exports = {
   PASSWORD_REQUIRED,
   validateName,
   validatePhone,
+  normalizeIsraeliMobile,
 };

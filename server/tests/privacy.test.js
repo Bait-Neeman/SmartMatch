@@ -94,6 +94,7 @@ const IDENTITY_KEYS = [
   "photoUrl",
   "resumeUrl",
   "imageUrl",
+  "workplace",
 ];
 
 const CANDIDATE_KEYS = new Set([
@@ -108,7 +109,6 @@ const CANDIDATE_KEYS = new Set([
   "occupation",
   "working",
   "workingInProfession",
-  "workplace",
   "description",
   "yeshiva",
   "seminar",
@@ -1095,5 +1095,155 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     const stored = await Interest.find().lean();
     assert.equal(stored.length, 1);
     assert.equal(stored[0].status, "accepted");
+  });
+
+  it("hides a workplace until mutual approval and still shows the work answers", async () => {
+    const fixture = await seed();
+    await Profile.updateOne(
+      { user: fixture.rivka._id },
+      { $set: { workplace: "LEAK-EMPLOYER", working: true, workingInProfession: true, occupation: "הוראה" } }
+    );
+    const viewerHeaders = auth(tokenFor(fixture.viewer));
+    const rivkaHeaders = auth(tokenFor(fixture.rivka));
+
+    const candidates = await request(app).get("/api/match/candidates").set(viewerHeaders);
+    assert.equal(candidates.status, 200);
+    const card = candidates.body.candidates.find((item) => String(item._id) === String(fixture.rivka._id));
+    assert.ok(card);
+    assert.equal(card.workplace, undefined);
+    assert.equal(JSON.stringify(candidates.body).includes("LEAK-EMPLOYER"), false);
+    assert.equal(card.working, true);
+    assert.equal(card.workingInProfession, true);
+    assert.equal(card.occupation, "הוראה");
+    assertAnonymous(candidates.body);
+
+    const hiddenProfile = await request(app).get(`/api/profile/${fixture.rivka._id}`).set(viewerHeaders);
+    assert.equal(hiddenProfile.status, 200);
+    assert.equal(hiddenProfile.body.profile.workplace, undefined);
+    assert.equal(hiddenProfile.body.profile.working, true);
+    assert.equal(hiddenProfile.body.profile.occupation, "הוראה");
+    assert.equal(JSON.stringify(hiddenProfile.body).includes("LEAK-EMPLOYER"), false);
+
+    const own = await request(app).get("/api/profile/me").set(rivkaHeaders);
+    assert.equal(own.status, 200);
+    assert.equal(own.body.profile.workplace, "LEAK-EMPLOYER");
+
+    const admin = await request(app)
+      .get(`/api/admin/users/${fixture.rivka._id}/profile`)
+      .set(auth(tokenFor(fixture.admin)));
+    assert.equal(admin.status, 200, JSON.stringify(admin.body));
+    assert.equal(admin.body.profile.workplace, "LEAK-EMPLOYER");
+
+    const sent = await request(app)
+      .post("/api/interest")
+      .set(viewerHeaders)
+      .send({ receiverId: String(fixture.rivka._id) });
+    assert.equal(sent.status, 201);
+    assert.equal(JSON.stringify(sent.body).includes("LEAK-EMPLOYER"), false);
+
+    const accepted = await request(app).put("/api/interest/respond").set(rivkaHeaders).send({
+      senderId: String(fixture.viewer._id),
+      status: "accepted",
+    });
+    assert.equal(accepted.status, 200);
+
+    const revealed = await request(app).get(`/api/profile/${fixture.rivka._id}`).set(viewerHeaders);
+    assert.equal(revealed.status, 200);
+    assert.equal(revealed.body.profile.workplace, "LEAK-EMPLOYER");
+    const matches = await request(app).get("/api/match").set(viewerHeaders);
+    assert.equal(matches.body.matches[0].workplace, "LEAK-EMPLOYER");
+  });
+
+  it("never shows a phone number to another user, even after approval and matchmaker", async () => {
+    const fixture = await seed();
+    const viewerPhone = "0501111111";
+    const rivkaPhone = "0522222222";
+    await User.updateOne({ _id: fixture.viewer._id }, { phone: viewerPhone });
+    await User.updateOne({ _id: fixture.rivka._id }, { phone: rivkaPhone });
+    const viewerHeaders = auth(tokenFor(fixture.viewer));
+    const rivkaHeaders = auth(tokenFor(fixture.rivka));
+
+    const absent = (body, label) => {
+      const text = JSON.stringify(body);
+      assert.equal(text.includes(viewerPhone), false, `${label} leaked the viewer's phone`);
+      assert.equal(text.includes(rivkaPhone), false, `${label} leaked the other phone`);
+      const keys = collectKeys(body);
+      for (const key of ["phone", "mobile", "telephone"]) {
+        assert.equal(keys.has(key), false, `${label} included ${key}`);
+      }
+    };
+
+    const candidates = await request(app).get("/api/match/candidates").set(viewerHeaders);
+    assert.equal(candidates.status, 200);
+    absent(candidates.body, "candidates");
+
+    const sent = await request(app)
+      .post("/api/interest")
+      .set(viewerHeaders)
+      .send({ receiverId: String(fixture.rivka._id) });
+    assert.equal(sent.status, 201);
+    absent(sent.body, "interest");
+
+    const accepted = await request(app).put("/api/interest/respond").set(rivkaHeaders).send({
+      senderId: String(fixture.viewer._id),
+      status: "accepted",
+    });
+    assert.equal(accepted.status, 200);
+    absent(accepted.body, "approval");
+
+    const revealed = await request(app).get(`/api/profile/${fixture.rivka._id}`).set(viewerHeaders);
+    assert.equal(revealed.status, 200);
+    assert.equal(revealed.body.profile.name, RIVKA.name);
+    assert.equal(revealed.body.profile.email, RIVKA.email);
+    absent(revealed.body, "approved profile");
+
+    const outgoing = await request(app).get("/api/interest/outgoing").set(viewerHeaders);
+    const incoming = await request(app).get("/api/interest/incoming").set(rivkaHeaders);
+    absent(outgoing.body, "outgoing");
+    absent(incoming.body, "incoming");
+
+    const active = await request(app).get("/api/suggestions").set(viewerHeaders);
+    assert.equal(active.body.active.length, 1);
+    absent(active.body, "active suggestions");
+
+    const matches = await request(app).get("/api/match").set(viewerHeaders);
+    assert.equal(matches.body.matches.length, 1);
+    assert.equal(matches.body.matches[0].name, RIVKA.name);
+    absent(matches.body, "matches");
+
+    const byPhone = await request(app).get("/api/search").query({ q: rivkaPhone }).set(viewerHeaders);
+    assert.equal(byPhone.status, 200);
+    assert.deepEqual(byPhone.body.results, []);
+    absent(byPhone.body, "search");
+
+    const forwardViewer = await request(app)
+      .post("/api/interest/send-to-manager")
+      .set(viewerHeaders)
+      .send({ otherUserId: String(fixture.rivka._id) });
+    assert.equal(forwardViewer.status, 200);
+    absent(forwardViewer.body, "viewer forward");
+    const forwardRivka = await request(app)
+      .post("/api/interest/send-to-manager")
+      .set(rivkaHeaders)
+      .send({ otherUserId: String(fixture.viewer._id) });
+    assert.equal(forwardRivka.status, 200);
+    absent(forwardRivka.body, "other forward");
+
+    const matchmaker = await request(app).get("/api/suggestions").set(viewerHeaders);
+    assert.equal(matchmaker.body.matchmaker.length, 1);
+    assert.equal(matchmaker.body.matchmaker[0].stage, "matchmaker");
+    assert.equal(matchmaker.body.matchmaker[0].name, RIVKA.name);
+    absent(matchmaker.body, "matchmaker");
+
+    const own = await request(app).get("/api/profile/me").set(rivkaHeaders);
+    assert.equal(own.status, 200);
+    assert.equal(own.body.profile.phone, rivkaPhone);
+
+    const admin = await request(app)
+      .get(`/api/admin/users/${fixture.rivka._id}/profile`)
+      .set(auth(tokenFor(fixture.admin)));
+    assert.equal(admin.status, 200, JSON.stringify(admin.body));
+    assert.equal(admin.body.user.phone, rivkaPhone);
+    assert.equal(admin.body.profile.phone, rivkaPhone);
   });
 });

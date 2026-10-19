@@ -210,6 +210,8 @@ describe("match percent formula", () => {
     assert.equal(computeMatchPercent({}, selected, {}, {}), null);
     assert.equal(computeMatchPercent({}, {}, { yeshiva: "פוניבז" }, {}), null);
     assert.equal(computeMatchPercent({}, { preferredSeminar: "אור-החיים" }, { seminar: "אור החיים" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { preferredYeshiva: ["חברון"] }, { yeshiva: "ישיבת חברון" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { preferredSeminar: ["אור החיים"] }, { seminar: "סמינר אור החיים" }, {}), 100);
     assert.equal(computeMatchPercent({}, { preferredYeshiva: ["אין העדפת ישיבה"] }, { yeshiva: "פוניבז" }, {}), null);
     assert.equal(computeMatchPercent({}, { preferredOccupation: ["הוראה"] }, { occupation: "הוראה" }, {}), 100);
     assert.equal(computeMatchPercent({}, { preferredOccupation: ["הוראה"] }, { occupation: "סיעוד" }, {}), 0);

@@ -20,7 +20,36 @@ export const normaliseInstitution = (value) =>
     .replace(/[-–—־]/g, " ")
     .replace(/\s+/g, " ");
 
-export const asNameList = (value) => {
+// "ישיבת חברון" matches "חברון". "סמינר אור החיים" matches "אור החיים".
+export const institutionKey = (value) => normaliseInstitution(value).replace(/^(?:ישיבת|סמינר)\s+/, "");
+
+export const PHONE_LABEL = "טלפון נייד ליצירת קשר";
+export const PHONE_REQUIRED = "טלפון נייד ליצירת קשר הוא שדה חובה";
+export const PHONE_INVALID = "מספר הטלפון הנייד אינו תקין";
+export const PHONE_HINT = "המספר גלוי רק לך ולשדכן";
+
+// Same rule as the server: optional spaces, dashes, parentheses, and +972.
+// A valid number becomes 10 digits starting with 05.
+export const normalizeIsraeliMobile = (value) => {
+  if (typeof value !== "string") return "";
+  let text = value.trim().replace(/[\s\-().]/g, "");
+  if (text.startsWith("+")) text = text.slice(1);
+  if (!/^\d+$/.test(text)) return "";
+  if (text.startsWith("972")) {
+    text = text.slice(3);
+    if (!text.startsWith("0")) text = `0${text}`;
+  } else if (text.length === 9 && text.startsWith("5")) {
+    text = `0${text}`;
+  }
+  return /^05\d{8}$/.test(text) ? text : "";
+};
+
+export const phoneRules = {
+  required: PHONE_REQUIRED,
+  validate: (value) => (normalizeIsraeliMobile(value) ? true : PHONE_INVALID),
+};
+
+export const asNameList = (value, keyOf = normaliseInstitution) => {
   const raw = Array.isArray(value) ? value : value ? [value] : [];
   const seen = new Set();
   const names = [];
@@ -34,8 +63,8 @@ export const asNameList = (value) => {
     ) {
       continue;
     }
-    const key = normaliseInstitution(trimmed);
-    if (seen.has(key)) continue;
+    const key = keyOf(trimmed);
+    if (!key || seen.has(key)) continue;
     seen.add(key);
     names.push(trimmed);
   }
@@ -44,12 +73,12 @@ export const asNameList = (value) => {
 
 const numberOrEmpty = (value) => (value === "" || value == null ? "" : Number(value));
 
-// Fields the profile form owns. The other gender's institution and work fields are cleared.
+// Fields this gender's profile form shows. Anything else is left untouched,
+// including a man's older עיסוק (occupation) value.
 export const buildProfileFields = (data) => {
   const gender = data.gender === "female" ? "female" : data.gender === "male" ? "male" : "";
   const working = gender === "female" && Boolean(data.working);
-  const workingInProfession = working && Boolean(data.workingInProfession);
-  return {
+  const fields = {
     gender,
     ethnicity: data.ethnicity || "",
     age: data.age === "" || data.age == null ? "" : Number(data.age),
@@ -61,32 +90,38 @@ export const buildProfileFields = (data) => {
     financialDemand: numberOrEmpty(data.financialDemand),
     financialParticipation: numberOrEmpty(data.financialParticipation),
     description: data.description || "",
-    yeshiva: gender === "male" ? data.yeshiva || "" : "",
-    seminar: gender === "female" ? data.seminar || "" : "",
-    occupation: gender === "female" ? data.occupation || "" : "",
-    working: gender === "female" ? working : "",
-    workingInProfession: gender === "female" ? workingInProfession : "",
-    workplace: working ? data.workplace || "" : "",
+    phone: String(data.phone ?? "").trim(),
   };
+  if (gender === "male") fields.yeshiva = data.yeshiva || "";
+  if (gender === "female") {
+    fields.seminar = data.seminar || "";
+    fields.occupation = data.occupation || "";
+    fields.working = working;
+    fields.workplace = working ? data.workplace || "" : "";
+    fields.workingInProfession = working && Boolean(data.workingInProfession);
+  }
+  return fields;
 };
 
-// Preference fields the gender form shows. A field that is no longer on the form is cleared
-// so it cannot keep filtering after a save. Free text is not part of this payload.
-export const buildPreferenceFields = (data, gender) => ({
-  ageMin: numberOrEmpty(data.ageMin),
-  ageMax: numberOrEmpty(data.ageMax),
-  heightMin: numberOrEmpty(data.heightMin),
-  heightMax: numberOrEmpty(data.heightMax),
-  city: data.city || "",
-  style: data.style || "",
-  preferredAppearance: data.preferredAppearance || "",
-  preferredMaritalStatus: data.preferredMaritalStatus || "",
-  preferredEthnicity: "",
-  financialMin: "",
-  financialMax: "",
-  preferredYeshiva: gender === "female" ? asNameList(data.preferredYeshiva) : "",
-  preferredSeminar: gender === "male" ? asNameList(data.preferredSeminar) : "",
-  preferredOccupation: gender === "male" ? asNameList(data.preferredOccupation) : "",
-  onlyWorking: gender === "male" && (Boolean(data.onlyWorking) || Boolean(data.onlyWorkingInProfession)),
-  onlyWorkingInProfession: gender === "male" && Boolean(data.onlyWorkingInProfession),
-});
+// Only the fields this gender's preference form shows. A stored community
+// preference or financial range is left as it was.
+export const buildPreferenceFields = (data, gender) => {
+  const fields = {
+    ageMin: numberOrEmpty(data.ageMin),
+    ageMax: numberOrEmpty(data.ageMax),
+    heightMin: numberOrEmpty(data.heightMin),
+    heightMax: numberOrEmpty(data.heightMax),
+    city: data.city || "",
+    style: data.style || "",
+    preferredAppearance: data.preferredAppearance || "",
+    preferredMaritalStatus: data.preferredMaritalStatus || "",
+  };
+  if (gender === "female") fields.preferredYeshiva = asNameList(data.preferredYeshiva, institutionKey);
+  if (gender === "male") {
+    fields.preferredSeminar = asNameList(data.preferredSeminar, institutionKey);
+    fields.preferredOccupation = asNameList(data.preferredOccupation);
+    fields.onlyWorking = Boolean(data.onlyWorking) || Boolean(data.onlyWorkingInProfession);
+    fields.onlyWorkingInProfession = Boolean(data.onlyWorkingInProfession);
+  }
+  return fields;
+};

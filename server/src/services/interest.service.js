@@ -249,7 +249,8 @@ const respondInterest = async (userId, otherUserId, status) => {
 const otherUserId = (interest, viewerId) =>
   String(interest.sender) === String(viewerId) ? interest.receiver : interest.sender;
 
-// Name, photo, resume, and contact details are attached only once the interest is accepted.
+// Name, photo, and resume are attached only once the interest is accepted.
+// The contact phone is never attached for another user.
 const withPublicCounterparts = async (interests, viewerId) => {
   if (interests.length === 0) return [];
 
@@ -260,7 +261,7 @@ const withPublicCounterparts = async (interests, viewerId) => {
 
   const contextIds = [...new Set([String(viewerId), ...otherIds.map(String)])];
   const [users, profiles, preferences, viewerProfile] = await Promise.all([
-    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email phone').lean() : [],
+    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email').lean() : [],
     Profile.find({ user: { $in: contextIds } }).lean(),
     Preference.find({ user: { $in: contextIds } }).lean(),
     Profile.findOne({ user: viewerId }).lean(),

@@ -23,6 +23,7 @@ import RangePair from "../components/profile/RangePair.jsx";
 import WorkFilters from "../components/profile/WorkFilters.jsx";
 import {
   asNameList,
+  institutionKey,
   buildPreferenceFields,
   lookingForHelp,
   lookingForTitle,
@@ -96,8 +97,8 @@ export default function PreferencesPage() {
             next.style = preferences.style || "";
             next.preferredAppearance = preferences.preferredAppearance || "";
             next.preferredMaritalStatus = preferences.preferredMaritalStatus || "";
-            next.preferredYeshiva = asNameList(preferences.preferredYeshiva);
-            next.preferredSeminar = asNameList(preferences.preferredSeminar);
+            next.preferredYeshiva = asNameList(preferences.preferredYeshiva, institutionKey);
+            next.preferredSeminar = asNameList(preferences.preferredSeminar, institutionKey);
             next.preferredOccupation = asNameList(preferences.preferredOccupation);
             next.onlyWorkingInProfession = Boolean(preferences.onlyWorkingInProfession);
             next.onlyWorking = Boolean(preferences.onlyWorking) || next.onlyWorkingInProfession;
@@ -220,6 +221,7 @@ export default function PreferencesPage() {
                     label="סמינר"
                     noneLabel={NO_SEMINAR_PREFERENCE}
                     options={seminars}
+                    institutions
                     value={field.value}
                     onChange={field.onChange}
                   />
@@ -259,6 +261,7 @@ export default function PreferencesPage() {
                     label="ישיבה"
                     noneLabel={NO_YESHIVA_PREFERENCE}
                     options={yeshivas}
+                    institutions
                     value={field.value}
                     onChange={field.onChange}
                   />

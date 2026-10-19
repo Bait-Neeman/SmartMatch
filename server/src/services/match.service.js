@@ -5,6 +5,7 @@ const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { stageForViewer } = require("../utils/suggestionStage");
 const { toPublicPerson, redactIdentity } = require("./privacy.service");
+const { institutionKey } = require("./institution.service");
 
 const otherUserId = (interest, viewerId) =>
   String(interest.sender) === String(viewerId) ? interest.receiver : interest.sender;
@@ -105,20 +106,21 @@ const institutionNames = (value) => {
 
 // No names means no filter. A blank institution is unknown and is not excluded.
 // Otherwise the candidate's institution must be one of the selected names.
-const institutionExcludes = (wanted, actual) => {
+// ישיבת/סמינר on the front of a name does not make it a different place.
+const institutionExcludes = (wanted, actual, keyOf = institutionKey) => {
   const names = institutionNames(wanted);
   if (names.length === 0) return false;
   if (!hasValue(actual)) return false;
-  return !names.some((name) => textsEqual(name, actual));
+  return !names.some((name) => keyOf(name) === keyOf(actual));
 };
 
 // Scores only when a list is set and the institution is filled in.
 // 100 when it is one of the names, 0 when it is a different known name.
-const statedInstitution = (wanted, actual) => {
+const statedInstitution = (wanted, actual, keyOf = institutionKey) => {
   const names = institutionNames(wanted);
   if (names.length === 0) return null;
   if (!hasValue(actual)) return null;
-  return names.some((name) => textsEqual(name, actual)) ? 100 : 0;
+  return names.some((name) => keyOf(name) === keyOf(actual)) ? 100 : 0;
 };
 
 // Hard opt-in. Unset means the check is not used. A value that is not exactly
@@ -192,8 +194,8 @@ const computeMatchPercent = (profileA, preferenceA, profileB, preferenceB) => {
     statedInstitution(prefB.preferredYeshiva, a.yeshiva),
     statedInstitution(prefA.preferredSeminar, b.seminar),
     statedInstitution(prefB.preferredSeminar, a.seminar),
-    statedInstitution(prefA.preferredOccupation, b.occupation),
-    statedInstitution(prefB.preferredOccupation, a.occupation),
+    statedInstitution(prefA.preferredOccupation, b.occupation, normaliseText),
+    statedInstitution(prefB.preferredOccupation, a.occupation, normaliseText),
     statedRequiredFlag(wantsOnlyWorking(prefA), b.working),
     statedRequiredFlag(wantsOnlyWorking(prefB), a.working),
     statedRequiredFlag(prefA.onlyWorkingInProfession === true, b.workingInProfession),
@@ -235,8 +237,8 @@ const byPercentDesc = (left, right) => {
   return 0;
 };
 
-// Mutual (accepted) matches. Identity is included because both sides already approved.
-// The national ID number is never selected.
+// Mutual (accepted) matches. Name, email, photo, and resume are included because
+// both sides already approved. The national ID and the contact phone are never selected.
 const getMatchesForUser = async (userId) => {
   const accepted = await Interest.find({
     $or: [{ sender: userId }, { receiver: userId }],
@@ -245,7 +247,7 @@ const getMatchesForUser = async (userId) => {
 
   const otherIds = accepted.map((item) => otherUserId(item, userId));
   const [users, context] = await Promise.all([
-    User.find({ _id: { $in: otherIds } }).select("name email phone role").lean(),
+    User.find({ _id: { $in: otherIds } }).select("name email role").lean(),
     loadPairContext(userId, otherIds),
   ]);
   const userById = new Map(users.map((user) => [String(user._id), user]));
@@ -324,7 +326,7 @@ const filterFailures = (candidate, ownerPreference, ownerProfile) => {
   if (institutionExcludes(pref.preferredYeshiva, person.yeshiva) || institutionExcludes(pref.preferredSeminar, person.seminar)) {
     failed.push("institution");
   }
-  if (institutionExcludes(pref.preferredOccupation, person.occupation)) failed.push("profession");
+  if (institutionExcludes(pref.preferredOccupation, person.occupation, normaliseText)) failed.push("profession");
   // Explicit opt-in. A missing or false answer is excluded. A blank profession
   // above is still unknown and is kept; these two flags are not.
   if (wantsOnlyWorking(pref) && person.working !== true) failed.push("working");

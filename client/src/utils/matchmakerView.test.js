@@ -46,8 +46,9 @@ describe("matchmaker page rows", () => {
     assert.equal(items[0].view.name, "דן לוי");
     assert.equal(items[0].view.title.includes("דן לוי"), true);
     assert.equal(items[0].view.image, "/api/files/user-dan/image");
-    assert.equal(items[0].view.phone, "058-333-9090");
     assert.equal(items[0].view.resumePdf, "/api/files/user-dan/resume");
+    assert.equal(Object.hasOwn(items[0].view, "phone"), false);
+    assert.equal(items[0].view.fields.some((field) => field.key === "phone"), false);
   });
 
   it("does not copy identity the accepted view leaves out", () => {
@@ -55,6 +56,7 @@ describe("matchmaker page rows", () => {
     const blob = JSON.stringify(item);
 
     assert.equal(blob.includes("dan@example.test"), false);
+    assert.equal(blob.includes("058-333-9090"), false);
     assert.equal(blob.includes("123456782"), false);
     assert.equal(blob.includes("secret-pass"), false);
     assert.equal(Object.hasOwn(item.view, "email"), false);

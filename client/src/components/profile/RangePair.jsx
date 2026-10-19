@@ -17,7 +17,7 @@ function BoundField({ name, label, control }) {
           type="number"
           error={Boolean(fieldState.error)}
           helperText={fieldState.error?.message || ""}
-          sx={{ width: 110, flex: "none" }}
+          sx={{ width: 210, maxWidth: "100%", flex: "1 1 210px" }}
         />
       )}
     />
@@ -31,7 +31,7 @@ export default function RangePair({ title, minName, maxName, minLabel, maxLabel,
       <Typography component="h2" sx={{ m: 0, mb: 1.5, color: brand.navy, fontWeight: 600, fontSize: 15 }}>
         {title}
       </Typography>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, maxWidth: 420 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
         <BoundField name={minName} label={minLabel} control={control} />
         <Box sx={{ flex: 1, height: 4, borderRadius: 3, bgcolor: brand.navyWash }} />
         <BoundField name={maxName} label={maxLabel} control={control} />

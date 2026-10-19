@@ -284,7 +284,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const revealed = await request(app).get(`/api/profile/${viewer._id}`).set(auth(tokenFor(other)));
     assert.equal(revealed.status, 200);
     assert.equal(revealed.body.profile.name, "SECRET-VIEWER");
-    assert.equal(revealed.body.profile.phone, "0501111111");
+    assert.equal(revealed.body.profile.phone, undefined);
+    assert.equal(JSON.stringify(revealed.body).includes("0501111111"), false);
     assert.equal(revealed.body.profile.email, "secret-viewer@example.test");
     assert.equal(revealed.body.profile.maritalStatus, "single");
     assert.equal(revealed.body.profile.lookingFor, "viewer looking");
@@ -429,7 +430,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(fileText, "resumePdf:resume-b");
     const seen = await request(app).get(`/api/profile/${idB}`).set(auth(tokenA));
     assert.equal(seen.body.profile.name, "רבקה לוי");
-    assert.equal(seen.body.profile.phone, "0503333333");
+    assert.equal(seen.body.profile.phone, undefined);
+    assert.equal(JSON.stringify(seen.body).includes("0503333333"), false);
     assert.equal(seen.body.profile.resumeSize, 184);
 
     const forwardA = await request(app).post("/api/interest/send-to-manager").set(auth(tokenA)).send({ otherUserId: idB });
@@ -450,6 +452,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(under.body.matchmaker.length, 1);
     assert.equal(under.body.matchmaker[0].stage, "matchmaker");
     assert.equal(under.body.active.length, 0);
+    assert.equal(JSON.stringify(under.body).includes("0503333333"), false);
+    assert.equal(Object.hasOwn(under.body.matchmaker[0], "phone"), false);
 
     const admin = await createUser({ n: 39, role: "admin", idNumber: "311111119" });
     const pending = await request(app).get("/api/admin/pending-matches").set(auth(tokenFor(admin)));

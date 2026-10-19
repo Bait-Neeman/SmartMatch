@@ -11,6 +11,9 @@ const { fileAccessPath } = require("./storage.service");
 // yeshiva and seminar are the learning institution (מוסד).
 // lookingFor, maritalStatus, financialDemand, and financialParticipation are
 // visible before approval, the same as age, city, and the other public fields.
+// workplace (where she works) can name an employer, so it stays hidden until
+// mutual approval, like a name. A phone number is never sent to another user,
+// at any stage. The work checkboxes and מקצוע stay public.
 const PUBLIC_PROFILE_FIELDS = [
   "age",
   "height",
@@ -22,7 +25,6 @@ const PUBLIC_PROFILE_FIELDS = [
   "occupation",
   "working",
   "workingInProfession",
-  "workplace",
   "description",
   "lookingFor",
   "maritalStatus",
@@ -35,18 +37,15 @@ const PUBLIC_PROFILE_FIELDS = [
   "financialParticipation",
 ];
 
-// Never sent to another user, even after mutual approval.
-// The national ID stays with the account owner and with admins.
-const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber"]);
+// Never sent to another user, even after mutual approval or a matchmaker stage.
+// The national ID and the contact phone stay with the account owner and with admins.
+const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber", "phone", "mobile", "telephone"]);
 
 // Identifying keys removed from every suggestion until mutual approval.
 // maritalStatus is not one of them: it is a public profile field.
 const IDENTITY_KEYS = new Set([
   "name",
   "email",
-  "phone",
-  "mobile",
-  "telephone",
   "contact",
   "image",
   "resumePdf",
@@ -57,6 +56,7 @@ const IDENTITY_KEYS = new Set([
   "imageUrl",
   "resumeSize",
   "resumeUploadedAt",
+  "workplace",
 ]);
 
 const asPlain = (value) => {
@@ -113,12 +113,12 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
   if (revealIdentity) {
     person.name = plainUser?.name ?? null;
     person.email = plainUser?.email ?? null;
-    if (plainUser?.phone) person.phone = plainUser.phone;
     // Stable file paths. Opening them checks that the match is still accepted.
     person.image = fileAccessPath(id, "image", plainProfile?.image);
     person.resumePdf = fileAccessPath(id, "resumePdf", plainProfile?.resumePdf);
     if (plainProfile?.resumeSize != null) person.resumeSize = plainProfile.resumeSize;
     if (plainProfile?.resumeUploadedAt) person.resumeUploadedAt = plainProfile.resumeUploadedAt;
+    if (plainProfile?.workplace) person.workplace = plainProfile.workplace;
   }
 
   return redactIdentity(person, { revealIdentity });

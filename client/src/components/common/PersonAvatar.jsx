@@ -5,7 +5,7 @@ import { brand } from "../../theme/tokens.js";
 // The approved profile illustration: a navy bust on a light ground.
 // The same drawing is cropped to a circle for the small avatars.
 
-export default function PersonAvatar({ locked = false, size = 64, color, gender, sx }) {
+export default function PersonAvatar({ locked = false, size = 64, color, gender, fit = "cover", sx }) {
   const rawId = useId().replace(/:/g, "");
   const ink = color || (locked ? brand.portraitSoft : brand.portraitInk);
   const bgTop = locked ? brand.avatarLocked : brand.portraitTop;
@@ -27,7 +27,7 @@ export default function PersonAvatar({ locked = false, size = 64, color, gender,
       <Box
         component="svg"
         viewBox="-12 -18 124 118"
-        preserveAspectRatio="xMidYMax slice"
+        preserveAspectRatio={fit === "contain" ? "xMidYMid meet" : "xMidYMax slice"}
         sx={{
           width: "100%",
           height: "100%",

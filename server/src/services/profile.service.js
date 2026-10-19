@@ -4,7 +4,7 @@ const Interest = require("../models/interest.model");
 const User = require("../models/user.model");
 const { MARITAL_STATUSES } = require("../models/options");
 const HttpError = require("../utils/httpError");
-const { assertObjectId } = require("../utils/validators");
+const { assertObjectId, normalizeIsraeliMobile } = require("../utils/validators");
 const { uploadProfileFile, deleteProfileFile, fileAccessPath } = require("./storage.service");
 const { toPublicPerson } = require("./privacy.service");
 const { getCandidatesForUser } = require("./match.service");
@@ -123,11 +123,15 @@ const toProfileResponse = (profile, { includeFiles = true } = {}) => {
   return data;
 };
 
-// The owner's own profile, including age-range preference and resume metadata.
+// The owner's own profile, including age-range preference, resume metadata, and
+// the contact phone stored on the account. Another user never receives that phone.
 const toOwnerProfile = async (profile) => {
   const data = toProfileResponse(profile);
   const userId = data.user?._id || data.user;
-  const preference = await Preference.findOne({ user: userId }).lean();
+  const [preference, account] = await Promise.all([
+    Preference.findOne({ user: userId }).lean(),
+    User.findById(userId).select("phone").lean(),
+  ]);
   data.lookingFor = data.lookingFor ?? null;
   data.maritalStatus = data.maritalStatus ?? null;
   data.financialDemand = data.financialDemand ?? null;
@@ -135,7 +139,25 @@ const toOwnerProfile = async (profile) => {
   data.ageMin = preference?.ageMin ?? null;
   data.ageMax = preference?.ageMax ?? null;
   data.preferredMaritalStatus = preference?.preferredMaritalStatus ?? null;
+  data.phone = account?.phone || null;
   return data;
+};
+
+// Present only when the profile form sent it. A save that omits the key
+// (for example a free-text update) leaves the stored number as it is.
+// An empty value is a required-field error, so an older account can still
+// be viewed and is asked for a number the next time this form is saved.
+const applyContactPhone = async (userId, body = {}) => {
+  if (!Object.prototype.hasOwnProperty.call(body, "phone")) return;
+  const raw = body.phone;
+  if (raw == null || (typeof raw === "string" && raw.trim() === "")) {
+    throw new HttpError(400, "טלפון נייד ליצירת קשר הוא שדה חובה");
+  }
+  const phone = typeof raw === "string" ? normalizeIsraeliMobile(raw) : null;
+  if (!phone) {
+    throw new HttpError(400, "מספר הטלפון הנייד אינו תקין");
+  }
+  await User.updateOne({ _id: userId }, { $set: { phone } });
 };
 
 const deleteFiles = (fileIds) =>
@@ -192,6 +214,7 @@ const createProfileForUser = async (userId, body, files) => {
   clearWorkplaceUnlessWorking(profile);
   // Reject invalid data before uploading any file or writing preferences
   await profile.validate();
+  await applyContactPhone(userId, body);
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 
@@ -228,6 +251,7 @@ const updateProfileByUserId = async (userId, body, files) => {
 
   // Only the changed fields are validated, so older profiles can still be edited
   await profile.validate(undefined, { validateModifiedOnly: true });
+  await applyContactPhone(userId, body);
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 
@@ -265,8 +289,9 @@ const isCurrentCandidate = async (viewerId, targetUserId) => {
 
 // The owner and an admin see the stored profile. Another registered user sees the
 // anonymized profile when that person is a current suggestion or a still-pending
-// interest. Name, contact, photo, and resume are added only when this request
+// interest. Name, photo, and resume are added only when this request
 // still finds an accepted interest — a decline closes that access immediately.
+// The contact phone is never added for another user.
 // A decline at any stage, a stranger, and an unknown id all get the same not-found response.
 const getProfileForViewer = async (viewer, targetUserId) => {
   assertObjectId(targetUserId);
@@ -293,7 +318,7 @@ const getProfileForViewer = async (viewer, targetUserId) => {
   }
 
   const user = accepted
-    ? await User.findById(targetUserId).select("name email phone").lean()
+    ? await User.findById(targetUserId).select("name email").lean()
     : { _id: targetUserId };
 
   return toPublicPerson(user, profile, { revealIdentity: accepted });
