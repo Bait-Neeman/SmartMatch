@@ -195,7 +195,10 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
 
   it("returns 500 for a duplicate key that is not the email", async () => {
     await User.init();
-    await User.collection.dropIndex("idNumber_1");
+    const before = await User.collection.indexes();
+    for (const index of before) {
+      if (index.key && index.key.idNumber === 1) await User.collection.dropIndex(index.name);
+    }
     await User.collection.createIndex({ idNumber: 1 }, { unique: true, name: "idNumber_1" });
 
     const logged = [];
@@ -234,13 +237,9 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     } finally {
       console.error = originalError;
       const indexes = await User.collection.indexes();
-      if (indexes.some((index) => index.name === "idNumber_1")) {
-        await User.collection.dropIndex("idNumber_1");
+      for (const index of indexes) {
+        if (index.key && index.key.idNumber === 1) await User.collection.dropIndex(index.name);
       }
-      await User.collection.createIndex(
-        { idNumber: 1 },
-        { unique: true, sparse: true, name: "idNumber_1" }
-      );
     }
   });
 

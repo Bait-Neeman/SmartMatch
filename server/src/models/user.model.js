@@ -18,13 +18,6 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
 
-    idNumber: {
-      type: String,
-      unique: true,
-      sparse: true,
-      trim: true,
-    },
-
     email: {
       type: String,
       unique: true,

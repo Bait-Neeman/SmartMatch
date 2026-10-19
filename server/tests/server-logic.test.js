@@ -284,7 +284,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const revealed = await request(app).get(`/api/profile/${viewer._id}`).set(auth(tokenFor(other)));
     assert.equal(revealed.status, 200);
     assert.equal(revealed.body.profile.name, "SECRET-VIEWER");
-    assert.equal(revealed.body.profile.phone, "0501111111");
+    assert.equal(revealed.body.profile.phone, undefined);
+    assert.equal(JSON.stringify(revealed.body).includes("0501111111"), false);
     assert.equal(revealed.body.profile.email, "secret-viewer@example.test");
     assert.equal(revealed.body.profile.maritalStatus, "single");
     assert.equal(revealed.body.profile.lookingFor, "viewer looking");
@@ -429,7 +430,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(fileText, "resumePdf:resume-b");
     const seen = await request(app).get(`/api/profile/${idB}`).set(auth(tokenA));
     assert.equal(seen.body.profile.name, "רבקה לוי");
-    assert.equal(seen.body.profile.phone, "0503333333");
+    assert.equal(seen.body.profile.phone, undefined);
+    assert.equal(JSON.stringify(seen.body).includes("0503333333"), false);
     assert.equal(seen.body.profile.resumeSize, 184);
 
     const forwardA = await request(app).post("/api/interest/send-to-manager").set(auth(tokenA)).send({ otherUserId: idB });

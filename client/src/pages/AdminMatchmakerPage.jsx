@@ -1,20 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CircularProgress,
-  Typography,
-} from "@mui/material";
-import {
-  CalendarMonthOutlined,
-  DescriptionOutlined,
-  PeopleAltOutlined,
-  StickyNote2Outlined,
-  VisibilityOutlined,
-} from "@mui/icons-material";
+import { Alert, Box, Card, CircularProgress, Typography } from "@mui/material";
+import { CalendarMonthOutlined, StickyNote2Outlined } from "@mui/icons-material";
 import {
   fetchAdminUserProfile,
   fetchPendingMatches,
@@ -24,13 +11,10 @@ import {
   selectAdminProfileLoading,
   selectAdminUserProfile,
 } from "../store/slices/adminSlice.js";
-import { getAdminUserProfile } from "../services/admin.service.js";
 import { brand } from "../theme/tokens.js";
-import { toSafeFileUrl } from "../utils/files.js";
-import { openProtectedFile } from "../utils/protectedFile.js";
-import AdminAvatar from "../components/admin/AdminAvatar.jsx";
+import { MatchMark } from "../components/admin/CaseWidgets.jsx";
 import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
-import MatchRing from "../components/common/MatchRing.jsx";
+import PersonPreviewCard from "../components/admin/PersonPreviewCard.jsx";
 
 const personId = (person) => {
   const id = person?._id || person?.id;
@@ -45,66 +29,17 @@ const formatForwardedDate = (value) => {
   return `${day}.${month}.${date.getFullYear()}`;
 };
 
-const ageAndCity = (profile) => {
-  if (!profile) return "";
-  const parts = [];
-  if (profile.age) {
-    if (profile.gender === "female") parts.push(`בת ${profile.age}`);
-    else if (profile.gender === "male") parts.push(`בן ${profile.age}`);
-    else parts.push(String(profile.age));
-  }
-  if (profile.city) parts.push(profile.city);
-  return parts.join(" · ");
-};
-
 // Both sides forwarded. Anything else stays off this page, even if the list includes it.
 const isMatchmakerCase = (match) =>
   match?.stage === "matchmaker" &&
   match?.senderApprovedToManager === true &&
   match?.receiverApprovedToManager === true;
 
-function PersonSide({ person, details, onOpenProfile }) {
-  const profile = person?.profile || details?.profile;
-  const name = person?.name || details?.user?.name || "לא צוין";
-  const line = ageAndCity(profile);
-  const contact = [person?.phone || details?.user?.phone, person?.email || details?.user?.email].filter(Boolean).join(" · ");
-  const resume = toSafeFileUrl(person?.resumePdf || profile?.resumePdf);
+function PersonSide({ person, onOpenProfile }) {
   const id = personId(person);
-
   return (
-    <Box
-      sx={{
-        flex: "1 1 140px",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: "4px",
-        textAlign: "center",
-        minWidth: 0,
-      }}
-    >
-      <AdminAvatar image={person?.image || profile?.image} gender={profile?.gender} size={72} rounded="16px" ring />
-      <Typography sx={{ fontSize: 18, fontWeight: 700, color: brand.navy, mt: "6px" }}>{name}</Typography>
-      {line ? (
-        <Typography component="small" sx={{ color: "text.secondary", fontSize: 14 }}>
-          {line}
-        </Typography>
-      ) : null}
-      {contact ? (
-        <Typography component="small" sx={{ color: brand.ink2, fontSize: 13, wordBreak: "break-word" }}>
-          {contact}
-        </Typography>
-      ) : null}
-      <Box sx={{ display: "flex", gap: "4px", flexWrap: "wrap", justifyContent: "center" }}>
-        <Button size="small" variant="text" startIcon={<VisibilityOutlined />} onClick={() => onOpenProfile(id)} disabled={!id}>
-          פרופיל
-        </Button>
-        {resume ? (
-          <Button size="small" variant="text" startIcon={<DescriptionOutlined />} onClick={() => openProtectedFile(resume)}>
-            רזומה
-          </Button>
-        ) : null}
-      </Box>
+    <Box sx={{ flex: "1 1 180px", minWidth: 0, maxWidth: 280 }}>
+      <PersonPreviewCard person={person} compact onClick={id ? () => onOpenProfile(id) : undefined} />
     </Box>
   );
 }
@@ -116,7 +51,6 @@ export default function AdminMatchmakerPage() {
   const error = useSelector(selectAdminPendingMatchesError);
   const selectedProfile = useSelector(selectAdminUserProfile);
   const profileLoading = useSelector(selectAdminProfileLoading);
-  const [profiles, setProfiles] = useState({});
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -125,41 +59,6 @@ export default function AdminMatchmakerPage() {
   }, [dispatch]);
 
   const cases = useMemo(() => matches.filter(isMatchmakerCase), [matches]);
-
-  const profileKey = useMemo(() => {
-    const ids = new Set();
-    for (const match of cases) {
-      const senderId = personId(match.sender);
-      const receiverId = personId(match.receiver);
-      if (senderId) ids.add(senderId);
-      if (receiverId) ids.add(receiverId);
-    }
-    return [...ids].sort().join(",");
-  }, [cases]);
-
-  useEffect(() => {
-    if (!profileKey) return undefined;
-
-    let cancelled = false;
-    const ids = profileKey.split(",");
-
-    Promise.all(
-      ids.map(async (id) => {
-        try {
-          const data = await getAdminUserProfile(id);
-          return [id, data];
-        } catch {
-          return [id, null];
-        }
-      })
-    ).then((entries) => {
-      if (!cancelled) setProfiles(Object.fromEntries(entries));
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profileKey]);
 
   const handleOpenProfile = async (userId) => {
     if (!userId) return;
@@ -244,8 +143,6 @@ export default function AdminMatchmakerPage() {
                 const senderId = personId(match.sender);
                 const receiverId = personId(match.receiver);
                 const forwarded = formatForwardedDate(match.updatedAt || match.createdAt);
-                const percent = Number(match.matchPercent);
-                const showPercent = match.matchPercent != null && Number.isFinite(percent);
 
                 return (
                   <Card key={match._id || `${senderId}-${receiverId}`} sx={{ p: "22px" }}>
@@ -265,11 +162,6 @@ export default function AdminMatchmakerPage() {
                           הועבר {forwarded}
                         </Typography>
                       ) : null}
-                      {showPercent ? (
-                        <Box sx={{ marginInlineStart: "auto" }}>
-                          <MatchRing value={percent} size={58} caption="התאמה" />
-                        </Box>
-                      ) : null}
                     </Box>
 
                     <Box
@@ -285,31 +177,9 @@ export default function AdminMatchmakerPage() {
                         bgcolor: brand.background,
                       }}
                     >
-                      <PersonSide
-                        person={match.sender}
-                        details={profiles[senderId]}
-                        onOpenProfile={handleOpenProfile}
-                      />
-                      <Box
-                        aria-hidden
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: "50%",
-                          display: "grid",
-                          placeItems: "center",
-                          bgcolor: brand.tabOn,
-                          color: brand.goldDeep,
-                          flex: "none",
-                        }}
-                      >
-                        <PeopleAltOutlined sx={{ fontSize: 16 }} />
-                      </Box>
-                      <PersonSide
-                        person={match.receiver}
-                        details={profiles[receiverId]}
-                        onOpenProfile={handleOpenProfile}
-                      />
+                      <PersonSide person={match.sender} onOpenProfile={handleOpenProfile} />
+                      <MatchMark />
+                      <PersonSide person={match.receiver} onOpenProfile={handleOpenProfile} />
                     </Box>
 
                     <Box

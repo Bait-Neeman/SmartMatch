@@ -35,18 +35,16 @@ const PUBLIC_PROFILE_FIELDS = [
   "financialParticipation",
 ];
 
-// Never sent to another user, even after mutual approval.
-// The national ID stays with the account owner and with admins.
-const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber"]);
+// Never sent to another user, at any stage, including after mutual approval.
+// Phone stays with the account owner (settings) and with an admin.
+// A leftover national ID is omitted even if an old document still has one.
+const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber", "phone", "mobile", "telephone"]);
 
 // Identifying keys removed from every suggestion until mutual approval.
 // maritalStatus is not one of them: it is a public profile field.
 const IDENTITY_KEYS = new Set([
   "name",
   "email",
-  "phone",
-  "mobile",
-  "telephone",
   "contact",
   "image",
   "resumePdf",
@@ -113,7 +111,6 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
   if (revealIdentity) {
     person.name = plainUser?.name ?? null;
     person.email = plainUser?.email ?? null;
-    if (plainUser?.phone) person.phone = plainUser.phone;
     // Stable file paths. Opening them checks that the match is still accepted.
     person.image = fileAccessPath(id, "image", plainProfile?.image);
     person.resumePdf = fileAccessPath(id, "resumePdf", plainProfile?.resumePdf);

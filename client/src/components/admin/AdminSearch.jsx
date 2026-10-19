@@ -4,6 +4,8 @@ import { Box, InputBase, Typography } from "@mui/material";
 import { Search } from "@mui/icons-material";
 import { brand } from "../../theme/tokens.js";
 import { searchAdmin } from "../../services/admin.service.js";
+import AdminAvatar from "./AdminAvatar.jsx";
+import { institutionLine } from "./format.js";
 
 export default function AdminSearch() {
   const navigate = useNavigate();
@@ -150,8 +152,18 @@ export default function AdminSearch() {
               onClick={() => openCandidate(person)}
               sx={resultSx}
             >
-              <b>{person.name}</b>
-              <small>{[person.age, person.city].filter(Boolean).join(" · ")}</small>
+              <AdminAvatar image={person.image} gender={person.gender} size={40} rounded="10px" />
+              <Box sx={{ minWidth: 0, textAlign: "start" }}>
+                <b>{person.name}</b>
+                <small>
+                  {[
+                    institutionLine(person),
+                    [person.age, person.city].filter(Boolean).join(" · "),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+              </Box>
             </Box>
           ))}
           {cases.map((item) => (
@@ -163,10 +175,12 @@ export default function AdminSearch() {
               onClick={() => openCase(item)}
               sx={resultSx}
             >
-              <b>
-                {item.senderName} · {item.receiverName}
-              </b>
-              <small>תיק #{item.caseNumber}</small>
+              <Box sx={{ minWidth: 0, textAlign: "start" }}>
+                <b>
+                  {item.senderName} · {item.receiverName}
+                </b>
+                <small>תיק #{item.caseNumber}</small>
+              </Box>
             </Box>
           ))}
         </Box>
@@ -177,17 +191,17 @@ export default function AdminSearch() {
 
 const resultSx = {
   display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-start",
+  alignItems: "center",
+  gap: 1.25,
   width: "100%",
   border: 0,
   background: "transparent",
   textAlign: "start",
-  px: 2,
-  py: 1,
+  px: 1.5,
+  py: 0.75,
   cursor: "pointer",
   font: "inherit",
-  "& b": { color: brand.navy, fontWeight: 600, fontSize: 15 },
-  "& small": { color: brand.mut, fontSize: 13 },
+  "& b": { display: "block", color: brand.navy, fontWeight: 600, fontSize: 15 },
+  "& small": { display: "block", color: brand.mut, fontSize: 13 },
   "&:hover": { bgcolor: brand.rowHover },
 };

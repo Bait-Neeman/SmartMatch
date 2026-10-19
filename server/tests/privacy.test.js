@@ -725,7 +725,7 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(users.status, 200);
     const serializedUsers = JSON.stringify(users.body);
     assert.equal(serializedUsers.includes(RIVKA.name), true);
-    assert.equal(serializedUsers.includes(RIVKA.idNumber), true);
+    assert.equal(serializedUsers.includes(RIVKA.idNumber), false);
     assert.equal(serializedUsers.includes(PASSWORD), false);
 
     const adminProfile = await request(app)
@@ -734,7 +734,7 @@ describe("suggestion privacy", { timeout: 180000 }, () => {
     assert.equal(adminProfile.status, 200);
     assert.equal(adminProfile.body.user.name, RIVKA.name);
     assert.equal(adminProfile.body.user.email, RIVKA.email);
-    assert.equal(adminProfile.body.user.idNumber, RIVKA.idNumber);
+    assert.equal(adminProfile.body.user.idNumber, undefined);
     assert.equal(adminProfile.body.profile.seminar, RIVKA.seminar);
     assert.equal(adminProfile.body.profile.image, imagePath(fixture.rivka));
     assert.equal(adminProfile.body.profile.resumePdf, resumePath(fixture.rivka));

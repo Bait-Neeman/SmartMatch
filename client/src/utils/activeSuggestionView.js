@@ -80,8 +80,8 @@ const revealedTitle = (person, name) => {
   return `${name}, ${anonymous}`;
 };
 
-// Returns null unless this row is a mutually approved stage. Name, phone, photo,
-// and resume are copied only in that case, and only from the fields the server sends.
+// Returns null unless this row is a mutually approved stage. Name, photo, and
+// resume are copied only in that case. Phone is never copied onto a user view.
 export const toActiveView = (person) => {
   if (!person || typeof person !== "object") return null;
   const stage = textOf(person.stage);
@@ -91,7 +91,6 @@ export const toActiveView = (person) => {
   const base = toSuggestionView(person, kind, person);
   const gender = genderOf(person);
   const name = textOf(person.name);
-  const phone = textOf(person.phone);
   const city = cleanText(base.city) || textOf(person.city);
   const institution = institutionOf(person);
   const occupation = textOf(person.occupation);
@@ -111,7 +110,6 @@ export const toActiveView = (person) => {
   if (demand && !fields.some((field) => field.key === "financialRequirement" || field.key === "financialDemand")) {
     fields.push({ key: "financialDemand", label: "דרישה כספית", value: demand });
   }
-  if (phone) fields.push({ key: "phone", label: "טלפון", value: phone });
 
   const viewerForwarded = person.viewerForwarded === true || stage === "forwarded" || stage === "matchmaker";
   const otherForwarded = person.otherForwarded === true || stage === "other-forwarded" || stage === "matchmaker";
@@ -130,7 +128,6 @@ export const toActiveView = (person) => {
     title: revealedTitle(person, name),
     subtitle: [city, institution || occupation].filter(Boolean).join(" · "),
     fields,
-    phone,
     image: fileOf(person, ["image", "photo", "photoUrl", "imageUrl"]),
     resumePdf: fileOf(person, ["resumePdf", "resumeUrl", "resume"]),
     resumeSize: Number.isFinite(Number(person.resumeSize)) ? Number(person.resumeSize) : null,

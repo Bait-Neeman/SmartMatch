@@ -260,7 +260,7 @@ const withPublicCounterparts = async (interests, viewerId) => {
 
   const contextIds = [...new Set([String(viewerId), ...otherIds.map(String)])];
   const [users, profiles, preferences, viewerProfile] = await Promise.all([
-    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email phone').lean() : [],
+    revealIds.length ? User.find({ _id: { $in: revealIds } }).select('name email').lean() : [],
     Profile.find({ user: { $in: contextIds } }).lean(),
     Preference.find({ user: { $in: contextIds } }).lean(),
     Profile.findOne({ user: viewerId }).lean(),

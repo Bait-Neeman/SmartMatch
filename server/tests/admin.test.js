@@ -170,7 +170,8 @@ describe("admin pages", () => {
     assert.equal(summary.body.girls.addedThisMonth, 1);
     assert.equal(summary.body.cases.total, 1);
     assert.equal(summary.body.cases.fresh, 1);
-    assert.equal(summary.body.closed.total, 0);
+    assert.equal(summary.body.ended.total, 0);
+    assert.equal(summary.body.engaged.total, 0);
     assert.equal(summary.body.recent.length, 1);
     assert.equal(summary.body.recent[0].sender.name, "יוסי כהן");
     assert.equal(summary.body.recent[0].receiver.email, "sara@example.test");
@@ -186,7 +187,7 @@ describe("admin pages", () => {
 
     const serialized = JSON.stringify(users.body);
     assert.equal(serialized.includes("יוסי כהן"), true);
-    assert.equal(serialized.includes("100000011"), true);
+    assert.equal(serialized.includes("100000011"), false);
     assert.equal(serialized.includes("yossi@example.test"), true);
     assert.equal(serialized.includes(PASSWORD), false);
     assert.equal(serialized.includes(IMAGE_ID), false);
@@ -196,7 +197,7 @@ describe("admin pages", () => {
     const older = users.body.users.find((user) => String(user._id) === String(fixture.olderBoy._id));
     assert.equal(boy.status, "in_process");
     assert.equal(boy.profile.city, "מודיעין עילית");
-    assert.equal(older.status, "active");
+    assert.equal(older.status, "none");
   });
 
   it("updates a forwarded case and keeps the note off the couple's interest", async () => {
@@ -205,13 +206,13 @@ describe("admin pages", () => {
     const id = String(fixture.interest._id);
 
     const updated = await request(app).patch(`/api/admin/cases/${id}`).set(headers).send({
-      status: "in_progress",
+      action: "coordinating",
       note: NOTE,
     });
     assert.equal(updated.status, 200);
-    assert.equal(updated.body.case.status, "in_progress");
+    assert.equal(updated.body.case.status, "coordinating");
     assert.equal(updated.body.case.note, NOTE);
-    assert.equal(updated.body.case.sender.idNumber, "100000011");
+    assert.equal(updated.body.case.sender.idNumber, undefined);
 
     const cases = await request(app).get("/api/admin/cases").set(headers);
     assert.equal(cases.body.cases.length, 1);
@@ -223,8 +224,9 @@ describe("admin pages", () => {
     assert.equal(incomingText.includes(NOTE), false);
     assert.equal(incomingText.includes("adminNote"), false);
 
-    const closed = await request(app).patch(`/api/admin/cases/${id}`).set(headers).send({ status: "closed" });
+    const closed = await request(app).patch(`/api/admin/cases/${id}`).set(headers).send({ action: "ended" });
     assert.equal(closed.status, 200);
+    assert.equal(closed.body.case.status, "ended");
     const stored = await Interest.findById(id).lean();
     assert.equal(stored.status, "accepted");
     assert.equal(stored.senderApprovedToManager, true);
@@ -232,7 +234,7 @@ describe("admin pages", () => {
 
     const after = await request(app).get("/api/admin/users").set(headers);
     const boy = after.body.users.find((user) => String(user._id) === String(fixture.boy._id));
-    assert.equal(boy.status, "engaged");
+    assert.equal(boy.status, "ended");
   });
 
   it("rejects a case that was not forwarded by both sides", async () => {
@@ -253,7 +255,7 @@ describe("admin pages", () => {
     const badStatus = await request(app)
       .patch(`/api/admin/cases/${fixture.interest._id}`)
       .set(auth(tokenFor(fixture.admin)))
-      .send({ status: "engaged" });
+      .send({ status: "closed" });
     assert.equal(badStatus.status, 400);
   });
 
@@ -273,7 +275,7 @@ describe("admin pages", () => {
     assert.equal(saved.body.settings.autoClose, true);
 
     const after = await request(app).get("/api/admin/cases").set(headers);
-    assert.equal(after.body.cases[0].status, "closed");
+    assert.equal(after.body.cases[0].status, "ended");
     const interest = await Interest.findById(fixture.interest._id).lean();
     assert.equal(interest.status, "accepted");
   });
@@ -362,10 +364,12 @@ describe("admin pages", () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.user.name, "לאה חדש");
     assert.equal(created.body.user.email, "lea@example.test");
-    assert.equal(created.body.user.idNumber, "100000099");
+    assert.equal(created.body.user.idNumber, undefined);
     assert.equal(created.body.user.profile.gender, "female");
     assert.equal(created.body.user.profile.city, "חיפה");
-    assert.equal(created.body.user.status, "active");
+    assert.equal(created.body.user.profile.seminar, "סמינר");
+    assert.equal(created.body.user.profile.yeshiva, null);
+    assert.equal(created.body.user.status, "none");
     assert.equal(JSON.stringify(created.body).includes("Candidate1"), false);
 
     const listed = await request(app).get("/api/admin/users").set(headers);
@@ -373,13 +377,13 @@ describe("admin pages", () => {
 
     const duplicate = await request(app).post("/api/admin/candidates").set(headers).send({
       name: "עוד מישהי",
-      idNumber: "100000099",
-      email: "other@example.test",
+      email: "lea@example.test",
       password: "Candidate1",
       gender: "female",
       age: 22,
     });
     assert.equal(duplicate.status, 409);
+    assert.equal(duplicate.body.message, "האימייל כבר רשום");
 
     const added = await request(app).post("/api/admin/matchmakers").set(headers).send({
       name: "מרים לוין",
@@ -549,7 +553,7 @@ describe("admin pages", () => {
       assert.equal(naam.name, "נעם פרטי");
       assert.equal(naam.email, "stage-boy@example.test");
       assert.equal(naam.phone, boyPhone);
-      assert.equal(naam.idNumber, "200000021");
+      assert.equal(naam.idNumber, undefined);
       assert.equal(naam.profile.yeshiva, "ישיבת נעם");
       assert.equal(naam.profile.lookingFor, "מחפש מיכל");
       assert.equal(naam.profile.maritalStatus, "single");

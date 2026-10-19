@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link as RouterLink } from "react-router-dom";
 import { Alert, Box, Button, CircularProgress, Paper, Typography } from "@mui/material";
@@ -6,12 +6,17 @@ import { AutoAwesome, FolderOutlined, GroupsOutlined, HighlightOff, WorkspacePre
 import { brand } from "../theme/tokens.js";
 import { getSession } from "../utils/session.js";
 import {
+  clearAdminProfile,
   fetchAdminSummary,
+  fetchAdminUserProfile,
+  selectAdminProfileLoading,
   selectAdminSummary,
   selectAdminSummaryError,
   selectAdminSummaryLoading,
+  selectAdminUserProfile,
 } from "../store/slices/adminSlice.js";
 import { CaseStrip } from "../components/admin/CaseWidgets.jsx";
+import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
 import { closedTrend, endedTrend, freshCaseLine, freshTrend, greeting, monthTrend, todayLine } from "../components/admin/format.js";
 
 const heroBackground = `radial-gradient(400px 200px at 0% 0%, ${brand.goldGlow}, transparent 70%), linear-gradient(90deg, ${brand.paper}, ${brand.heroEnd})`;
@@ -22,6 +27,9 @@ export default function AdminPage() {
   const loading = useSelector(selectAdminSummaryLoading);
   const error = useSelector(selectAdminSummaryError);
   const sessionName = getSession().user?.name || "";
+  const profile = useSelector(selectAdminUserProfile);
+  const profileLoading = useSelector(selectAdminProfileLoading);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAdminSummary());
@@ -154,10 +162,30 @@ export default function AdminPage() {
               <Typography sx={{ color: brand.mut }}>אין הצעות להצגה</Typography>
             </Paper>
           ) : (
-            (summary.pipeline || summary.recent).map((item) => <CaseStrip key={item._id} item={item} reveal />)
+            (summary.pipeline || summary.recent).map((item) => (
+              <CaseStrip
+                key={item._id}
+                item={item}
+                reveal
+                onProfile={(userId) => {
+                  dispatch(fetchAdminUserProfile(userId));
+                  setProfileOpen(true);
+                }}
+              />
+            ))
           )}
         </>
       ) : null}
+
+      <AdminProfileDialog
+        open={profileOpen}
+        onClose={() => {
+          setProfileOpen(false);
+          dispatch(clearAdminProfile());
+        }}
+        data={profile}
+        loading={profileLoading}
+      />
     </Box>
   );
 }

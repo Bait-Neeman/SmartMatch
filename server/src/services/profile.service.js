@@ -293,7 +293,7 @@ const getProfileForViewer = async (viewer, targetUserId) => {
   }
 
   const user = accepted
-    ? await User.findById(targetUserId).select("name email phone").lean()
+    ? await User.findById(targetUserId).select("name email").lean()
     : { _id: targetUserId };
 
   return toPublicPerson(user, profile, { revealIdentity: accepted });

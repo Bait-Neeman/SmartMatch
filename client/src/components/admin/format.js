@@ -87,8 +87,6 @@ export const partyLine = (party) => {
   return [age, party.city].filter(Boolean).join(" · ");
 };
 
-export const contactLine = (party) => [party?.phone, party?.email].filter(Boolean).join(" · ");
-
 export const displayName = (party, reveal) => {
   if (reveal && party?.name) return party.name;
   if (party?.gender === "female") return "מועמדת";
@@ -96,11 +94,12 @@ export const displayName = (party, reveal) => {
   return "מועמד/ת";
 };
 
+// Yeshiva for a man, seminar for a woman. The other institution is not a fallback.
 export const institutionLine = (profile) => {
-  if (!profile) return "—";
-  const school = profile.gender === "female" ? profile.seminar || profile.yeshiva : profile.yeshiva || profile.seminar;
-  const line = [school, profile.occupation].filter(Boolean).join(" · ");
-  return line || "—";
+  if (!profile) return "";
+  if (profile.gender === "female") return profile.seminar || "";
+  if (profile.gender === "male") return profile.yeshiva || "";
+  return "";
 };
 
 export const EMPTY_NOTE = "הועבר לטיפול – שני הצדדים אישרו.";

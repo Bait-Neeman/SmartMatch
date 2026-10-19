@@ -236,8 +236,8 @@ const byPercentDesc = (left, right) => {
   return 0;
 };
 
-// Mutual (accepted) matches. Identity is included because both sides already approved.
-// The national ID number is never selected.
+// Mutual (accepted) matches. Name, email, photo, and resume are included because
+// both sides already approved. Phone and the national ID are never selected.
 const getMatchesForUser = async (userId) => {
   const accepted = await Interest.find({
     $or: [{ sender: userId }, { receiver: userId }],
@@ -249,7 +249,7 @@ const getMatchesForUser = async (userId) => {
     .filter((item) => item.senderApprovedToManager && item.receiverApprovedToManager)
     .map((item) => item._id);
   const [users, context, stages] = await Promise.all([
-    User.find({ _id: { $in: otherIds } }).select("name email phone role").lean(),
+    User.find({ _id: { $in: otherIds } }).select("name email role").lean(),
     loadPairContext(userId, otherIds),
     caseStagesByInterest(matchmakerIds),
   ]);

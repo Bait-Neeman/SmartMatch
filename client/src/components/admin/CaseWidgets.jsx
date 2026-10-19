@@ -1,21 +1,17 @@
 import { Box, Button, Paper, Typography } from "@mui/material";
-import { AutoAwesome, CalendarMonth, DescriptionOutlined, FolderOutlined, VisibilityOutlined } from "@mui/icons-material";
+import { AutoAwesome, CalendarMonth, FolderOutlined } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import { brand } from "../../theme/tokens.js";
-import MatchRing from "../common/MatchRing.jsx";
 import StatusPill from "../common/StatusPill.jsx";
-import AdminAvatar from "./AdminAvatar.jsx";
+import PersonPreviewCard from "./PersonPreviewCard.jsx";
 import { nextMeetingCaption } from "../../utils/caseStatus.js";
 import {
   EMPTY_NOTE,
   SUGGESTION_STAGE,
   casePill,
-  contactLine,
-  displayName,
   formatDotDate,
   formatHistoryWhen,
   historyWho,
-  partyLine,
 } from "./format.js";
 
 export function MatchMark() {
@@ -39,36 +35,19 @@ export function MatchMark() {
 }
 
 function PersonSide({ party, reveal = true, onProfile, compact = false }) {
-  const contact = contactLine(party);
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: compact ? 0 : 200, flex: compact ? 1 : "1 1 200px" }}>
-      <AdminAvatar
-        image={party?.image || party?.profile?.image}
-        gender={party?.gender || party?.profile?.gender}
-        size={compact ? 56 : 64}
-        rounded="14px"
+    <Box sx={{ flex: compact ? "1 1 160px" : "1 1 200px", minWidth: 0, maxWidth: compact ? 240 : 280 }}>
+      <PersonPreviewCard
+        person={party}
         reveal={reveal}
+        compact={compact}
+        onClick={onProfile && party?._id ? () => onProfile(party._id) : undefined}
       />
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: 17, lineHeight: 1.2 }}>
-          {displayName(party, reveal)}
-        </Typography>
-        <Typography sx={{ color: brand.mut, fontSize: 13 }}>{partyLine(party)}</Typography>
-        {reveal && contact ? (
-          <Typography sx={{ color: brand.ink2, fontSize: 13, wordBreak: "break-word" }}>{contact}</Typography>
-        ) : null}
-      </Box>
-      {onProfile && party?._id ? (
-        <Button size="small" onClick={() => onProfile(party._id)} sx={{ color: brand.goldDark, fontWeight: 600, minWidth: 0 }}>
-          פרופיל
-        </Button>
-      ) : null}
     </Box>
   );
 }
 
-export function CaseStrip({ item, reveal = true }) {
-  const unknown = item.matchPercent == null;
+export function CaseStrip({ item, reveal = true, onProfile }) {
   const stage = SUGGESTION_STAGE[item.stage];
   return (
     <Paper
@@ -83,11 +62,10 @@ export function CaseStrip({ item, reveal = true }) {
       }}
     >
       {stage ? <StatusPill tone={stage.tone} label={stage.label} /> : null}
-      <PersonSide party={item.sender} reveal={reveal} compact />
+      <PersonSide party={item.sender} reveal={reveal} onProfile={onProfile} compact />
       <MatchMark />
-      <PersonSide party={item.receiver} reveal={reveal} compact />
+      <PersonSide party={item.receiver} reveal={reveal} onProfile={onProfile} compact />
       <Box sx={{ flexGrow: 1 }} />
-      <MatchRing value={item.matchPercent || 0} unknown={unknown} size={60} caption="התאמה" />
       <Typography sx={{ display: "flex", alignItems: "center", gap: 0.75, color: brand.mut, fontSize: 14, width: 120 }}>
         <CalendarMonth sx={{ fontSize: 15 }} />
         {formatDotDate(item.transferredAt)}
@@ -105,10 +83,9 @@ export function CaseStrip({ item, reveal = true }) {
   );
 }
 
-export function CaseCard({ item, reveal = true, focused = false, onProfile, onResume, onNote, onAction }) {
+export function CaseCard({ item, reveal = true, focused = false, onProfile, onNote, onAction }) {
   const tone = casePill(item.status, item.meetingNumber);
   const stage = SUGGESTION_STAGE[item.stage];
-  const unknown = item.matchPercent == null;
   const manageable = item.manageable === true || item.stage === "matchmaker";
 
   return (
@@ -134,8 +111,6 @@ export function CaseCard({ item, reveal = true, focused = false, onProfile, onRe
             {formatDotDate(item.transferredAt)}
           </Typography>
         ) : null}
-        <Box sx={{ flexGrow: 1 }} />
-        <MatchRing value={item.matchPercent || 0} unknown={unknown} size={58} caption="התאמה" />
       </Box>
 
       <Box
@@ -151,9 +126,9 @@ export function CaseCard({ item, reveal = true, focused = false, onProfile, onRe
           flexWrap: "wrap",
         }}
       >
-        <CasePerson party={item.sender} reveal={reveal} onProfile={onProfile} onResume={onResume} />
+        <PersonSide party={item.sender} reveal={reveal} onProfile={onProfile} />
         <MatchMark />
-        <CasePerson party={item.receiver} reveal={reveal} onProfile={onProfile} onResume={onResume} />
+        <PersonSide party={item.receiver} reveal={reveal} onProfile={onProfile} />
       </Box>
 
       {manageable ? (
@@ -232,56 +207,3 @@ function StatusIcon({ Icon }) {
   return Icon ? <Icon /> : null;
 }
 
-function CasePerson({ party, reveal, onProfile, onResume }) {
-  const contact = reveal ? contactLine(party) : "";
-  return (
-    <Box
-      sx={{
-        flex: "1 1 220px",
-        minWidth: 0,
-        display: "flex",
-        alignItems: "center",
-        gap: 1.5,
-        textAlign: "start",
-      }}
-    >
-      <AdminAvatar
-        image={party?.image || party?.profile?.image}
-        gender={party?.gender || party?.profile?.gender}
-        size={72}
-        rounded="16px"
-        ring
-        reveal={reveal}
-      />
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: 18 }}>{displayName(party, reveal)}</Typography>
-        <Typography sx={{ color: brand.mut, fontSize: 13 }}>{partyLine(party)}</Typography>
-        {contact ? (
-          <Typography sx={{ color: brand.ink2, fontSize: 13, wordBreak: "break-word" }}>{contact}</Typography>
-        ) : null}
-      <Box sx={{ display: "flex", gap: 1.5, mt: 0.5 }}>
-        {party?._id ? (
-          <Button
-            size="small"
-            startIcon={<VisibilityOutlined />}
-            onClick={() => onProfile(party._id)}
-            sx={{ color: brand.goldDark, fontWeight: 600, minWidth: 0, px: 0.5 }}
-          >
-            פרופיל
-          </Button>
-        ) : null}
-        {party?.resumePdf || party?.profile?.resumePdf ? (
-          <Button
-            size="small"
-            startIcon={<DescriptionOutlined />}
-            onClick={() => onResume(party.resumePdf || party.profile.resumePdf)}
-            sx={{ color: brand.goldDark, fontWeight: 600, minWidth: 0, px: 0.5 }}
-          >
-            רזומה
-          </Button>
-        ) : null}
-      </Box>
-      </Box>
-    </Box>
-  );
-}

@@ -18,11 +18,6 @@ const validateEmail = (email) => {
   return typeof email === "string" && email.length <= 254 && emailRegex.test(email);
 };
 
-const validateIdNumber = (idNumber) => {
-  // Israeli ID numbers are 9 digits
-  return typeof idNumber === "string" && /^\d{9}$/.test(idNumber);
-};
-
 // bcrypt only uses the first 72 bytes and rejects a null byte. There is no
 // minimum length and no complexity rule; the password only has to be non-empty.
 const PASSWORD_MAX_BYTES = 72;
@@ -62,7 +57,6 @@ module.exports = {
   isObjectId,
   assertObjectId,
   validateEmail,
-  validateIdNumber,
   validatePassword,
   passwordErrorMessage,
   PASSWORD_TOO_LONG,

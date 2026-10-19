@@ -30,8 +30,6 @@ import AdminHeading from "../components/admin/AdminHeading.jsx";
 import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
 import { CaseCard } from "../components/admin/CaseWidgets.jsx";
 import { SUGGESTION_STAGE } from "../components/admin/format.js";
-import { openProtectedFile } from "../utils/protectedFile.js";
-import { toSafeFileUrl } from "../utils/files.js";
 import { CASE_WORK_TABS, isFinalCase } from "../utils/caseStatus.js";
 
 const STAGE_TABS = [
@@ -222,7 +220,6 @@ export default function AdminCasesPage() {
               reveal
               focused={focus === String(item._id)}
               onProfile={openProfile}
-              onResume={(url) => openProtectedFile(toSafeFileUrl(url))}
               onNote={(current) => {
                 setNoteFor(current);
                 setNote(current.note || "");

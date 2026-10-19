@@ -46,7 +46,8 @@ describe("matchmaker page rows", () => {
     assert.equal(items[0].view.name, "דן לוי");
     assert.equal(items[0].view.title.includes("דן לוי"), true);
     assert.equal(items[0].view.image, "/api/files/user-dan/image");
-    assert.equal(items[0].view.phone, "058-333-9090");
+    assert.equal(items[0].view.phone, undefined);
+    assert.equal(JSON.stringify(items[0]).includes("058-333-9090"), false);
     assert.equal(items[0].view.resumePdf, "/api/files/user-dan/resume");
   });
 

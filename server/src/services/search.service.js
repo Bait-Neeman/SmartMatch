@@ -54,8 +54,8 @@ const labelsFor = (person) => {
   return labels;
 };
 
-// Public profile fields only. Name, email, and phone are added solely when this
-// viewer is already allowed to see them. Photos, resumes, and the national ID
+// Public profile fields only. Name and email are added solely when this viewer
+// is already allowed to see them. Phone, photos, resumes, and a national ID
 // are never part of the search text.
 const haystack = (person, reveal) => {
   const bits = [anonymousTitle(person), ...labelsFor(person)];
@@ -64,7 +64,7 @@ const haystack = (person, reveal) => {
     if (text) bits.push(text);
   }
   if (reveal) {
-    for (const field of ["name", "email", "phone"]) {
+    for (const field of ["name", "email"]) {
       const text = textOf(person?.[field]);
       if (text) bits.push(text);
     }

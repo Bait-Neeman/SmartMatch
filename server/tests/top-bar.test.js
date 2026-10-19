@@ -198,7 +198,7 @@ describe("top bar search and notifications", { timeout: 180000 }, () => {
     assert.equal(JSON.stringify(byEmail.body).includes(RIVKA_EMAIL), false);
 
     const byPhone = await search(viewerToken, RIVKA_PHONE);
-    assert.equal(byPhone.body.results.length, 1);
+    assert.equal(byPhone.body.results.length, 0);
     assert.equal(JSON.stringify(byPhone.body).includes(RIVKA_PHONE), false);
 
     const byImage = await search(viewerToken, RIVKA_IMAGE);
