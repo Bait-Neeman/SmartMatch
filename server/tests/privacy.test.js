@@ -119,7 +119,6 @@ const CANDIDATE_KEYS = new Set([
   "financialParticipation",
   "lookingFor",
   "maritalStatus",
-  "matchPercent",
 ]);
 
 // Institution plus both stored money figures. financialRequirement is דרישה כספית

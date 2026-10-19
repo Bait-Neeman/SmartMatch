@@ -4,7 +4,7 @@ const Preference = require("../models/preference.model");
 const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { stageForViewer } = require("../utils/suggestionStage");
-const { toPublicPerson, redactIdentity } = require("./privacy.service");
+const { toPublicPerson, redactIdentity, withoutMatchPercent } = require("./privacy.service");
 const { institutionKey } = require("./institution.service");
 
 const otherUserId = (interest, viewerId) =>
@@ -303,7 +303,8 @@ const getMatchesForUser = async (userId) => {
       );
     })
     .filter(Boolean)
-    .sort(byPercentDesc);
+    .sort(byPercentDesc)
+    .map(withoutMatchPercent);
 };
 
 // True only when a known value falls outside a stated range.
@@ -471,7 +472,7 @@ const getCandidatesForUser = async (userId, { minPercent } = {}) => {
   }
 
   candidates.sort(byPercentDesc);
-  return { candidates, hiddenByPreference };
+  return { candidates: withoutMatchPercent(candidates), hiddenByPreference };
 };
 
 module.exports = {

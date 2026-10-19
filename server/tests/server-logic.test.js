@@ -239,7 +239,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(card.description, "about text");
     assert.equal(card.seminar, "seminar-name");
     assert.equal(card.maritalStatus, "divorced");
-    assert.equal(typeof card.matchPercent, "number");
+    assert.equal(Object.hasOwn(card, "matchPercent"), false);
     for (const key of IDENTITY_KEYS) {
       assert.equal(Object.hasOwn(card, key), false, key);
     }
@@ -272,7 +272,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(person.maritalStatus, "single");
     assert.equal(person.financialDemand, 10);
     assert.equal(person.financialParticipation, 80);
-    assert.equal(typeof person.matchPercent, "number");
+    assert.equal(Object.hasOwn(person, "matchPercent"), false);
     assert.equal(incoming.body.interests[0].stage, "received");
     for (const key of IDENTITY_KEYS) assert.equal(Object.hasOwn(person, key), false, key);
 
@@ -329,14 +329,19 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(listed.status, 200, JSON.stringify(listed.body));
     const ids = listed.body.candidates.map((card) => String(card._id));
     assert.deepEqual(ids, [String(good._id)]);
-    assert.equal(listed.body.candidates[0].matchPercent, 97);
+    assert.equal(Object.hasOwn(listed.body.candidates[0], "matchPercent"), false);
+    const viewerProfile = await Profile.findOne({ user: viewer._id }).lean();
+    const viewerPreference = await Preference.findOne({ user: viewer._id }).lean();
+    const goodProfile = await Profile.findOne({ user: good._id }).lean();
+    const openProfile = await Profile.findOne({ user: openMoney._id }).lean();
+    assert.equal(computeMatchPercent(viewerProfile, viewerPreference, goodProfile, null), 97);
+    assert.ok(computeMatchPercent(viewerProfile, viewerPreference, openProfile, null) < 95);
 
     await User.updateOne({ _id: viewer._id }, { $unset: { minMatchPercent: 1 } });
     const wider = await request(app).get("/api/match/candidates").set(headers);
     const widerIds = wider.body.candidates.map((card) => String(card._id)).sort();
     assert.deepEqual(widerIds, [String(good._id), String(openMoney._id)].sort());
-    const openCard = wider.body.candidates.find((card) => String(card._id) === String(openMoney._id));
-    assert.ok(openCard.matchPercent < 95);
+    assert.equal(JSON.stringify(wider.body).includes("matchPercent"), false);
 
     const filtered = await request(app).get("/api/match/candidates?percent=95").set(headers);
     assert.deepEqual(
@@ -616,7 +621,15 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(singleCard.maritalStatus, "single");
     assert.equal(divorcedCard.maritalStatus, "divorced");
     assert.equal(singleCard.name, undefined);
-    assert.ok(singleCard.matchPercent > divorcedCard.matchPercent);
+    assert.equal(Object.hasOwn(singleCard, "matchPercent"), false);
+    assert.equal(Object.hasOwn(divorcedCard, "matchPercent"), false);
+    const viewerProfile = await Profile.findOne({ user: viewer._id }).lean();
+    const singleProfile = await Profile.findOne({ user: single._id }).lean();
+    const divorcedProfile = await Profile.findOne({ user: divorced._id }).lean();
+    assert.ok(
+      computeMatchPercent(viewerProfile, null, singleProfile, null) >
+        computeMatchPercent(viewerProfile, null, divorcedProfile, null)
+    );
   });
 
   it("tells a paused user why a new interest is blocked, and still accepts a reply", async () => {

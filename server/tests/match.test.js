@@ -57,13 +57,29 @@ const baseProfile = (overrides) => ({
 
 const idsOf = (body) => body.candidates.map((card) => String(card._id));
 
-const assertSorted = (candidates) => {
-  for (let index = 1; index < candidates.length; index += 1) {
-    const previous = candidates[index - 1].matchPercent;
-    const current = candidates[index].matchPercent;
+const scoreBetween = async (viewerId, candidateId) => {
+  const [viewerProfile, viewerPreference, profile, preference] = await Promise.all([
+    Profile.findOne({ user: viewerId }).lean(),
+    Preference.findOne({ user: viewerId }).lean(),
+    Profile.findOne({ user: candidateId }).lean(),
+    Preference.findOne({ user: candidateId }).lean(),
+  ]);
+  return computeMatchPercent(viewerProfile, viewerPreference, profile, preference);
+};
+
+const assertSorted = async (viewer, candidates) => {
+  const scores = [];
+  for (const card of candidates) scores.push(await scoreBetween(viewer._id, card._id));
+  for (let index = 1; index < scores.length; index += 1) {
+    const previous = scores[index - 1];
+    const current = scores[index];
     if (previous == null) assert.equal(current, null);
     else if (current != null) assert.ok(previous >= current);
   }
+};
+
+const assertNoMatchPercent = (body) => {
+  assert.equal(JSON.stringify(body).includes("matchPercent"), false);
 };
 
 const assertCountsOnly = (hidden, secrets) => {
@@ -310,16 +326,16 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(ids.includes(String(wrongCity._id)), false);
 
     const agelessCard = response.body.candidates.find((card) => String(card._id) === String(ageless._id));
-    assert.equal(agelessCard.matchPercent, null);
+    assert.equal(await scoreBetween(viewer._id, ageless._id), null);
+    assert.equal(Object.hasOwn(agelessCard, "matchPercent"), false);
     assert.equal(agelessCard.name, undefined);
     assert.equal(agelessCard.email, undefined);
     assert.equal(agelessCard.phone, undefined);
-    assertSorted(response.body.candidates);
+    await assertSorted(viewer, response.body.candidates);
     assert.equal(String(response.body.candidates.at(-1)._id), String(ageless._id));
 
-    const readyCard = response.body.candidates.find((card) => String(card._id) === String(ready._id));
-    const blankCard = response.body.candidates.find((card) => String(card._id) === String(blankCity._id));
-    assert.ok(readyCard.matchPercent > blankCard.matchPercent);
+    assert.ok((await scoreBetween(viewer._id, ready._id)) > (await scoreBetween(viewer._id, blankCity._id)));
+    assertNoMatchPercent(response.body);
 
     assert.equal(response.body.hiddenByPreference.total, 2);
     assert.equal(response.body.hiddenByPreference.age, 1);
@@ -415,14 +431,13 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
       assert.equal(ids.includes(String(user._id)), false, user.name);
     }
 
-    const fitCard = response.body.candidates.find((card) => String(card._id) === String(fits._id));
-    const textCard = response.body.candidates.find((card) => String(card._id) === String(sameText._id));
-    assert.equal(fitCard.matchPercent, textCard.matchPercent);
+    assert.equal(await scoreBetween(viewer._id, fits._id), await scoreBetween(viewer._id, sameText._id));
+    assertNoMatchPercent(response.body);
     assert.equal(response.body.hiddenByPreference.financialDemand, 2);
     assert.equal(response.body.hiddenByPreference.financialStatus, 2);
     assert.equal(response.body.hiddenByPreference.total, 3);
     assertCountsOnly(response.body.hiddenByPreference, ["SECRET-LOW-PART", "SECRET-BOTH-LOW"]);
-    assertSorted(response.body.candidates);
+    await assertSorted(viewer, response.body.candidates);
   });
 
   it("filters institution and community only when the preference and the value are both set", async () => {
@@ -481,7 +496,9 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     const rightSees = await listed(right);
     assert.deepEqual(idsOf(leftSees.body), [String(right._id)]);
     assert.deepEqual(idsOf(rightSees.body), [String(left._id)]);
-    assert.equal(leftSees.body.candidates[0].matchPercent, rightSees.body.candidates[0].matchPercent);
+    assert.equal(await scoreBetween(left._id, right._id), await scoreBetween(right._id, left._id));
+    assertNoMatchPercent(leftSees.body);
+    assertNoMatchPercent(rightSees.body);
     assert.equal(leftSees.body.hiddenByPreference.total, 0);
 
     await request(app).post("/api/preference").set(auth(tokenFor(left))).send({ ageMin: 40, ageMax: 50 });
@@ -787,5 +804,86 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     assert.deepEqual(idsOf(response.body).sort(), [String(telAviv._id), String(blank._id)].sort());
     assert.equal(response.body.hiddenByPreference.city, 1);
     assert.equal(response.body.hiddenByPreference.missing, 0);
+  });
+
+  it("omits match percent from member responses and keeps it for the admin", async () => {
+    const viewer = await createUser({ n: 901, name: "PERCENT-VIEWER" });
+    const other = await createUser({ n: 902, name: "PERCENT-OTHER" });
+    const admin = await createUser({ n: 903, role: "admin", name: "PERCENT-ADMIN" });
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female", age: 25, city: "Haifa" }) },
+      { user: other._id, ...baseProfile({ gender: "male", age: 28, city: "Haifa" }) },
+    ]);
+
+    const viewerHeaders = auth(tokenFor(viewer));
+    const otherHeaders = auth(tokenFor(other));
+    const adminHeaders = auth(tokenFor(admin));
+
+    const candidates = await listed(viewer);
+    assert.equal(candidates.status, 200, JSON.stringify(candidates.body));
+    assert.equal(candidates.body.candidates.length, 1);
+    assertNoMatchPercent(candidates.body);
+
+    const sent = await request(app).post("/api/interest").set(viewerHeaders).send({ receiverId: String(other._id) });
+    assert.equal(sent.status, 201, JSON.stringify(sent.body));
+    assertNoMatchPercent(sent.body);
+
+    const outgoing = await request(app).get("/api/interest/outgoing").set(viewerHeaders);
+    const incoming = await request(app).get("/api/interest/incoming").set(otherHeaders);
+    assert.equal(outgoing.status, 200, JSON.stringify(outgoing.body));
+    assert.equal(incoming.status, 200, JSON.stringify(incoming.body));
+    assert.equal(outgoing.body.interests.length, 1);
+    assert.equal(incoming.body.interests.length, 1);
+    assertNoMatchPercent(outgoing.body);
+    assertNoMatchPercent(incoming.body);
+
+    const suggestions = await request(app).get("/api/suggestions").set(viewerHeaders);
+    const search = await request(app).get("/api/search").query({ q: "haifa" }).set(viewerHeaders);
+    const notes = await request(app).get("/api/notifications").set(viewerHeaders);
+    const preview = await request(app).get(`/api/profile/${other._id}`).set(viewerHeaders);
+    assert.equal(suggestions.status, 200);
+    assert.equal(search.status, 200);
+    assert.equal(notes.status, 200);
+    assert.equal(preview.status, 200);
+    assertNoMatchPercent(suggestions.body);
+    assertNoMatchPercent(search.body);
+    assertNoMatchPercent(notes.body);
+    assertNoMatchPercent(preview.body);
+
+    const accepted = await request(app)
+      .put("/api/interest/respond")
+      .set(otherHeaders)
+      .send({ senderId: String(viewer._id), status: "accepted" });
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+    assertNoMatchPercent(accepted.body);
+
+    const matches = await request(app).get("/api/match").set(viewerHeaders);
+    assert.equal(matches.status, 200, JSON.stringify(matches.body));
+    assert.equal(matches.body.matches.length, 1);
+    assertNoMatchPercent(matches.body);
+    const activeLists = await request(app).get("/api/suggestions").set(viewerHeaders);
+    assertNoMatchPercent(activeLists.body);
+
+    const adminSuggestions = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assert.equal(adminSuggestions.status, 200, JSON.stringify(adminSuggestions.body));
+    const pair = adminSuggestions.body.suggestions.find((item) => {
+      const ids = [String(item.sender?._id), String(item.receiver?._id)];
+      return ids.includes(String(viewer._id)) && ids.includes(String(other._id));
+    });
+    assert.ok(pair);
+    assert.equal(typeof pair.matchPercent, "number");
+
+    await request(app).post("/api/interest/send-to-manager").set(viewerHeaders).send({ otherUserId: String(other._id) });
+    await request(app).post("/api/interest/send-to-manager").set(otherHeaders).send({ otherUserId: String(viewer._id) });
+    const cases = await request(app).get("/api/admin/cases").set(adminHeaders);
+    assert.equal(cases.status, 200, JSON.stringify(cases.body));
+    const opened = cases.body.cases.find((item) => {
+      const ids = [String(item.sender?._id), String(item.receiver?._id)];
+      return ids.includes(String(viewer._id)) && ids.includes(String(other._id));
+    });
+    assert.ok(opened);
+    assert.equal(typeof opened.matchPercent, "number");
+    const memberAfter = await request(app).get("/api/match").set(viewerHeaders);
+    assertNoMatchPercent(memberAfter.body);
   });
 });
