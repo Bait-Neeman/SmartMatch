@@ -191,10 +191,12 @@ function CityRow({ control, cities = [] }) {
           <Autocomplete
             freeSolo
             options={cities}
+            value={field.value || null}
             inputValue={field.value || ""}
-            onInputChange={(_event, value, reason) => {
+            onChange={(_event, next) => field.onChange(typeof next === "string" ? next : "")}
+            onInputChange={(_event, next, reason) => {
               if (reason === "reset") return;
-              field.onChange(value ?? "");
+              field.onChange(next ?? "");
             }}
             sx={lineFieldSx}
             renderInput={(params) => (
@@ -205,7 +207,13 @@ function CityRow({ control, cities = [] }) {
                 fullWidth
                 error={Boolean(fieldState.error)}
                 helperText={fieldState.error?.message || ""}
-                slotProps={{ htmlInput: { ...params.inputProps, "aria-label": "עיר" } }}
+                slotProps={{
+                  ...params.slotProps,
+                  htmlInput: {
+                    ...params.slotProps?.htmlInput,
+                    "aria-label": "עיר",
+                  },
+                }}
               />
             )}
           />

@@ -86,6 +86,7 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
         city: "עיר-לבדיקה",
       },
     ]);
+    await Preference.create({ user: otherWoman._id, city: ["עיר-מהעדפה", "אין העדפת עיר"] });
 
     const response = await request(app).get("/api/institutions").set(auth(tokenFor(woman)));
     assert.equal(response.status, 200, JSON.stringify(response.body));
@@ -113,6 +114,8 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(cities.includes("תל-אביב"), false);
     assert.equal(cities.filter((name) => name === "תל אביב").length, 1);
     assert.equal(cities.includes("עיר-לבדיקה"), true);
+    assert.equal(cities.includes("עיר-מהעדפה"), true);
+    assert.equal(cities.includes("אין העדפת עיר"), false);
     assert.equal(cities.includes("ירושלים"), true);
     assert.equal(new Set(cities).size, cities.length);
 
@@ -135,6 +138,7 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
       working: true,
       workingInProfession: true,
       workplace: "גן ילדים",
+      phone: "0521111111",
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.equal(created.body.profile.working, true);
@@ -188,8 +192,16 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
     const man = await createUser(9);
     const manHeaders = auth(tokenFor(man));
     const withoutPhone = await request(app).post("/api/profile").set(manHeaders).send({ gender: "male", age: 29 });
-    assert.equal(withoutPhone.status, 201, JSON.stringify(withoutPhone.body));
-    assert.equal(withoutPhone.body.profile.phone, null);
+    assert.equal(withoutPhone.status, 400);
+    assert.match(withoutPhone.body.message, /טלפון/);
+    assert.equal(await Profile.exists({ user: man._id }), null);
+
+    await Profile.create({ user: man._id, gender: "male", age: 29, city: "ירושלים" });
+    const edited = await request(app).put("/api/profile").set(manHeaders).send({ age: 30 });
+    assert.equal(edited.status, 200, JSON.stringify(edited.body));
+    assert.equal(edited.body.profile.phone, null);
+    assert.equal(edited.body.profile.age, 30);
+    assert.equal(edited.body.profile.city, "ירושלים");
 
     const login = await request(app).post("/api/auth/login").send({
       email: man.email,
@@ -209,6 +221,7 @@ describe("institution lists", { concurrency: 1, timeout: 180000 }, () => {
       age: 30,
       occupation: "מלמד",
       yeshiva: "חברון",
+      phone: "0522222222",
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
 

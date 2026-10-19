@@ -126,12 +126,13 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
   };
 
   const ownProfile = async (token, body, file) => {
+    const payload = { phone: "0521234567", ...body };
     const call = request(app).post("/api/profile").set(auth(token));
     if (file) {
-      Object.entries(body).forEach(([key, value]) => call.field(key, String(value)));
+      Object.entries(payload).forEach(([key, value]) => call.field(key, String(value)));
       return call.attach("resumePdf", file.buffer, { filename: file.name, contentType: "application/pdf" });
     }
-    return call.send(body);
+    return call.send(payload);
   };
 
   it("saves profile fields, age range, and resume metadata on create, update, and get-me", async () => {
@@ -383,9 +384,11 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
 
     const profileA = await request(app).post("/api/profile").set(auth(tokenA)).send({
       ...baseProfile({ gender: "male", age: 28, maritalStatus: "single", financialDemand: 50, financialParticipation: 150, lookingFor: "בית חם" }),
+      phone: "0521111111",
     });
     const profileB = await request(app).post("/api/profile").set(auth(tokenB)).send({
       ...baseProfile({ gender: "female", age: 24, maritalStatus: "single", financialDemand: 100, financialParticipation: 200, lookingFor: "מידות טובות" }),
+      phone: "0542222222",
     });
     assert.equal(profileA.status, 201, JSON.stringify(profileA.body));
     assert.equal(profileB.status, 201, JSON.stringify(profileB.body));
@@ -732,7 +735,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const saved = await request(app)
       .post("/api/profile")
       .set(headers)
-      .send(baseProfile({ financialDemand: 100000000, financialParticipation: 0 }));
+      .send({ ...baseProfile({ financialDemand: 100000000, financialParticipation: 0 }), phone: "0521234567" });
     assert.equal(saved.status, 201, JSON.stringify(saved.body));
     assert.equal(saved.body.profile.financialDemand, 100000000);
     assert.equal(saved.body.profile.financialParticipation, 0);
@@ -851,7 +854,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(row.receiver.city, "Elad");
     assert.equal(row.receiver.maritalStatus, "single");
     assert.equal(row.receiver.financialDemand, 40);
-    assert.equal(typeof row.receiver.matchPercent, "number");
+    assert.equal(row.receiver.matchPercent, undefined);
     const blob = JSON.stringify(lists.body.declined);
     for (const secret of ["DECLINE-OTHER", "decline-other@example.test", "0507777777", "secret-image", "secret-resume"]) {
       assert.equal(blob.includes(secret), false, secret);

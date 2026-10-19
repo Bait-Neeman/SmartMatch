@@ -260,12 +260,12 @@ export default function PreferencesPage() {
                   label="עיר"
                   noneLabel={NO_CITY_PREFERENCE}
                   options={cities}
+                  emptyHint="ערים חדשות יתווספו לרשימה אוטומטית"
                   value={field.value}
                   onChange={field.onChange}
                 />
               )}
             />
-            <ExcludeIncomplete control={control} />
             {female ? (
               <Controller
                 name="preferredYeshiva"
@@ -282,6 +282,7 @@ export default function PreferencesPage() {
                 )}
               />
             ) : null}
+            <ExcludeIncomplete control={control} />
           </Box>
 
           {listError ? (

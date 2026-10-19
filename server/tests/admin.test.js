@@ -620,8 +620,9 @@ describe("admin pages", () => {
     assert.equal(hiddenNew.status, 200);
     const userGirl = hiddenNew.body.newSuggestions.find((item) => String(item._id) === girlId);
     assert.ok(userGirl);
-    assert.equal(pairOf(listed.body).matchPercent, userGirl.matchPercent);
-    assert.notEqual(userGirl.matchPercent, 100);
+    assert.equal(typeof pairOf(listed.body).matchPercent, "number");
+    assert.notEqual(pairOf(listed.body).matchPercent, 100);
+    assert.equal(userGirl.matchPercent, undefined);
     assertUserHidden(hiddenNew.body);
     await assertFile(girlId, "image", boyHeaders, 404);
     await assertFile(girlId, "resume", boyHeaders, 404);

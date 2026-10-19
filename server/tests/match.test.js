@@ -331,6 +331,9 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(suggestions.status, 200);
     assert.equal(suggestions.body.newSuggestions.length, response.body.candidates.length);
     assert.deepEqual(suggestions.body.hiddenByPreference, response.body.hiddenByPreference);
+    for (const card of suggestions.body.newSuggestions) {
+      assert.equal(Object.hasOwn(card, "matchPercent"), false);
+    }
 
     await User.updateOne({ _id: viewer._id }, { minMatchPercent: 50 });
     const floored = await listed(viewer);

@@ -841,15 +841,13 @@ function PreferencesForm({
                 label="עיר"
                 noneLabel={NO_CITY_PREFERENCE}
                 options={cities}
+                emptyHint="ערים חדשות יתווספו לרשימה אוטומטית"
                 value={field.value}
                 onChange={field.onChange}
               />
             </Box>
           )}
         />
-        <Box component="li" sx={{ display: "block" }}>
-          <ExcludeIncomplete control={control} />
-        </Box>
         {female ? (
           <Controller
             name="preferredYeshiva"
@@ -868,6 +866,9 @@ function PreferencesForm({
             )}
           />
         ) : null}
+        <Box component="li" sx={{ display: "block" }}>
+          <ExcludeIncomplete control={control} />
+        </Box>
       </Box>
       <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
         <BlockTitle>{title}</BlockTitle>
