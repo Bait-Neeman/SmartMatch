@@ -40,6 +40,16 @@ npm run dev    # restarts on file changes; sets NODE_ENV=development so auth rat
 
 The server will run on http://localhost:3000
 
+## ID number index
+
+Email-only accounts have no `idNumber`. Registration works only when `users.idNumber_1` is unique and sparse. From the `server` directory, with `MONGO_URI` in `.env`:
+
+```bash
+npm run fix:idNumberIndex
+```
+
+If `idNumber_1` exists and is not sparse, the script drops it. If the index is missing after that, it creates `{ idNumber: 1 }` as a unique sparse index named `idNumber_1`. An index that is already sparse is left in place. The script prints the final index names and options. It is safe to run again.
+
 ## API Endpoints
 
 ### Authentication

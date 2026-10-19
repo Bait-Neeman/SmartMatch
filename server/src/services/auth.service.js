@@ -77,8 +77,13 @@ const registerUser = async ({ name, email, password }) => {
       password,
     });
   } catch (error) {
-    if (error?.code === 11000) {
+    // Only an email collision is an existing account. Another unique index
+    // (for example a non-sparse idNumber) must not be reported that way.
+    if (error?.code === 11000 && (error.keyPattern?.email || error.keyValue?.email)) {
       throw new HttpError(409, "לא ניתן להירשם עם הפרטים האלה. אם כבר יש לך חשבון, יש להתחבר.");
+    }
+    if (error?.code === 11000) {
+      console.error(error.code, error.keyPattern);
     }
     throw error;
   }
