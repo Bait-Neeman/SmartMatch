@@ -45,8 +45,11 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === "CastError") {
     return res.status(400).json({ message: "מזהה לא תקין" });
   }
+  // Known duplicates are thrown as HttpError above. A raw duplicate key is an
+  // unexpected index. Log the code and index fields only; the value can be personal data.
   if (err.code === 11000) {
-    return res.status(409).json({ message: "הרשומה כבר קיימת" });
+    console.error(err.code, err.keyPattern);
+    return res.status(500).json({ message: "אירעה שגיאה בשרת. נסו שוב מאוחר יותר." });
   }
 
   if (typeof err?.message === "string" && err.message.includes("JWT_SECRET")) {

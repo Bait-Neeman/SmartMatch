@@ -172,6 +172,78 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(byId.body.message, "יש להזין אימייל וסיסמה");
   });
 
+  it("registers two email-only users, then rejects a duplicate email", async () => {
+    const first = await request(app).post("/api/auth/register").send({
+      email: "one@example.test",
+      password: "secret",
+    });
+    assert.equal(first.status, 201, JSON.stringify(first.body));
+
+    const second = await request(app).post("/api/auth/register").send({
+      email: "two@example.test",
+      password: "secret",
+    });
+    assert.equal(second.status, 201, JSON.stringify(second.body));
+
+    const duplicate = await request(app).post("/api/auth/register").send({
+      email: "one@example.test",
+      password: "different",
+    });
+    assert.equal(duplicate.status, 409);
+    assert.equal(duplicate.body.message, DUPLICATE);
+  });
+
+  it("returns 500 for a duplicate key that is not the email", async () => {
+    await User.init();
+    await User.collection.dropIndex("idNumber_1");
+    await User.collection.createIndex({ idNumber: 1 }, { unique: true, name: "idNumber_1" });
+
+    const logged = [];
+    const originalError = console.error;
+    console.error = (...args) => {
+      logged.push(args);
+    };
+
+    try {
+      const first = await request(app).post("/api/auth/register").send({
+        email: "index-one@example.test",
+        password: "secret",
+      });
+      assert.equal(first.status, 201, JSON.stringify(first.body));
+
+      const second = await request(app).post("/api/auth/register").send({
+        email: "index-two@example.test",
+        password: "secret",
+      });
+      assert.equal(second.status, 500, JSON.stringify(second.body));
+      assert.equal(second.body.message, "אירעה שגיאה בשרת. נסו שוב מאוחר יותר.");
+      assert.notEqual(second.body.message, DUPLICATE);
+
+      const text = JSON.stringify(logged);
+      assert.equal(text.includes("index-two@example.test"), false);
+      assert.equal(text.includes("11000"), true);
+      assert.equal(text.includes("idNumber"), true);
+      for (const args of logged) {
+        for (const arg of args) {
+          assert.equal(arg instanceof Error, false);
+          if (arg && typeof arg === "object") {
+            assert.equal(Object.prototype.hasOwnProperty.call(arg, "keyValue"), false);
+          }
+        }
+      }
+    } finally {
+      console.error = originalError;
+      const indexes = await User.collection.indexes();
+      if (indexes.some((index) => index.name === "idNumber_1")) {
+        await User.collection.dropIndex("idNumber_1");
+      }
+      await User.collection.createIndex(
+        { idNumber: 1 },
+        { unique: true, sparse: true, name: "idNumber_1" }
+      );
+    }
+  });
+
   it("explains an empty, invalid, or too-long password on register, login, and password change", async () => {
     const empty = await request(app).post("/api/auth/register").send({
       email: "empty@example.test",
