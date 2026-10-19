@@ -37,9 +37,8 @@ const PUBLIC_PROFILE_FIELDS = [
   "financialParticipation",
 ];
 
-// Never sent to another user, at any stage, including after mutual approval.
-// Phone stays with the account owner and with an admin.
-// A leftover national ID is omitted even if an old document still has one.
+// Never sent to another user, even after mutual approval or a matchmaker stage.
+// The national ID and the contact phone stay with the account owner and with admins.
 const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber", "phone", "mobile", "telephone"]);
 
 // Identifying keys removed from every suggestion until mutual approval.
@@ -125,8 +124,26 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
   return redactIdentity(person, { revealIdentity });
 };
 
+// Members never receive a match percent. Sorting and a minimum still use the
+// score, then this drops the field from the payload they are sent. Admin
+// responses are built on their own and keep the number.
+const withoutMatchPercent = (value) => {
+  if (Array.isArray(value)) return value.map(withoutMatchPercent);
+  if (!value || typeof value !== "object") return value;
+  if (value instanceof Date || isObjectId(value)) return value;
+
+  const copy = { ...value };
+  delete copy.matchPercent;
+  for (const key of Object.keys(copy)) {
+    const child = copy[key];
+    if (child && typeof child === "object") copy[key] = withoutMatchPercent(child);
+  }
+  return copy;
+};
+
 module.exports = {
   toPublicPerson,
   redactIdentity,
+  withoutMatchPercent,
   PUBLIC_PROFILE_FIELDS,
 };

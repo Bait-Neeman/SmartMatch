@@ -1,6 +1,6 @@
 const { getCandidatesForUser, getMatchesForUser } = require("./match.service");
 const { getIncomingInterests, getOutgoingInterests } = require("./interest.service");
-const { redactIdentity } = require("./privacy.service");
+const { redactIdentity, withoutMatchPercent } = require("./privacy.service");
 
 const ACTIVE_STAGES = new Set(["active", "forwarded", "other-forwarded"]);
 
@@ -21,13 +21,13 @@ const getSuggestionLists = async (userId) => {
     .map((item) => redactIdentity(item, { revealIdentity: false }));
 
   return {
-    newSuggestions: found.candidates,
+    newSuggestions: withoutMatchPercent(found.candidates),
     hiddenByPreference: found.hiddenByPreference,
-    sent: outgoing.filter((item) => item.status === "pending"),
-    received: incoming.filter((item) => item.status === "pending"),
-    active: matches.filter((item) => ACTIVE_STAGES.has(item.stage)),
-    matchmaker: matches.filter((item) => item.stage === "matchmaker"),
-    declined,
+    sent: withoutMatchPercent(outgoing.filter((item) => item.status === "pending")),
+    received: withoutMatchPercent(incoming.filter((item) => item.status === "pending")),
+    active: withoutMatchPercent(matches.filter((item) => ACTIVE_STAGES.has(item.stage))),
+    matchmaker: withoutMatchPercent(matches.filter((item) => item.stage === "matchmaker")),
+    declined: withoutMatchPercent(declined),
   };
 };
 

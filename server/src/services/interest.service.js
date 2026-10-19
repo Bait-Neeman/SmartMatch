@@ -5,7 +5,7 @@ const Preference = require('../models/preference.model');
 const HttpError = require('../utils/httpError');
 const { assertObjectId } = require('../utils/validators');
 const { stageForViewer } = require('../utils/suggestionStage');
-const { toPublicPerson, redactIdentity } = require('./privacy.service');
+const { toPublicPerson, redactIdentity, withoutMatchPercent } = require('./privacy.service');
 const { getCandidatesForUser, computeMatchPercent } = require('./match.service');
 
 const RESPONSE_STATUSES = ['accepted', 'rejected'];
@@ -272,7 +272,7 @@ const withPublicCounterparts = async (interests, viewerId) => {
   const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
   if (viewerProfile) profileByUser.set(String(viewerId), viewerProfile);
 
-  return interests.map((interest) => {
+  return withoutMatchPercent(interests.map((interest) => {
     const otherId = otherUserId(interest, viewerId);
     const revealIdentity = interest.status === 'accepted';
     const person = toPublicPerson(
@@ -294,7 +294,7 @@ const withPublicCounterparts = async (interests, viewerId) => {
         : { ...interest, sender: person, ...stageForViewer(interest, viewerId) };
 
     return redactIdentity(view, { revealIdentity });
-  });
+  }));
 };
 
 const getIncomingInterests = async (userId) => {

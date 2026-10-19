@@ -4,7 +4,7 @@ const Preference = require("../models/preference.model");
 const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { stageForViewer } = require("../utils/suggestionStage");
-const { toPublicPerson, redactIdentity } = require("./privacy.service");
+const { toPublicPerson, redactIdentity, withoutMatchPercent } = require("./privacy.service");
 const { blockedFromSuggestions, caseStagesByInterest } = require("./caseState.service");
 const { institutionKey } = require("./institution.service");
 
@@ -15,9 +15,10 @@ const otherUserId = (interest, viewerId) =>
 // style, appearance, ethnicity, yeshiva, seminar, occupation, the work flags,
 // and the numeric money fields.
 // Free-text description, lookingFor, and workplace are never read. There is no AI score.
-// Institution and profession lists treat a blank candidate value as unknown and keep it.
-// onlyWorking and onlyWorkingInProfession are explicit opt-in filters: a candidate
-// who never answered (the flag is not exactly true) is excluded.
+// Institution, profession, and the choice lists treat a blank candidate value as
+// unknown and keep it. excludeIncomplete is off unless the person checked it.
+// When it is on, a blank in a field this person filtered is removed. onlyWorking
+// and onlyWorkingInProfession always require an explicit yes.
 const hasValue = (value) => {
   if (value == null) return false;
   if (typeof value === "string") return value.trim() !== "";
@@ -71,17 +72,47 @@ const rangeCloseness = (value, min, max) => {
   return 70 + 30 * (1 - distance);
 };
 
-const statedOrShared = (left, right, leftPreference, rightPreference, equal = (a, b) => a === b) => {
-  const leftWants = hasValue(leftPreference);
-  const rightWants = hasValue(rightPreference);
-  if (leftWants || rightWants) {
-    if (leftWants && !hasValue(right)) return null;
-    if (rightWants && !hasValue(left)) return null;
-    return 100;
+const choiceNames = (value) => {
+  if (value == null || value === "") return [];
+  const raw = Array.isArray(value) ? value : [value];
+  const names = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (!trimmed || trimmed === "לא משנה" || trimmed === "אין העדפת עיר") continue;
+    names.push(trimmed);
+  }
+  return names;
+};
+
+const sameKey = (keyOf, left, right) => keyOf(left) === keyOf(right);
+
+// A list scores 100 when the other value is one of the names and 0 when it is
+// a different known value. No list falls back to comparing the two profiles:
+// 100 when they match, 60 when both are set and differ. A blank skips the check.
+const statedChoices = (left, right, leftPreference, rightPreference, keyOf = (value) => String(value).trim()) => {
+  const leftNames = choiceNames(leftPreference);
+  const rightNames = choiceNames(rightPreference);
+  if (leftNames.length || rightNames.length) {
+    if (leftNames.length && !hasValue(right)) return null;
+    if (rightNames.length && !hasValue(left)) return null;
+    const scores = [];
+    if (leftNames.length) scores.push(leftNames.some((name) => sameKey(keyOf, name, right)) ? 100 : 0);
+    if (rightNames.length) scores.push(rightNames.some((name) => sameKey(keyOf, name, left)) ? 100 : 0);
+    return Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length);
   }
   if (!hasValue(left) || !hasValue(right)) return null;
-  return equal(left, right) ? 100 : 60;
+  return sameKey(keyOf, left, right) ? 100 : 60;
 };
+
+const listExcludes = (wanted, actual, keyOf = (value) => String(value).trim()) => {
+  const names = choiceNames(wanted);
+  if (names.length === 0) return false;
+  if (!hasValue(actual)) return false;
+  return !names.some((name) => sameKey(keyOf, name, actual));
+};
+
+const listIsSet = (wanted) => choiceNames(wanted).length > 0;
 
 // "אין העדפה" is the checklist row for an empty list. It is not an institution.
 const NO_INSTITUTION_PREFERENCE = new Set([
@@ -186,11 +217,11 @@ const computeMatchPercent = (profileA, preferenceA, profileB, preferenceB) => {
     rangeCloseness(a.age, prefB.ageMin, prefB.ageMax),
     rangeCloseness(b.height, prefA.heightMin, prefA.heightMax),
     rangeCloseness(a.height, prefB.heightMin, prefB.heightMax),
-    statedOrShared(a.city, b.city, prefA.city, prefB.city, textsEqual),
-    statedOrShared(a.style, b.style, prefA.style, prefB.style),
-    statedOrShared(a.appearance, b.appearance, prefA.preferredAppearance, prefB.preferredAppearance),
-    statedOrShared(a.maritalStatus, b.maritalStatus, prefA.preferredMaritalStatus, prefB.preferredMaritalStatus),
-    statedOrShared(a.ethnicity, b.ethnicity, prefA.preferredEthnicity, prefB.preferredEthnicity),
+    statedChoices(a.city, b.city, prefA.city, prefB.city, normaliseText),
+    statedChoices(a.style, b.style, prefA.style, prefB.style),
+    statedChoices(a.appearance, b.appearance, prefA.preferredAppearance, prefB.preferredAppearance),
+    statedChoices(a.maritalStatus, b.maritalStatus, prefA.preferredMaritalStatus, prefB.preferredMaritalStatus),
+    statedChoices(a.ethnicity, b.ethnicity, prefA.preferredEthnicity, prefB.preferredEthnicity),
     statedInstitution(prefA.preferredYeshiva, b.yeshiva),
     statedInstitution(prefB.preferredYeshiva, a.yeshiva),
     statedInstitution(prefA.preferredSeminar, b.seminar),
@@ -239,7 +270,7 @@ const byPercentDesc = (left, right) => {
 };
 
 // Mutual (accepted) matches. Name, email, photo, and resume are included because
-// both sides already approved. Phone and a national ID are never selected.
+// both sides already approved. The national ID and the contact phone are never selected.
 const getMatchesForUser = async (userId) => {
   const accepted = await Interest.find({
     $or: [{ sender: userId }, { receiver: userId }],
@@ -280,7 +311,8 @@ const getMatchesForUser = async (userId) => {
       );
     })
     .filter(Boolean)
-    .sort(byPercentDesc);
+    .sort(byPercentDesc)
+    .map(withoutMatchPercent);
 };
 
 // True only when a known value falls outside a stated range.
@@ -290,10 +322,6 @@ const rangeExcludes = (value, min, max) => {
   if (missingNumber(value)) return false;
   return (min != null && value < min) || (max != null && value > max);
 };
-
-const choiceExcludes = (wanted, actual) => hasValue(wanted) && hasValue(actual) && wanted !== actual;
-
-const textExcludes = (wanted, actual) => hasValue(wanted) && hasValue(actual) && !textsEqual(wanted, actual);
 
 const HIDDEN_KEYS = [
   "age",
@@ -309,6 +337,7 @@ const HIDDEN_KEYS = [
   "workingInProfession",
   "financialStatus",
   "financialDemand",
+  "missing",
 ];
 
 const emptyHidden = () => {
@@ -323,18 +352,36 @@ const filterFailures = (candidate, ownerPreference, ownerProfile) => {
   const failed = [];
   const pref = ownerPreference || {};
   const person = candidate || {};
+  // Off unless this preference explicitly asked to hide incomplete suggestions.
+  // A document saved before the field existed stays on the old rule: a blank is unknown.
+  const dropBlanks = pref.excludeIncomplete === true;
+  let missingDetail = false;
+  const blankFiltered = (filtered, value) => {
+    if (!filtered || hasValue(value)) return;
+    if (dropBlanks) missingDetail = true;
+  };
 
   if (rangeExcludes(person.age, pref.ageMin, pref.ageMax)) failed.push("age");
+  blankFiltered(pref.ageMin != null || pref.ageMax != null, missingNumber(person.age) ? "" : person.age);
   if (rangeExcludes(person.height, pref.heightMin, pref.heightMax)) failed.push("height");
-  if (textExcludes(pref.city, person.city)) failed.push("city");
-  if (choiceExcludes(pref.style, person.style)) failed.push("style");
-  if (choiceExcludes(pref.preferredAppearance, person.appearance)) failed.push("appearance");
-  if (choiceExcludes(pref.preferredMaritalStatus, person.maritalStatus)) failed.push("maritalStatus");
-  if (choiceExcludes(pref.preferredEthnicity, person.ethnicity)) failed.push("ethnicity");
+  blankFiltered(pref.heightMin != null || pref.heightMax != null, missingNumber(person.height) ? "" : person.height);
+  if (listExcludes(pref.city, person.city, normaliseText)) failed.push("city");
+  blankFiltered(listIsSet(pref.city), person.city);
+  if (listExcludes(pref.style, person.style)) failed.push("style");
+  blankFiltered(listIsSet(pref.style), person.style);
+  if (listExcludes(pref.preferredAppearance, person.appearance)) failed.push("appearance");
+  blankFiltered(listIsSet(pref.preferredAppearance), person.appearance);
+  if (listExcludes(pref.preferredMaritalStatus, person.maritalStatus)) failed.push("maritalStatus");
+  blankFiltered(listIsSet(pref.preferredMaritalStatus), person.maritalStatus);
+  if (listExcludes(pref.preferredEthnicity, person.ethnicity)) failed.push("ethnicity");
+  blankFiltered(listIsSet(pref.preferredEthnicity), person.ethnicity);
   if (institutionExcludes(pref.preferredYeshiva, person.yeshiva) || institutionExcludes(pref.preferredSeminar, person.seminar)) {
     failed.push("institution");
   }
+  blankFiltered(institutionNames(pref.preferredYeshiva).length > 0, person.yeshiva);
+  blankFiltered(institutionNames(pref.preferredSeminar).length > 0, person.seminar);
   if (institutionExcludes(pref.preferredOccupation, person.occupation, normaliseText)) failed.push("profession");
+  blankFiltered(institutionNames(pref.preferredOccupation).length > 0, person.occupation);
   // Explicit opt-in. A missing or false answer is excluded. A blank profession
   // above is still unknown and is kept; these two flags are not.
   if (wantsOnlyWorking(pref) && person.working !== true) failed.push("working");
@@ -342,7 +389,10 @@ const filterFailures = (candidate, ownerPreference, ownerProfile) => {
     failed.push("workingInProfession");
   }
   if (!financeShapeA(person.financialParticipation, ownerProfile?.financialDemand).ok) failed.push("financialDemand");
+  blankFiltered(ownerProfile?.financialDemand != null, missingNumber(person.financialParticipation) ? "" : person.financialParticipation);
   if (!financeShapeB(person.financialStatus, pref.financialMin, pref.financialMax).ok) failed.push("financialStatus");
+  blankFiltered(pref.financialMin != null || pref.financialMax != null, missingNumber(person.financialStatus) ? "" : person.financialStatus);
+  if (missingDetail) failed.push("missing");
 
   return failed;
 };
@@ -438,7 +488,7 @@ const getCandidatesForUser = async (userId, { minPercent } = {}) => {
   }
 
   candidates.sort(byPercentDesc);
-  return { candidates, hiddenByPreference };
+  return { candidates: withoutMatchPercent(candidates), hiddenByPreference };
 };
 
 module.exports = {

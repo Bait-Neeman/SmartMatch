@@ -181,7 +181,6 @@ export default function SettingsPage() {
     matchmakerRequest: true,
     matchmakerStarted: true,
     emailDigest: false,
-    showMatchPercent: true,
     pauseSuggestions: false,
   });
 
@@ -198,7 +197,6 @@ export default function SettingsPage() {
         setToggles((current) => ({
           ...current,
           ...settings.notifications,
-          showMatchPercent: settings.showMatchPercent !== false,
           pauseSuggestions: settings.pauseSuggestions === true,
         }));
       })
@@ -382,11 +380,6 @@ export default function SettingsPage() {
                 לאחר אישור הדדי
               </Box>
             }
-          />
-          <SettingRow
-            title="הצגת אחוז התאמה"
-            detail="הצגת אחוז ההתאמה בכרטיסי ההצעות"
-            control={<Toggle on={toggles.showMatchPercent} label="הצגת אחוז התאמה" onToggle={() => flip("showMatchPercent")} />}
           />
           <SettingRow
             title="השהיית קבלת הצעות"

@@ -20,7 +20,7 @@ import {
   roleLabel,
   styleOptions,
 } from "../../constants/profileOptions.js";
-import { ABOUT_ME_TITLE, lookingForTitle } from "../../utils/genderForms.js";
+import { ABOUT_ME_TITLE, EXCLUDE_INCOMPLETE_LABEL, lookingForTitle } from "../../utils/genderForms.js";
 import { toSafeFileUrl } from "../../utils/files.js";
 import { openProtectedFile } from "../../utils/protectedFile.js";
 import { resetAdminUserPassword } from "../../services/admin.service.js";
@@ -205,6 +205,7 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
                     {male ? (
                       <Row label="רק בחורה שעובדת במקצוע שלמדה" value={yesNo(preference?.onlyWorkingInProfession)} />
                     ) : null}
+                    <Row label={EXCLUDE_INCOMPLETE_LABEL} value={yesNo(preference?.excludeIncomplete)} />
                     <Row label={lookingForTitle(gender)} value={profile?.lookingFor} />
                   </>
                 ) : (

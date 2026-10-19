@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSuggestionLists, profileRequired } from "../services/suggestion.service.js";
-import { getSettings } from "../services/settings.service.js";
 import { buildSuggestionList } from "../utils/suggestionView.js";
 
 const EMPTY = { newSuggestions: [], sent: [], received: [], declined: [], hiddenByPreference: null };
@@ -10,7 +9,6 @@ export default function useSuggestions() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [needsProfile, setNeedsProfile] = useState(false);
-  const [showMatchPercent, setShowMatchPercent] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -47,14 +45,6 @@ export default function useSuggestions() {
       .finally(() => {
         if (active) setReady(true);
       });
-    getSettings()
-      .then((data) => {
-        if (!active) return;
-        if (typeof data?.settings?.showMatchPercent === "boolean") {
-          setShowMatchPercent(data.settings.showMatchPercent);
-        }
-      })
-      .catch(() => {});
     return () => {
       active = false;
     };
@@ -71,7 +61,6 @@ export default function useSuggestions() {
     hiddenByPreference: payload.hiddenByPreference || null,
     preview: false,
     offline: false,
-    showMatchPercent,
     onSent: () => load(),
     onDeclined: () => load(),
     onAccepted: () => load(),

@@ -4,7 +4,6 @@ import {
   cleanText,
   communityOf,
   idOf,
-  readPercent,
   toSuggestionView,
 } from "./suggestionView.js";
 
@@ -131,7 +130,7 @@ export const toHomeCard = (person) => {
     title: anonymousTitle(person) || view.title,
     city: view.city,
     gender: view.gender,
-    percent: readPercent(person),
+    percent: null,
     lines,
   };
 };

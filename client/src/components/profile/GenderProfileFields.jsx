@@ -1,5 +1,6 @@
 import { Controller, useWatch } from "react-hook-form";
 import {
+  Autocomplete,
   Box,
   Checkbox,
   FormControl,
@@ -180,6 +181,48 @@ function TextRow({ control, name, icon, label, rules, type, dir, hint }) {
   );
 }
 
+function CityRow({ control, cities = [] }) {
+  return (
+    <Controller
+      name="city"
+      control={control}
+      render={({ field, fieldState }) => (
+        <FieldRow icon="pin" label="עיר">
+          <Autocomplete
+            freeSolo
+            options={cities}
+            value={field.value || null}
+            inputValue={field.value || ""}
+            onChange={(_event, next) => field.onChange(typeof next === "string" ? next : "")}
+            onInputChange={(_event, next, reason) => {
+              if (reason === "reset") return;
+              field.onChange(next ?? "");
+            }}
+            sx={lineFieldSx}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="standard"
+                hiddenLabel
+                fullWidth
+                error={Boolean(fieldState.error)}
+                helperText={fieldState.error?.message || ""}
+                slotProps={{
+                  ...params.slotProps,
+                  htmlInput: {
+                    ...params.slotProps?.htmlInput,
+                    "aria-label": "עיר",
+                  },
+                }}
+              />
+            )}
+          />
+        </FieldRow>
+      )}
+    />
+  );
+}
+
 function SelectRow({ control, name, icon, label, options, rules }) {
   return (
     <Controller
@@ -201,7 +244,7 @@ function SelectRow({ control, name, icon, label, options, rules }) {
   );
 }
 
-export default function GenderProfileFields({ control }) {
+export default function GenderProfileFields({ control, cities = [] }) {
   const gender = useWatch({ control, name: "gender" });
   const working = useWatch({ control, name: "working" });
   const male = gender === "male";
@@ -279,7 +322,7 @@ export default function GenderProfileFields({ control }) {
                 )}
               />
             ) : null}
-            <TextRow control={control} name="city" icon="pin" label="עיר" />
+            <CityRow control={control} cities={cities} />
             <TextRow
               control={control}
               name="phone"

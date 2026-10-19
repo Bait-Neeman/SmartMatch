@@ -7,6 +7,7 @@ import { getImageFileError, getPdfFileError, IMAGE_ACCEPT } from "../utils/files
 import { brand } from "../theme/tokens.js";
 import { buildProfileFields } from "../utils/genderForms.js";
 import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
+import useInstitutionLists from "../hooks/useInstitutionLists.js";
 import { getSession, setOnboardingPath } from "../utils/session.js";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
 
@@ -198,6 +199,7 @@ function DropZone({ icon, title, detail, accept, onChange }) {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user } = getSession();
+  const { cities } = useInstitutionLists();
 
   const [apiError, setApiError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -438,7 +440,7 @@ export default function ProfilePage() {
             )}
 
             <Box sx={{ mt: 2.5 }}>
-              <GenderProfileFields control={control} />
+              <GenderProfileFields control={control} cities={cities} />
             </Box>
 
             <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>

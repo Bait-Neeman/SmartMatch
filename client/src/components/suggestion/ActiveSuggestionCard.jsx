@@ -5,7 +5,6 @@ import SuggestionRow from "./SuggestionRow.jsx";
 import SuggestionDetail from "./SuggestionDetail.jsx";
 import ResumeCard from "./ResumeCard.jsx";
 import { RevealedAvatar, RevealedPhoto } from "./RevealedMedia.jsx";
-import MatchRing from "../common/MatchRing.jsx";
 import { canForward, otherForwardedBanner } from "../../utils/activeSuggestionView.js";
 import { isFinalCase } from "../../utils/caseStatus.js";
 
@@ -115,7 +114,6 @@ export default function ActiveSuggestionCard({
       leading={<RevealedAvatar url={view.image} name={view.name} gender={view.gender} />}
       showStatus={view.kind !== "accepted"}
       statusPlacement="below"
-      percentNode={view.percent == null ? null : <MatchRing value={view.percent} size={64} caption="התאמה" />}
     />
   );
 }

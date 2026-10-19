@@ -13,6 +13,7 @@ const FILTERS = [
   ["workingInProfession", "מקצוע נלמד"],
   ["financialStatus", "מצב כלכלי"],
   ["financialDemand", "דרישה כספית"],
+  ["missing", "חסרים פרטים"],
 ];
 
 export const hiddenPreferenceSummary = (hidden) => {

@@ -35,7 +35,7 @@ export default function SuggestionRow({
           "@media (max-width:1280px)": percentNode ? undefined : { display: "none" },
         }}
       >
-        {percentNode || (view.percent == null ? "" : `${view.percent}%`)}
+        {percentNode || null}
       </Box>
     ) : null;
 

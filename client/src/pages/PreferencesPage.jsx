@@ -1,32 +1,30 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  FormControl,
-  MenuItem,
-  Select,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, TextField, Typography } from "@mui/material";
 import { brand } from "../theme/tokens.js";
 import { setOnboardingPath } from "../utils/session.js";
 import { createPreferences, getMyPreferences, updatePreferences } from "../services/preference.service.js";
 import { getMyProfile, updateProfile } from "../services/profile.service.js";
-import { appearanceOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
+import { appearanceOptions, ethnicityOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
 import useInstitutionLists from "../hooks/useInstitutionLists.js";
 import InstitutionChecklist from "../components/profile/InstitutionChecklist.jsx";
+import OptionChecklist from "../components/profile/OptionChecklist.jsx";
+import ExcludeIncomplete from "../components/profile/ExcludeIncomplete.jsx";
 import RangePair from "../components/profile/RangePair.jsx";
 import WorkFilters from "../components/profile/WorkFilters.jsx";
 import {
+  APPEARANCE_VALUES,
   asNameList,
+  asOptionList,
+  ETHNICITY_VALUES,
   institutionKey,
+  MARITAL_VALUES,
+  STYLE_VALUES,
   buildPreferenceFields,
   lookingForHelp,
   lookingForTitle,
+  NO_CITY_PREFERENCE,
   NO_OCCUPATION_PREFERENCE,
   NO_SEMINAR_PREFERENCE,
   NO_YESHIVA_PREFERENCE,
@@ -37,15 +35,17 @@ const empty = {
   ageMax: "",
   heightMin: "",
   heightMax: "",
-  city: "",
-  style: "",
-  preferredAppearance: "",
-  preferredMaritalStatus: "single",
+  city: [],
+  style: [],
+  preferredAppearance: [],
+  preferredMaritalStatus: ["single"],
+  preferredEthnicity: [],
   preferredYeshiva: [],
   preferredSeminar: [],
   preferredOccupation: [],
   onlyWorking: false,
   onlyWorkingInProfession: false,
+  excludeIncomplete: false,
   lookingFor: "",
 };
 
@@ -66,7 +66,7 @@ export default function PreferencesPage() {
   const [preferencesExist, setPreferencesExist] = useState(false);
   const [profileExists, setProfileExists] = useState(false);
   const [gender, setGender] = useState("");
-  const { yeshivas, seminars, professions, error: listError } = useInstitutionLists();
+  const { yeshivas, seminars, professions, cities, error: listError } = useInstitutionLists();
 
   const { control, handleSubmit, reset, setValue } = useForm({ defaultValues: empty });
 
@@ -91,12 +91,14 @@ export default function PreferencesPage() {
           if (preferences) {
             next.ageMin = preferences.ageMin ?? "";
             next.ageMax = preferences.ageMax ?? "";
-            next.city = preferences.city || "";
+            next.city = asNameList(preferences.city);
             next.heightMin = preferences.heightMin ?? "";
             next.heightMax = preferences.heightMax ?? "";
-            next.style = preferences.style || "";
-            next.preferredAppearance = preferences.preferredAppearance || "";
-            next.preferredMaritalStatus = preferences.preferredMaritalStatus || "";
+            next.style = asOptionList(preferences.style, STYLE_VALUES);
+            next.preferredAppearance = asOptionList(preferences.preferredAppearance, APPEARANCE_VALUES);
+            next.preferredMaritalStatus = asOptionList(preferences.preferredMaritalStatus, MARITAL_VALUES);
+            next.preferredEthnicity = asOptionList(preferences.preferredEthnicity, ETHNICITY_VALUES);
+            next.excludeIncomplete = preferences.excludeIncomplete === true;
             next.preferredYeshiva = asNameList(preferences.preferredYeshiva, institutionKey);
             next.preferredSeminar = asNameList(preferences.preferredSeminar, institutionKey);
             next.preferredOccupation = asNameList(preferences.preferredOccupation);
@@ -140,28 +142,6 @@ export default function PreferencesPage() {
       setIsSubmitting(false);
     }
   };
-
-  const selectField = (name, label, options) => (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field }) => (
-        <FormControl fullWidth>
-          <Typography component="label" sx={{ mb: 0.5, color: "text.secondary", fontSize: 14 }}>
-            {label}
-          </Typography>
-          <Select {...field} displayEmpty aria-label={label}>
-            <MenuItem value="">לא משנה</MenuItem>
-            {options.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-    />
-  );
 
   if (loading) {
     return (
@@ -244,13 +224,47 @@ export default function PreferencesPage() {
               />
             ) : null}
             {male ? <WorkFilters control={control} setValue={setValue} /> : null}
-            {selectField("preferredMaritalStatus", "סטטוס", maritalStatusOptions)}
-            {selectField("style", "סגנון", styleOptions)}
-            {selectField("preferredAppearance", "מראה חיצוני", appearanceOptions)}
+            <Controller
+              name="preferredMaritalStatus"
+              control={control}
+              render={({ field }) => (
+                <OptionChecklist label="סטטוס" options={maritalStatusOptions} value={field.value} onChange={field.onChange} />
+              )}
+            />
+            <Controller
+              name="style"
+              control={control}
+              render={({ field }) => (
+                <OptionChecklist label="סגנון" options={styleOptions} value={field.value} onChange={field.onChange} />
+              )}
+            />
+            <Controller
+              name="preferredAppearance"
+              control={control}
+              render={({ field }) => (
+                <OptionChecklist label="מראה חיצוני" options={appearanceOptions} value={field.value} onChange={field.onChange} />
+              )}
+            />
+            <Controller
+              name="preferredEthnicity"
+              control={control}
+              render={({ field }) => (
+                <OptionChecklist label="עדה" options={ethnicityOptions} value={field.value} onChange={field.onChange} />
+              )}
+            />
             <Controller
               name="city"
               control={control}
-              render={({ field }) => <TextField {...field} label="עיר" fullWidth />}
+              render={({ field }) => (
+                <InstitutionChecklist
+                  label="עיר"
+                  noneLabel={NO_CITY_PREFERENCE}
+                  options={cities}
+                  emptyHint="ערים חדשות יתווספו לרשימה אוטומטית"
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
             />
             {female ? (
               <Controller
@@ -268,6 +282,7 @@ export default function PreferencesPage() {
                 )}
               />
             ) : null}
+            <ExcludeIncomplete control={control} />
           </Box>
 
           {listError ? (

@@ -82,7 +82,7 @@ const revealedTitle = (person, name) => {
 
 // Returns null unless this row is a mutually approved stage. Name, photo,
 // and resume are copied only in that case, and only from the fields the server sends.
-// A phone number is never copied onto a user view.
+// A phone number is never copied, including after both sides forward.
 export const toActiveView = (person) => {
   if (!person || typeof person !== "object") return null;
   const stage = textOf(person.stage);

@@ -143,21 +143,30 @@ const toOwnerProfile = async (profile) => {
   return data;
 };
 
-// Present only when the profile form sent it. A save that omits the key
-// (for example a free-text update) leaves the stored number as it is.
-// An empty value is a required-field error, so an older account can still
-// be viewed and is asked for a number the next time this form is saved.
-const applyContactPhone = async (userId, body = {}) => {
-  if (!Object.prototype.hasOwnProperty.call(body, "phone")) return;
-  const raw = body.phone;
+const PHONE_REQUIRED = "טלפון נייד ליצירת קשר הוא שדה חובה";
+const PHONE_INVALID = "מספר הטלפון הנייד אינו תקין";
+
+const storeContactPhone = async (userId, raw) => {
   if (raw == null || (typeof raw === "string" && raw.trim() === "")) {
-    throw new HttpError(400, "טלפון נייד ליצירת קשר הוא שדה חובה");
+    throw new HttpError(400, PHONE_REQUIRED);
   }
   const phone = typeof raw === "string" ? normalizeIsraeliMobile(raw) : null;
   if (!phone) {
-    throw new HttpError(400, "מספר הטלפון הנייד אינו תקין");
+    throw new HttpError(400, PHONE_INVALID);
   }
   await User.updateOne({ _id: userId }, { $set: { phone } });
+};
+
+// A new profile cannot be saved without a mobile. The same 05XXXXXXXX rule
+// as a later edit. The number is stored on the account, not on the profile.
+const requireContactPhone = (userId, body = {}) => storeContactPhone(userId, body.phone);
+
+// Present only when the profile form sent it. A save that omits the key
+// (for example a free-text update) leaves the stored number as it is,
+// including an older account that still has none.
+const applyContactPhone = async (userId, body = {}) => {
+  if (!Object.prototype.hasOwnProperty.call(body, "phone")) return;
+  await storeContactPhone(userId, body.phone);
 };
 
 const deleteFiles = (fileIds) =>
@@ -214,7 +223,7 @@ const createProfileForUser = async (userId, body, files) => {
   clearWorkplaceUnlessWorking(profile);
   // Reject invalid data before uploading any file or writing preferences
   await profile.validate();
-  await applyContactPhone(userId, body);
+  await requireContactPhone(userId, body);
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 

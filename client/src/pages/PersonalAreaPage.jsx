@@ -6,11 +6,7 @@ import {
   Box,
   Button,
   CircularProgress,
-  FormControl,
-  FormHelperText,
-  MenuItem,
   Paper,
-  Select,
   Snackbar,
   Stack,
   TextField,
@@ -47,17 +43,25 @@ import { getSession } from "../utils/session.js";
 import { brand } from "../theme/tokens.js";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
 import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
+import ExcludeIncomplete from "../components/profile/ExcludeIncomplete.jsx";
 import InstitutionChecklist from "../components/profile/InstitutionChecklist.jsx";
+import OptionChecklist from "../components/profile/OptionChecklist.jsx";
 import RangePair from "../components/profile/RangePair.jsx";
 import WorkFilters from "../components/profile/WorkFilters.jsx";
 import useInstitutionLists from "../hooks/useInstitutionLists.js";
 import {
+  APPEARANCE_VALUES,
   asNameList,
+  asOptionList,
+  ETHNICITY_VALUES,
   institutionKey,
+  MARITAL_VALUES,
+  STYLE_VALUES,
   buildPreferenceFields,
   buildProfileFields,
   lookingForHelp,
   lookingForTitle,
+  NO_CITY_PREFERENCE,
   NO_OCCUPATION_PREFERENCE,
   NO_SEMINAR_PREFERENCE,
   NO_YESHIVA_PREFERENCE,
@@ -69,6 +73,15 @@ import StatusPill from "../components/common/StatusPill.jsx";
 const toText = (value) => {
   if (value === undefined || value === null) return "";
   return String(value);
+};
+
+const labelsOf = (options, value) => {
+  const selected = asOptionList(
+    value,
+    options.map((option) => option.value)
+  );
+  if (!selected.length) return "לא משנה";
+  return selected.map((code) => labelOf(options, code)).join(", ");
 };
 
 const appendIfNotEmpty = (formData, key, value) => {
@@ -129,29 +142,6 @@ const fieldRowSx = {
   columnGap: 1.25,
   rowGap: 0.5,
   alignItems: "center",
-};
-
-const lineFieldSx = {
-  "& .MuiInputBase-root": {
-    fontWeight: 600,
-    color: brand.navy,
-    fontSize: "15.5px",
-  },
-  "& .MuiInput-underline:before": {
-    borderBottomColor: brand.fieldLine,
-  },
-  "& .MuiInput-underline:hover:not(.Mui-disabled, .Mui-error):before": {
-    borderBottomColor: brand.gold,
-  },
-  "& .MuiInput-underline:after": {
-    borderBottomColor: brand.gold,
-  },
-  "& .MuiInputBase-input": {
-    padding: "6px 2px",
-  },
-  "& .MuiSelect-select": {
-    padding: "6px 2px",
-  },
 };
 
 const readValueSx = {
@@ -332,38 +322,6 @@ function ReadValue({ value, pill = false, tone = "neutral" }) {
         </Typography>
       )}
     </Box>
-  );
-}
-
-function LineText({ field, label, error, helperText, ...rest }) {
-  return (
-    <TextField
-      {...field}
-      {...rest}
-      variant="standard"
-      fullWidth
-      hiddenLabel
-      error={Boolean(error)}
-      helperText={error?.message || helperText}
-      slotProps={{ htmlInput: { "aria-label": label } }}
-      sx={lineFieldSx}
-    />
-  );
-}
-
-function SelectField({ field, label, options, error, required = false, emptyLabel = "לא נבחר" }) {
-  return (
-    <FormControl fullWidth required={required} error={Boolean(error)} variant="standard" sx={lineFieldSx}>
-      <Select {...field} displayEmpty slotProps={{ input: { "aria-label": label } }}>
-        {!required && <MenuItem value="">{emptyLabel}</MenuItem>}
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </Select>
-      {error && <FormHelperText>{error.message}</FormHelperText>}
-    </FormControl>
   );
 }
 
@@ -646,6 +604,7 @@ function ProfileSummary({ profile }) {
 
 function ProfileForm({
   control,
+  cities,
   onSubmit,
   submitting,
   formError,
@@ -659,7 +618,7 @@ function ProfileForm({
 }) {
   return (
     <Box component="form" onSubmit={onSubmit} noValidate>
-      <GenderProfileFields control={control} />
+      <GenderProfileFields control={control} cities={cities} />
 
             <ResumeBlock
         resumeUrl={resumeUrl}
@@ -690,6 +649,7 @@ function PreferencesSummary({ preferences, profile }) {
   const male = profile?.gender === "male";
   const names = asNameList(female ? preferences?.preferredYeshiva : preferences?.preferredSeminar, institutionKey);
   const occupations = asNameList(preferences?.preferredOccupation);
+  const cities = asNameList(preferences?.city);
   const schoolLabel = female ? "ישיבה" : "סמינר";
   const noneLabel = female ? NO_YESHIVA_PREFERENCE : NO_SEMINAR_PREFERENCE;
   const title = lookingForTitle(profile?.gender);
@@ -724,16 +684,22 @@ function PreferencesSummary({ preferences, profile }) {
           </FieldRow>
         ) : null}
         <FieldRow icon="user" label="סטטוס">
-          <ReadValue value={labelOf(maritalStatusOptions, preferences?.preferredMaritalStatus) || "לא משנה"} />
+          <ReadValue value={labelsOf(maritalStatusOptions, preferences?.preferredMaritalStatus)} />
         </FieldRow>
         <FieldRow icon="sliders" label="סגנון">
-          <ReadValue value={labelOf(styleOptions, preferences?.style) || "לא משנה"} pill tone="pending" />
+          <ReadValue value={labelsOf(styleOptions, preferences?.style)} pill tone="pending" />
         </FieldRow>
         <FieldRow icon="spark" label="מראה חיצוני">
-          <ReadValue value={labelOf(appearanceOptions, preferences?.preferredAppearance) || "לא משנה"} pill />
+          <ReadValue value={labelsOf(appearanceOptions, preferences?.preferredAppearance)} pill />
+        </FieldRow>
+        <FieldRow icon="star" label="עדה">
+          <ReadValue value={labelsOf(ethnicityOptions, preferences?.preferredEthnicity)} pill tone="pending" />
         </FieldRow>
         <FieldRow icon="pin" label="עיר">
-          <ReadValue value={preferences?.city} />
+          <ReadValue value={cities.length ? cities.join(", ") : NO_CITY_PREFERENCE} />
+        </FieldRow>
+        <FieldRow icon="sliders" label="הצעות בלי פרטים">
+          <ReadValue value={preferences?.excludeIncomplete === true ? "לא יוצגו" : "מוצגות"} />
         </FieldRow>
         {female ? (
           <FieldRow icon="school" label={schoolLabel}>
@@ -758,6 +724,7 @@ function PreferencesForm({
   yeshivas,
   seminars,
   professions,
+  cities,
   listError,
   onSubmit,
   submitting,
@@ -833,36 +800,52 @@ function PreferencesForm({
           name="preferredMaritalStatus"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="user" label="סטטוס">
-              <SelectField field={field} label="סטטוס" options={maritalStatusOptions} emptyLabel="לא משנה" />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="סטטוס" options={maritalStatusOptions} value={field.value} onChange={field.onChange} />
+            </Box>
           )}
         />
         <Controller
           name="style"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="sliders" label="סגנון">
-              <SelectField field={field} label="סגנון" options={styleOptions} emptyLabel="לא משנה" />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="סגנון" options={styleOptions} value={field.value} onChange={field.onChange} />
+            </Box>
           )}
         />
         <Controller
           name="preferredAppearance"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="spark" label="מראה חיצוני">
-              <SelectField field={field} label="מראה חיצוני" options={appearanceOptions} emptyLabel="לא משנה" />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="מראה חיצוני" options={appearanceOptions} value={field.value} onChange={field.onChange} />
+            </Box>
+          )}
+        />
+        <Controller
+          name="preferredEthnicity"
+          control={control}
+          render={({ field }) => (
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="עדה" options={ethnicityOptions} value={field.value} onChange={field.onChange} />
+            </Box>
           )}
         />
         <Controller
           name="city"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="pin" label="עיר">
-              <LineText field={field} label="עיר" />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <InstitutionChecklist
+                label="עיר"
+                noneLabel={NO_CITY_PREFERENCE}
+                options={cities}
+                emptyHint="ערים חדשות יתווספו לרשימה אוטומטית"
+                value={field.value}
+                onChange={field.onChange}
+              />
+            </Box>
           )}
         />
         {female ? (
@@ -883,6 +866,9 @@ function PreferencesForm({
             )}
           />
         ) : null}
+        <Box component="li" sx={{ display: "block" }}>
+          <ExcludeIncomplete control={control} />
+        </Box>
       </Box>
       <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
         <BlockTitle>{title}</BlockTitle>
@@ -930,7 +916,7 @@ export default function PersonalAreaPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { token, user, isAdmin } = getSession();
-  const { yeshivas, seminars, professions, error: listError } = useInstitutionLists();
+  const { yeshivas, seminars, professions, cities, error: listError } = useInstitutionLists();
   const canLoadData = !isAdmin && Boolean(token);
 
   const [profileExists, setProfileExists] = useState(false);
@@ -999,15 +985,16 @@ export default function PersonalAreaPage() {
     defaultValues: {
       ageMin: "",
       ageMax: "",
-      city: "",
+      city: [],
       heightMin: "",
       heightMax: "",
-      style: "",
-      preferredAppearance: "",
+      style: [],
+      preferredAppearance: [],
       financialMin: "",
       financialMax: "",
-      preferredMaritalStatus: "",
-      preferredEthnicity: "",
+      preferredMaritalStatus: ["single"],
+      preferredEthnicity: [],
+      excludeIncomplete: false,
       preferredYeshiva: [],
       preferredSeminar: [],
       preferredOccupation: [],
@@ -1057,15 +1044,16 @@ export default function PersonalAreaPage() {
       resetPreferences({
         ageMin: toText(preferences?.ageMin),
         ageMax: toText(preferences?.ageMax),
-        city: preferences?.city || "",
+        city: asNameList(preferences?.city),
         heightMin: toText(preferences?.heightMin),
         heightMax: toText(preferences?.heightMax),
-        style: preferences?.style || "",
-        preferredAppearance: preferences?.preferredAppearance || "",
+        style: asOptionList(preferences?.style, STYLE_VALUES),
+        preferredAppearance: asOptionList(preferences?.preferredAppearance, APPEARANCE_VALUES),
         financialMin: toText(preferences?.financialMin),
         financialMax: toText(preferences?.financialMax),
-        preferredMaritalStatus: preferences ? preferences.preferredMaritalStatus || "" : "single",
-        preferredEthnicity: preferences?.preferredEthnicity || "",
+        preferredMaritalStatus: preferences ? asOptionList(preferences.preferredMaritalStatus, MARITAL_VALUES) : ["single"],
+        preferredEthnicity: asOptionList(preferences?.preferredEthnicity, ETHNICITY_VALUES),
+        excludeIncomplete: preferences?.excludeIncomplete === true,
         preferredYeshiva: asNameList(preferences?.preferredYeshiva, institutionKey),
         preferredSeminar: asNameList(preferences?.preferredSeminar, institutionKey),
         preferredOccupation: asNameList(preferences?.preferredOccupation),
@@ -1428,6 +1416,7 @@ export default function PersonalAreaPage() {
             {editingProfile ? (
               <ProfileForm
                 control={profileControl}
+                cities={cities}
                 onSubmit={handleProfileSubmit(onSaveProfile)}
                 submitting={submitting}
                 formError={formError}
@@ -1487,6 +1476,7 @@ export default function PersonalAreaPage() {
             yeshivas={yeshivas}
             seminars={seminars}
             professions={professions}
+            cities={cities}
             listError={listError}
             profileExists={profileExists}
             onSubmit={handlePreferencesSubmit(onSavePreferences)}

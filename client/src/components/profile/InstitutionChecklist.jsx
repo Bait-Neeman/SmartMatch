@@ -9,7 +9,15 @@ const checkboxSx = {
 
 // Scrollable list. The first row means no filter. Picking a name clears it,
 // and picking it again clears every name.
-export default function InstitutionChecklist({ label, noneLabel, options = [], value, onChange, institutions = false }) {
+export default function InstitutionChecklist({
+  label,
+  noneLabel,
+  options = [],
+  value,
+  onChange,
+  institutions = false,
+  emptyHint = "הרשימה תתעדכן כשנוסיף מוסדות.",
+}) {
   const keyOf = institutions ? institutionKey : normaliseInstitution;
   const selected = asNameList(value, keyOf);
   const none = selected.length === 0;
@@ -62,7 +70,7 @@ export default function InstitutionChecklist({ label, noneLabel, options = [], v
         })}
       </Box>
       {rows.length === 0 ? (
-        <FormHelperText>הרשימה תתעדכן כשנוסיף מוסדות.</FormHelperText>
+        <FormHelperText>{emptyHint}</FormHelperText>
       ) : null}
     </Box>
   );
