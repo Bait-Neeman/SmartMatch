@@ -2,6 +2,7 @@ import { Box, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { LockOutlined } from "@mui/icons-material";
 import { brand } from "../../theme/tokens.js";
+import PersonAvatar from "../common/PersonAvatar.jsx";
 
 function LockBadge({ size }) {
   return (
@@ -24,7 +25,7 @@ function LockBadge({ size }) {
 }
 
 // Neutral lock placeholder. Never an image, never a question mark.
-export function LockedAvatar({ size = 56 }) {
+export function LockedAvatar({ size = 56, gender }) {
   return (
     <Box
       aria-hidden
@@ -41,12 +42,15 @@ export function LockedAvatar({ size = 56 }) {
         overflow: "hidden",
       }}
     >
-      <LockBadge size={size < 80 ? 30 : 52} />
+      <PersonAvatar gender={gender} size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
+      <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+        <LockBadge size={size < 80 ? 30 : 52} />
+      </Box>
     </Box>
   );
 }
 
-export function LockedPhoto() {
+export function LockedPhoto({ gender }) {
   return (
     <Box
       aria-label="התמונה והשם מוסתרים"
@@ -59,6 +63,7 @@ export function LockedPhoto() {
         color: brand.paper,
       }}
     >
+      <PersonAvatar gender={gender} size="100%" sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: 0 }} />
       <Box
         sx={{
           position: "absolute",

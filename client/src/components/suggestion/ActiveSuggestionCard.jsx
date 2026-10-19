@@ -84,7 +84,7 @@ export default function ActiveSuggestionCard({
         actions={actions}
         error={error}
         onBack={onOpen}
-        photo={<RevealedPhoto url={view.image} name={view.name} />}
+        photo={<RevealedPhoto url={view.image} name={view.name} gender={view.gender} />}
         notice={null}
         bannerText={otherForwardedBanner(view)}
         afterText={
@@ -108,7 +108,7 @@ export default function ActiveSuggestionCard({
       actions={actions}
       error={error}
       onOpen={onOpen}
-      leading={<RevealedAvatar url={view.image} name={view.name} />}
+      leading={<RevealedAvatar url={view.image} name={view.name} gender={view.gender} />}
       showStatus={view.kind !== "accepted"}
       statusPlacement="below"
       percentNode={view.percent == null ? null : <MatchRing value={view.percent} size={64} caption="התאמה" />}

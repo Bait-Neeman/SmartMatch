@@ -228,6 +228,7 @@ export const toSuggestionView = (person, kind = "new", extra) => {
     description,
     lookingFor,
     lookingForHeading: lookingForHeading(source.gender),
+    gender: source.gender === "male" || source.gender === "female" ? source.gender : "",
     percent: readPercent(source, extra),
     fields,
   };

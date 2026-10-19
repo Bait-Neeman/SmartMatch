@@ -28,7 +28,10 @@ const EDITABLE_FIELDS = {
   maritalStatus: "סטטוס משפחתי",
   yeshiva: "ישיבה",
   seminar: "סמינר",
-  occupation: "עיסוק",
+  occupation: "מקצוע",
+  working: "עבודה",
+  workingInProfession: "עובדת במקצוע שלמדתי",
+  workplace: "מקום עבודה",
   // financialRequirement is the older free-text דרישה כספית.
   // financialDemand / financialParticipation are the numeric pair used by matching.
   financialRequirement: "דרישה כספית",
@@ -38,6 +41,13 @@ const EDITABLE_FIELDS = {
   financialParticipation: "השתתפות כספית",
 };
 const NUMBER_FIELDS = new Set(["age", "height", "financialStatus", "financialDemand", "financialParticipation"]);
+const BOOLEAN_FIELDS = new Set(["working", "workingInProfession"]);
+
+const parseWorking = (value) => {
+  if (value === true || value === "true" || value === "1" || value === 1) return true;
+  if (value === false || value === "false" || value === "0" || value === 0) return false;
+  return null;
+};
 const NON_NEGATIVE_FIELDS = new Set(["financialDemand", "financialParticipation"]);
 const MONEY_MAX = 100000000;
 const REQUIRED_FIELDS = ["gender", "age"];
@@ -63,6 +73,15 @@ const pickProfileFields = (body = {}) => {
       continue;
     }
 
+    if (BOOLEAN_FIELDS.has(field)) {
+      const parsed = parseWorking(value);
+      if (parsed == null) {
+        throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+      }
+      values[field] = parsed;
+      continue;
+    }
+
     if (NUMBER_FIELDS.has(field)) {
       value = typeof value === "string" ? Number(value) : value;
       if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -83,6 +102,14 @@ const pickProfileFields = (body = {}) => {
   }
 
   return { values, cleared };
+};
+
+// A workplace and "עובדת במקצוע שלמדתי" are kept only while "עובדת" is checked.
+const clearWorkplaceUnlessWorking = (profile) => {
+  if (profile.working !== true) {
+    profile.set("workplace", undefined);
+    profile.set("workingInProfession", undefined);
+  }
 };
 
 // Stored file IDs are replaced by signed URLs - or by null when the viewer may not see the files.
@@ -162,6 +189,7 @@ const createProfileForUser = async (userId, body, files) => {
   }
 
   const profile = new Profile({ ...pickProfileFields(body).values, user: userId });
+  clearWorkplaceUnlessWorking(profile);
   // Reject invalid data before uploading any file or writing preferences
   await profile.validate();
   await applyProfilePreference(userId, body);
@@ -196,6 +224,7 @@ const updateProfileByUserId = async (userId, body, files) => {
   for (const field of cleared) {
     profile.set(field, undefined);
   }
+  clearWorkplaceUnlessWorking(profile);
 
   // Only the changed fields are validated, so older profiles can still be edited
   await profile.validate(undefined, { validateModifiedOnly: true });

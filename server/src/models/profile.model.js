@@ -26,9 +26,15 @@ const profileSchema = new mongoose.Schema(
     lookingFor: textField(1000, "מה אני מחפש"),
     maritalStatus: choiceField(MARITAL_STATUSES, "סטטוס משפחתי"),
 
-    occupation: textField(100, "עיסוק"),
+    occupation: textField(100, "מקצוע"),
 
-    // Learning institution (מוסד). Either side may set either field.
+    // Female profile: checkbox "עובדת", and where she works when it is checked.
+    // workingInProfession is "עובדת במקצוע שלמדתי". It is stored only while she is working.
+    working: { type: Boolean },
+    workingInProfession: { type: Boolean },
+    workplace: textField(100, "מקום עבודה"),
+
+    // Learning institution (מוסד). The profile form shows yeshiva for men and seminar for women.
     yeshiva: textField(100, "ישיבה"),
     seminar: textField(100, "סמינר"),
 

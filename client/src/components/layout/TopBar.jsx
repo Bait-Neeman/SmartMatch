@@ -120,7 +120,7 @@ const rowSx = {
   "&:hover": { bgcolor: brand.navyWash },
 };
 
-export default function TopBar({ isAdmin = false, name = "", searchSlot = null }) {
+export default function TopBar({ isAdmin = false, name = "", gender = "", searchSlot = null }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const searchId = useId();
@@ -448,7 +448,7 @@ export default function TopBar({ isAdmin = false, name = "", searchSlot = null }
           flex: "none",
         }}
       >
-        <PersonAvatar size={32} />
+        <PersonAvatar size={32} gender={gender} />
         {name && (
           <Box component="b" sx={{ fontWeight: 600, "@media (max-width:1060px)": { display: "none" } }}>
             {name}

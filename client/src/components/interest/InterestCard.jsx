@@ -165,7 +165,7 @@ const InterestCard = ({
       <CardContent
         sx={{ p: 3, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
       >
-        <PersonAvatar size={64} locked={interest?.status !== "accepted"} />
+        <PersonAvatar size={64} gender={otherUser?.gender} locked={interest?.status !== "accepted"} />
 
         <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
           {displayName(otherUser?.name)}

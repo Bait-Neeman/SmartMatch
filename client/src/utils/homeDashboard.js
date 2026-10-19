@@ -130,6 +130,7 @@ export const toHomeCard = (person) => {
   return {
     title: anonymousTitle(person) || view.title,
     city: view.city,
+    gender: view.gender,
     percent: readPercent(person),
     lines,
   };
