@@ -28,6 +28,7 @@ import {
   Settings,
 } from "@mui/icons-material";
 import { getSession, logout } from "../../utils/session.js";
+import useMyGender from "../../hooks/useMyGender.js";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
 import TopBar from "./TopBar.jsx";
@@ -85,7 +86,7 @@ const navItemSx = {
   },
 };
 
-function SideNav({ links, onNavigate, identity, logoutLabel = "התנתקות" }) {
+function SideNav({ links, onNavigate, identity, gender, logoutLabel = "התנתקות" }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: brand.navy, px: "12px", py: "18px" }}>
       <Box sx={{ px: "4px", pt: "8px", pb: "4px", mb: "8px" }}>
@@ -104,7 +105,7 @@ function SideNav({ links, onNavigate, identity, logoutLabel = "התנתקות" }
             borderBottom: `1px solid ${brand.whiteLine}`,
           }}
         >
-          <PersonAvatar size={36} />
+          <PersonAvatar size={36} gender={gender} />
           <Box sx={{ minWidth: 0 }}>
             <Typography noWrap sx={{ color: brand.paper, fontWeight: 600, fontSize: 15, lineHeight: 1.2 }}>
               {identity.name}
@@ -141,6 +142,7 @@ export default function AppLayout() {
   const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, isAdmin } = getSession();
+  const gender = useMyGender();
   const links = isAdmin ? ADMIN_LINKS : USER_LINKS;
   const identity = isAdmin ? { name: user?.name || "מנהל", subtitle: "שדכן · מנהל מערכת" } : null;
   const logoutLabel = isAdmin ? "יציאה" : "התנתקות";
@@ -166,7 +168,7 @@ export default function AppLayout() {
             borderInlineEnd: `1px solid ${brand.navyEdge}`,
           }}
         >
-          <SideNav links={links} identity={identity} logoutLabel={logoutLabel} />
+          <SideNav links={links} identity={identity} gender={gender} logoutLabel={logoutLabel} />
         </Box>
       )}
 
@@ -197,6 +199,7 @@ export default function AppLayout() {
             <TopBar
               isAdmin={isAdmin}
               name={user?.name || ""}
+              gender={gender}
               searchSlot={isAdmin ? <AdminSearch /> : null}
             />
             {isCompact && (
@@ -221,7 +224,7 @@ export default function AppLayout() {
             },
           }}
         >
-          <SideNav links={links} identity={identity} logoutLabel={logoutLabel} onNavigate={() => setMenuOpen(false)} />
+          <SideNav links={links} identity={identity} gender={gender} logoutLabel={logoutLabel} onNavigate={() => setMenuOpen(false)} />
         </Drawer>
 
         <Box

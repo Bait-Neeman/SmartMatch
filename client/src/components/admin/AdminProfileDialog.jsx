@@ -37,6 +37,10 @@ const Row = ({ label, value }) => {
   );
 };
 
+const yesNo = (value) => (value === true ? "כן" : value === false ? "לא" : "");
+
+const nameList = (value) => (Array.isArray(value) ? value.filter(Boolean).join(", ") : value || "");
+
 const range = (min, max, unit = "") => {
   if (min == null && max == null) return "";
   const suffix = unit ? ` ${unit}` : "";
@@ -149,7 +153,10 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
               <Row label="מראה" value={labelOf(appearanceOptions, profile?.appearance)} />
               <Row label="סטטוס משפחתי" value={labelOf(maritalStatusOptions, profile?.maritalStatus)} />
               <Row label="מוסד" value={school} />
-              <Row label="עיסוק" value={profile?.occupation} />
+              <Row label="מקצוע" value={profile?.occupation} />
+              <Row label="עובדת" value={yesNo(profile?.working)} />
+              <Row label="עובדת במקצוע שלמדה" value={yesNo(profile?.workingInProfession)} />
+              <Row label="מקום עבודה" value={profile?.workplace} />
               <Row label="מה מחפש/ת" value={profile?.lookingFor} />
               <Row label="דרישה כספית" value={profile?.financialRequirement} />
               <Row label="יכולת כספית" value={profile?.financialCapabilities} />
@@ -169,6 +176,11 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
               <Row label="סגנון" value={labelOf(styleOptions, preference?.style)} />
               <Row label="מראה" value={labelOf(appearanceOptions, preference?.preferredAppearance)} />
               <Row label="סטטוס משפחתי" value={labelOf(maritalStatusOptions, preference?.preferredMaritalStatus)} />
+              <Row label="ישיבה" value={nameList(preference?.preferredYeshiva)} />
+              <Row label="סמינר" value={nameList(preference?.preferredSeminar)} />
+              <Row label="מקצוע" value={nameList(preference?.preferredOccupation)} />
+              <Row label="רק בחורה עובדת" value={yesNo(preference?.onlyWorking)} />
+              <Row label="רק במקצוע שלמדה" value={yesNo(preference?.onlyWorkingInProfession)} />
               <Row label="מדד כספי" value={range(preference?.financialMin, preference?.financialMax)} />
             </Box>
 

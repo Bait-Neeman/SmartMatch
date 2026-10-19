@@ -3,9 +3,10 @@ import { brand } from "../../theme/tokens.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import ProtectedImage from "../common/ProtectedFile.jsx";
 
-function Illustration({ rounded = false }) {
+function Illustration({ rounded = false, gender }) {
   return (
     <PersonAvatar
+      gender={gender}
       size="100%"
       sx={{
         width: "100%",
@@ -20,7 +21,7 @@ function Illustration({ rounded = false }) {
 
 // Photo for a match the server already marked as accepted. The file is loaded
 // through the protected-file helper. Until it loads, the approved illustration shows.
-export function RevealedAvatar({ url, name }) {
+export function RevealedAvatar({ url, name, gender }) {
   return (
     <Box
       aria-hidden={!name}
@@ -34,7 +35,7 @@ export function RevealedAvatar({ url, name }) {
         bgcolor: brand.avatar,
       }}
     >
-      <Illustration rounded />
+      <Illustration rounded gender={gender} />
       {url ? (
         <ProtectedImage
           url={url}
@@ -46,7 +47,7 @@ export function RevealedAvatar({ url, name }) {
   );
 }
 
-export function RevealedPhoto({ url, name }) {
+export function RevealedPhoto({ url, name, gender }) {
   return (
     <Box
       sx={{
@@ -57,7 +58,7 @@ export function RevealedPhoto({ url, name }) {
         bgcolor: brand.avatar,
       }}
     >
-      <Illustration />
+      <Illustration gender={gender} />
       {url ? (
         <ProtectedImage
           url={url}

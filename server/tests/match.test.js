@@ -11,6 +11,7 @@ const app = require("../app");
 const { generateToken } = require("../src/config/jwt");
 const { computeMatchPercent } = require("../src/services/match.service");
 const Profile = require("../src/models/profile.model");
+const Preference = require("../src/models/preference.model");
 const User = require("../src/models/user.model");
 
 const PASSWORD = "Password1";
@@ -24,8 +25,12 @@ const HIDDEN_KEYS = [
   "maritalStatus",
   "ethnicity",
   "institution",
+  "profession",
+  "working",
+  "workingInProfession",
   "financialStatus",
   "financialDemand",
+  "missing",
 ];
 
 const traits = {
@@ -52,13 +57,29 @@ const baseProfile = (overrides) => ({
 
 const idsOf = (body) => body.candidates.map((card) => String(card._id));
 
-const assertSorted = (candidates) => {
-  for (let index = 1; index < candidates.length; index += 1) {
-    const previous = candidates[index - 1].matchPercent;
-    const current = candidates[index].matchPercent;
+const scoreBetween = async (viewerId, candidateId) => {
+  const [viewerProfile, viewerPreference, profile, preference] = await Promise.all([
+    Profile.findOne({ user: viewerId }).lean(),
+    Preference.findOne({ user: viewerId }).lean(),
+    Profile.findOne({ user: candidateId }).lean(),
+    Preference.findOne({ user: candidateId }).lean(),
+  ]);
+  return computeMatchPercent(viewerProfile, viewerPreference, profile, preference);
+};
+
+const assertSorted = async (viewer, candidates) => {
+  const scores = [];
+  for (const card of candidates) scores.push(await scoreBetween(viewer._id, card._id));
+  for (let index = 1; index < scores.length; index += 1) {
+    const previous = scores[index - 1];
+    const current = scores[index];
     if (previous == null) assert.equal(current, null);
     else if (current != null) assert.ok(previous >= current);
   }
+};
+
+const assertNoMatchPercent = (body) => {
+  assert.equal(JSON.stringify(body).includes("matchPercent"), false);
 };
 
 const assertCountsOnly = (hidden, secrets) => {
@@ -198,6 +219,32 @@ describe("match percent formula", () => {
     assert.equal(typeof forward, "number");
     assert.equal(forward, backward);
   });
+
+  it("scores a selected institution and skips a blank one", () => {
+    const selected = { preferredYeshiva: ["חברון", "מיר"] };
+    assert.equal(computeMatchPercent({}, selected, { yeshiva: "מיר" }, {}), 100);
+    assert.equal(computeMatchPercent({}, selected, { yeshiva: "פוניבז" }, {}), 0);
+    assert.equal(computeMatchPercent({}, selected, {}, {}), null);
+    assert.equal(computeMatchPercent({}, {}, { yeshiva: "פוניבז" }, {}), null);
+    assert.equal(computeMatchPercent({}, { preferredSeminar: "אור-החיים" }, { seminar: "אור החיים" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { preferredYeshiva: ["חברון"] }, { yeshiva: "ישיבת חברון" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { preferredSeminar: ["אור החיים"] }, { seminar: "סמינר אור החיים" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { preferredYeshiva: ["אין העדפת ישיבה"] }, { yeshiva: "פוניבז" }, {}), null);
+    assert.equal(computeMatchPercent({}, { preferredOccupation: ["הוראה"] }, { occupation: "הוראה" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { preferredOccupation: ["הוראה"] }, { occupation: "סיעוד" }, {}), 0);
+    assert.equal(computeMatchPercent({}, { preferredOccupation: ["הוראה"] }, {}, {}), null);
+    assert.equal(computeMatchPercent({}, { preferredOccupation: ["אין העדפת מקצוע"] }, { occupation: "סיעוד" }, {}), null);
+    assert.equal(computeMatchPercent({}, { onlyWorking: true }, { working: true }, {}), 100);
+    assert.equal(computeMatchPercent({}, { onlyWorking: true }, {}, {}), 0);
+    assert.equal(computeMatchPercent({}, { onlyWorkingInProfession: true }, { working: true, workingInProfession: true }, {}), 100);
+    assert.equal(computeMatchPercent({}, { onlyWorkingInProfession: true }, { working: true }, {}), 50);
+    assert.equal(computeMatchPercent({ style: "classic" }, { style: ["modern", "open"] }, { style: "conservative" }, {}), 0);
+    assert.equal(computeMatchPercent({ style: "classic" }, { style: "open" }, { style: "open" }, {}), 100);
+    assert.equal(computeMatchPercent({}, { style: ["modern"] }, {}, {}), null);
+    assert.equal(computeMatchPercent({ city: "תל אביב" }, { city: ["תל-אביב"] }, { city: "חיפה" }, {}), 0);
+    assert.equal(computeMatchPercent({ city: "חיפה" }, { city: "תל אביב" }, { city: "תל-אביב" }, {}), 100);
+    assert.equal(computeMatchPercent({}, {}, { working: true, workingInProfession: true }, {}), null);
+  });
 });
 
 describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
@@ -279,16 +326,16 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(ids.includes(String(wrongCity._id)), false);
 
     const agelessCard = response.body.candidates.find((card) => String(card._id) === String(ageless._id));
-    assert.equal(agelessCard.matchPercent, null);
+    assert.equal(await scoreBetween(viewer._id, ageless._id), null);
+    assert.equal(Object.hasOwn(agelessCard, "matchPercent"), false);
     assert.equal(agelessCard.name, undefined);
     assert.equal(agelessCard.email, undefined);
     assert.equal(agelessCard.phone, undefined);
-    assertSorted(response.body.candidates);
+    await assertSorted(viewer, response.body.candidates);
     assert.equal(String(response.body.candidates.at(-1)._id), String(ageless._id));
 
-    const readyCard = response.body.candidates.find((card) => String(card._id) === String(ready._id));
-    const blankCard = response.body.candidates.find((card) => String(card._id) === String(blankCity._id));
-    assert.ok(readyCard.matchPercent > blankCard.matchPercent);
+    assert.ok((await scoreBetween(viewer._id, ready._id)) > (await scoreBetween(viewer._id, blankCity._id)));
+    assertNoMatchPercent(response.body);
 
     assert.equal(response.body.hiddenByPreference.total, 2);
     assert.equal(response.body.hiddenByPreference.age, 1);
@@ -300,6 +347,9 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(suggestions.status, 200);
     assert.equal(suggestions.body.newSuggestions.length, response.body.candidates.length);
     assert.deepEqual(suggestions.body.hiddenByPreference, response.body.hiddenByPreference);
+    for (const card of suggestions.body.newSuggestions) {
+      assert.equal(Object.hasOwn(card, "matchPercent"), false);
+    }
 
     await User.updateOne({ _id: viewer._id }, { minMatchPercent: 50 });
     const floored = await listed(viewer);
@@ -381,14 +431,13 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
       assert.equal(ids.includes(String(user._id)), false, user.name);
     }
 
-    const fitCard = response.body.candidates.find((card) => String(card._id) === String(fits._id));
-    const textCard = response.body.candidates.find((card) => String(card._id) === String(sameText._id));
-    assert.equal(fitCard.matchPercent, textCard.matchPercent);
+    assert.equal(await scoreBetween(viewer._id, fits._id), await scoreBetween(viewer._id, sameText._id));
+    assertNoMatchPercent(response.body);
     assert.equal(response.body.hiddenByPreference.financialDemand, 2);
     assert.equal(response.body.hiddenByPreference.financialStatus, 2);
     assert.equal(response.body.hiddenByPreference.total, 3);
     assertCountsOnly(response.body.hiddenByPreference, ["SECRET-LOW-PART", "SECRET-BOTH-LOW"]);
-    assertSorted(response.body.candidates);
+    await assertSorted(viewer, response.body.candidates);
   });
 
   it("filters institution and community only when the preference and the value are both set", async () => {
@@ -415,8 +464,9 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
       preferredSeminar: "אור-החיים",
     });
     assert.equal(saved.status, 201, JSON.stringify(saved.body));
-    assert.equal(saved.body.preferences.preferredEthnicity, "sephardic");
-    assert.equal(saved.body.preferences.preferredYeshiva, "חברון");
+    assert.deepEqual(saved.body.preferences.preferredEthnicity, ["sephardic"]);
+    assert.deepEqual(saved.body.preferences.preferredYeshiva, ["חברון"]);
+    assert.deepEqual(saved.body.preferences.preferredSeminar, ["אור-החיים"]);
 
     const invalid = await request(app)
       .put("/api/preference")
@@ -446,7 +496,9 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     const rightSees = await listed(right);
     assert.deepEqual(idsOf(leftSees.body), [String(right._id)]);
     assert.deepEqual(idsOf(rightSees.body), [String(left._id)]);
-    assert.equal(leftSees.body.candidates[0].matchPercent, rightSees.body.candidates[0].matchPercent);
+    assert.equal(await scoreBetween(left._id, right._id), await scoreBetween(right._id, left._id));
+    assertNoMatchPercent(leftSees.body);
+    assertNoMatchPercent(rightSees.body);
     assert.equal(leftSees.body.hiddenByPreference.total, 0);
 
     await request(app).post("/api/preference").set(auth(tokenFor(left))).send({ ageMin: 40, ageMax: 50 });
@@ -467,5 +519,371 @@ describe("candidate matching", { concurrency: 1, timeout: 180000 }, () => {
     assert.deepEqual(idsOf(rightUnknown.body), [String(left._id)]);
     assert.equal(leftUnknown.body.hiddenByPreference.total, 0);
     assert.equal(leftUnknown.body.candidates[0].name, undefined);
+  });
+
+  it("filters by a multi-select institution list and still reads a single stored name", async () => {
+    const viewer = await createUser({ n: 551, name: "SECRET-MULTI" });
+    const hebron = await createUser({ n: 552, name: "SECRET-HEBRON" });
+    const mir = await createUser({ n: 553, name: "SECRET-MIR" });
+    const other = await createUser({ n: 554, name: "SECRET-OTHER-YESHIVA" });
+    const blank = await createUser({ n: 555, name: "SECRET-BLANK-YESHIVA" });
+    const man = await createUser({ n: 561, name: "SECRET-MAN" });
+    const seminarMatch = await createUser({ n: 562, name: "SECRET-SEMINAR-MATCH" });
+    const seminarOther = await createUser({ n: 563, name: "SECRET-SEMINAR-OTHER" });
+    const seminarBlank = await createUser({ n: 564, name: "SECRET-SEMINAR-BLANK" });
+
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female" }) },
+      { user: hebron._id, ...baseProfile({ gender: "male", yeshiva: "חברון" }) },
+      { user: mir._id, ...baseProfile({ gender: "male", yeshiva: "מיר" }) },
+      { user: other._id, ...baseProfile({ gender: "male", yeshiva: "פוניבז'" }) },
+      { user: blank._id, ...baseProfile({ gender: "male" }) },
+      { user: man._id, ...baseProfile({ gender: "male" }) },
+      { user: seminarMatch._id, ...baseProfile({ gender: "female", seminar: "אור-החיים" }) },
+      { user: seminarOther._id, ...baseProfile({ gender: "female", seminar: "נעם" }) },
+      { user: seminarBlank._id, ...baseProfile({ gender: "female" }) },
+    ]);
+    await Profile.updateOne({ user: blank._id }, { $unset: { yeshiva: 1 } });
+    await Profile.updateOne({ user: seminarBlank._id }, { $unset: { seminar: 1 } });
+
+    const saved = await request(app)
+      .post("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({ preferredYeshiva: ["חברון", " מיר ", "חברון", "אין העדפת ישיבה"] });
+    assert.equal(saved.status, 201, JSON.stringify(saved.body));
+    assert.deepEqual(saved.body.preferences.preferredYeshiva, ["חברון", "מיר"]);
+
+    const response = await listed(viewer);
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.deepEqual(
+      idsOf(response.body).sort(),
+      [String(hebron._id), String(mir._id), String(blank._id)].sort()
+    );
+    assert.equal(response.body.hiddenByPreference.institution, 2);
+    assert.equal(response.body.hiddenByPreference.total, 2);
+    assertCountsOnly(response.body.hiddenByPreference, ["SECRET-OTHER-YESHIVA", "פוניבז'"]);
+
+    const cleared = await request(app)
+      .put("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({ preferredYeshiva: ["אין העדפת ישיבה"] });
+    assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+    assert.equal(cleared.body.preferences.preferredYeshiva, null);
+    const open = await listed(viewer);
+    assert.equal(idsOf(open.body).includes(String(other._id)), true);
+    assert.equal(open.body.hiddenByPreference.total, 0);
+
+    await Preference.updateOne({ user: viewer._id }, { $set: { preferredYeshiva: "חברון" } });
+    const legacy = await listed(viewer);
+    assert.deepEqual(idsOf(legacy.body).sort(), [String(hebron._id), String(blank._id)].sort());
+    assert.equal(legacy.body.hiddenByPreference.institution, 3);
+
+    const seminars = await request(app)
+      .post("/api/preference")
+      .set(auth(tokenFor(man)))
+      .send({ preferredSeminar: ["אור החיים", "וולף"] });
+    assert.equal(seminars.status, 201, JSON.stringify(seminars.body));
+    assert.deepEqual(seminars.body.preferences.preferredSeminar, ["אור החיים", "וולף"]);
+
+    const seminarList = await listed(man);
+    assert.equal(seminarList.status, 200, JSON.stringify(seminarList.body));
+    assert.deepEqual(
+      idsOf(seminarList.body).sort(),
+      [String(seminarMatch._id), String(seminarBlank._id)].sort()
+    );
+    // The female viewer also fails the seminar list, but she already filters this
+    // man out by yeshiva, so she is not part of the viewer's hidden count.
+    assert.equal(seminarList.body.hiddenByPreference.institution, 1);
+
+    const bad = await request(app)
+      .put("/api/preference")
+      .set(auth(tokenFor(man)))
+      .send({ preferredSeminar: ["אור החיים", 4] });
+    assert.equal(bad.status, 400);
+  });
+
+  it("filters by profession like a seminar list and keeps a blank profession", async () => {
+    const viewer = await createUser({ n: 571, name: "SECRET-PROFESSION-VIEWER" });
+    const teacher = await createUser({ n: 572, name: "SECRET-TEACHER" });
+    const ganenet = await createUser({ n: 573, name: "SECRET-GANENET" });
+    const nurse = await createUser({ n: 574, name: "SECRET-NURSE" });
+    const blank = await createUser({ n: 575, name: "SECRET-BLANK-PROFESSION" });
+
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "male" }) },
+      { user: teacher._id, ...baseProfile({ gender: "female", occupation: "הוראה" }) },
+      { user: ganenet._id, ...baseProfile({ gender: "female", occupation: "גננת" }) },
+      { user: nurse._id, ...baseProfile({ gender: "female", occupation: "סיעוד" }) },
+      { user: blank._id, ...baseProfile({ gender: "female" }) },
+    ]);
+    await Profile.updateOne({ user: blank._id }, { $unset: { occupation: 1 } });
+
+    const saved = await request(app)
+      .post("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({ preferredOccupation: ["הוראה", " גננת ", "הוראה", "אין העדפת מקצוע"] });
+    assert.equal(saved.status, 201, JSON.stringify(saved.body));
+    assert.deepEqual(saved.body.preferences.preferredOccupation, ["הוראה", "גננת"]);
+
+    const response = await listed(viewer);
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.deepEqual(
+      idsOf(response.body).sort(),
+      [String(teacher._id), String(ganenet._id), String(blank._id)].sort()
+    );
+    assert.equal(response.body.hiddenByPreference.profession, 1);
+    assert.equal(response.body.hiddenByPreference.total, 1);
+    assertCountsOnly(response.body.hiddenByPreference, ["SECRET-NURSE", "סיעוד"]);
+
+    await Preference.updateOne({ user: viewer._id }, { $set: { preferredOccupation: "הוראה" } });
+    const legacy = await listed(viewer);
+    assert.deepEqual(idsOf(legacy.body).sort(), [String(teacher._id), String(blank._id)].sort());
+    assert.equal(legacy.body.hiddenByPreference.profession, 2);
+
+    const cleared = await request(app)
+      .put("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({ preferredOccupation: ["אין העדפת מקצוע"] });
+    assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+    assert.equal(cleared.body.preferences.preferredOccupation, null);
+    const open = await listed(viewer);
+    assert.equal(open.body.hiddenByPreference.total, 0);
+    assert.equal(idsOf(open.body).includes(String(nurse._id)), true);
+  });
+
+  it("treats the work checkboxes as hard filters and excludes an unanswered woman", async () => {
+    const viewer = await createUser({ n: 581, name: "SECRET-WORK-VIEWER" });
+    const working = await createUser({ n: 582, name: "SECRET-WORKING" });
+    const studied = await createUser({ n: 583, name: "SECRET-STUDIED" });
+    const stopped = await createUser({ n: 584, name: "SECRET-STOPPED" });
+    const silent = await createUser({ n: 585, name: "SECRET-SILENT" });
+
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "male" }) },
+      { user: working._id, ...baseProfile({ gender: "female", working: true, workingInProfession: false }) },
+      { user: studied._id, ...baseProfile({ gender: "female", working: true, workingInProfession: true }) },
+      { user: stopped._id, ...baseProfile({ gender: "female", working: false }) },
+      { user: silent._id, ...baseProfile({ gender: "female" }) },
+    ]);
+    await Profile.updateOne({ user: silent._id }, { $unset: { working: 1, workingInProfession: 1 } });
+
+    const onlyWorking = await request(app)
+      .post("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({ onlyWorking: true });
+    assert.equal(onlyWorking.status, 201, JSON.stringify(onlyWorking.body));
+    assert.equal(onlyWorking.body.preferences.onlyWorking, true);
+    assert.equal(onlyWorking.body.preferences.onlyWorkingInProfession, false);
+
+    const workingList = await listed(viewer);
+    assert.deepEqual(idsOf(workingList.body).sort(), [String(working._id), String(studied._id)].sort());
+    assert.equal(workingList.body.hiddenByPreference.working, 2);
+    assert.equal(workingList.body.hiddenByPreference.workingInProfession, 0);
+    assert.equal(workingList.body.hiddenByPreference.total, 2);
+    assertCountsOnly(workingList.body.hiddenByPreference, ["SECRET-STOPPED", "SECRET-SILENT"]);
+
+    const implied = await request(app)
+      .put("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({ onlyWorking: false, onlyWorkingInProfession: true });
+    assert.equal(implied.status, 200, JSON.stringify(implied.body));
+    assert.equal(implied.body.preferences.onlyWorking, true);
+    assert.equal(implied.body.preferences.onlyWorkingInProfession, true);
+
+    const studiedList = await listed(viewer);
+    assert.deepEqual(idsOf(studiedList.body), [String(studied._id)]);
+    assert.equal(studiedList.body.hiddenByPreference.working, 2);
+    assert.equal(studiedList.body.hiddenByPreference.workingInProfession, 3);
+    assert.equal(studiedList.body.hiddenByPreference.total, 3);
+
+    const invalid = await request(app)
+      .put("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({ onlyWorking: "maybe" });
+    assert.equal(invalid.status, 400);
+  });
+
+  it("filters choice lists and hides a blank only when excludeIncomplete is checked", async () => {
+    const viewer = await createUser({ n: 591, name: "SECRET-LISTS" });
+    const fit = await createUser({ n: 592, name: "SECRET-FIT" });
+    const wrongStyle = await createUser({ n: 593, name: "SECRET-STYLE" });
+    const wrongLook = await createUser({ n: 594, name: "SECRET-LOOK" });
+    const wrongStatus = await createUser({ n: 595, name: "SECRET-STATUS" });
+    const wrongCommunity = await createUser({ n: 596, name: "SECRET-COMMUNITY" });
+    const wrongCity = await createUser({ n: 597, name: "SECRET-CITY" });
+    const blankCity = await createUser({ n: 598, name: "SECRET-BLANK-CITY" });
+    const blankStyle = await createUser({ n: 599, name: "SECRET-BLANK-STYLE" });
+    const shared = {
+      gender: "male",
+      city: "ירושלים",
+      style: "modern",
+      appearance: "average",
+      ethnicity: "ashkenazi",
+      maritalStatus: "single",
+    };
+
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female" }) },
+      { user: fit._id, ...baseProfile(shared) },
+      { user: wrongStyle._id, ...baseProfile({ ...shared, style: "conservative" }) },
+      { user: wrongLook._id, ...baseProfile({ ...shared, appearance: "slim" }) },
+      { user: wrongStatus._id, ...baseProfile({ ...shared, maritalStatus: "divorced" }) },
+      { user: wrongCommunity._id, ...baseProfile({ ...shared, ethnicity: "sephardic" }) },
+      { user: wrongCity._id, ...baseProfile({ ...shared, city: "חיפה" }) },
+      { user: blankCity._id, ...baseProfile(shared) },
+      { user: blankStyle._id, ...baseProfile(shared) },
+    ]);
+    await Profile.updateOne({ user: blankCity._id }, { $unset: { city: 1 } });
+    await Profile.updateOne({ user: blankStyle._id }, { $unset: { style: 1 } });
+
+    const saved = await request(app)
+      .post("/api/preference")
+      .set(auth(tokenFor(viewer)))
+      .send({
+        style: ["modern", "open"],
+        preferredAppearance: ["average", "full"],
+        preferredMaritalStatus: ["single"],
+        preferredEthnicity: ["ashkenazi"],
+        city: ["ירושלים", "תל אביב"],
+        excludeIncomplete: false,
+      });
+    assert.equal(saved.status, 201, JSON.stringify(saved.body));
+    assert.equal(saved.body.preferences.excludeIncomplete, false);
+    assert.deepEqual(saved.body.preferences.style, ["modern", "open"]);
+
+    const open = await listed(viewer);
+    assert.equal(open.status, 200, JSON.stringify(open.body));
+    assert.deepEqual(idsOf(open.body).sort(), [String(fit._id), String(blankCity._id), String(blankStyle._id)].sort());
+    assert.equal(open.body.hiddenByPreference.style, 1);
+    assert.equal(open.body.hiddenByPreference.appearance, 1);
+    assert.equal(open.body.hiddenByPreference.maritalStatus, 1);
+    assert.equal(open.body.hiddenByPreference.ethnicity, 1);
+    assert.equal(open.body.hiddenByPreference.city, 1);
+    assert.equal(open.body.hiddenByPreference.missing, 0);
+    assert.equal(open.body.hiddenByPreference.total, 5);
+    assertCountsOnly(open.body.hiddenByPreference, ["SECRET-STYLE", "SECRET-LOOK"]);
+
+    const strict = await request(app).put("/api/preference").set(auth(tokenFor(viewer))).send({ excludeIncomplete: true });
+    assert.equal(strict.status, 200, JSON.stringify(strict.body));
+    assert.equal(strict.body.preferences.excludeIncomplete, true);
+    const hiddenBlanks = await listed(viewer);
+    assert.deepEqual(idsOf(hiddenBlanks.body), [String(fit._id)]);
+    assert.equal(hiddenBlanks.body.hiddenByPreference.missing, 2);
+    assert.equal(hiddenBlanks.body.hiddenByPreference.style, 1);
+    assert.equal(hiddenBlanks.body.hiddenByPreference.total, 7);
+
+    await Preference.updateOne({ user: viewer._id }, { $unset: { excludeIncomplete: 1 } });
+    const omitted = await listed(viewer);
+    assert.equal(omitted.body.hiddenByPreference.missing, 0);
+    assert.deepEqual(idsOf(omitted.body).sort(), [String(fit._id), String(blankCity._id), String(blankStyle._id)].sort());
+  });
+
+  it("reads a legacy single choice and still shows a blank city", async () => {
+    const viewer = await createUser({ n: 601, name: "SECRET-LEGACY-CHOICE" });
+    const telAviv = await createUser({ n: 602, name: "SECRET-TELAVIV" });
+    const haifa = await createUser({ n: 603, name: "SECRET-HAIFA-CITY" });
+    const blank = await createUser({ n: 604, name: "SECRET-NO-CITY" });
+
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female" }) },
+      { user: telAviv._id, ...baseProfile({ gender: "male", city: "תל אביב", style: "modern" }) },
+      { user: haifa._id, ...baseProfile({ gender: "male", city: "חיפה", style: "modern" }) },
+      { user: blank._id, ...baseProfile({ gender: "male", style: "modern" }) },
+    ]);
+    await Profile.updateOne({ user: blank._id }, { $unset: { city: 1 } });
+    await Preference.create({ user: viewer._id, style: "modern", city: "תל-אביב" });
+
+    const stored = await request(app).get("/api/preference/me").set(auth(tokenFor(viewer)));
+    assert.equal(stored.status, 200, JSON.stringify(stored.body));
+    assert.deepEqual(stored.body.preferences.style, ["modern"]);
+    assert.deepEqual(stored.body.preferences.city, ["תל-אביב"]);
+    assert.equal(stored.body.preferences.excludeIncomplete, false);
+
+    const response = await listed(viewer);
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.deepEqual(idsOf(response.body).sort(), [String(telAviv._id), String(blank._id)].sort());
+    assert.equal(response.body.hiddenByPreference.city, 1);
+    assert.equal(response.body.hiddenByPreference.missing, 0);
+  });
+
+  it("omits match percent from member responses and keeps it for the admin", async () => {
+    const viewer = await createUser({ n: 901, name: "PERCENT-VIEWER" });
+    const other = await createUser({ n: 902, name: "PERCENT-OTHER" });
+    const admin = await createUser({ n: 903, role: "admin", name: "PERCENT-ADMIN" });
+    await Profile.create([
+      { user: viewer._id, ...baseProfile({ gender: "female", age: 25, city: "Haifa" }) },
+      { user: other._id, ...baseProfile({ gender: "male", age: 28, city: "Haifa" }) },
+    ]);
+
+    const viewerHeaders = auth(tokenFor(viewer));
+    const otherHeaders = auth(tokenFor(other));
+    const adminHeaders = auth(tokenFor(admin));
+
+    const candidates = await listed(viewer);
+    assert.equal(candidates.status, 200, JSON.stringify(candidates.body));
+    assert.equal(candidates.body.candidates.length, 1);
+    assertNoMatchPercent(candidates.body);
+
+    const sent = await request(app).post("/api/interest").set(viewerHeaders).send({ receiverId: String(other._id) });
+    assert.equal(sent.status, 201, JSON.stringify(sent.body));
+    assertNoMatchPercent(sent.body);
+
+    const outgoing = await request(app).get("/api/interest/outgoing").set(viewerHeaders);
+    const incoming = await request(app).get("/api/interest/incoming").set(otherHeaders);
+    assert.equal(outgoing.status, 200, JSON.stringify(outgoing.body));
+    assert.equal(incoming.status, 200, JSON.stringify(incoming.body));
+    assert.equal(outgoing.body.interests.length, 1);
+    assert.equal(incoming.body.interests.length, 1);
+    assertNoMatchPercent(outgoing.body);
+    assertNoMatchPercent(incoming.body);
+
+    const suggestions = await request(app).get("/api/suggestions").set(viewerHeaders);
+    const search = await request(app).get("/api/search").query({ q: "haifa" }).set(viewerHeaders);
+    const notes = await request(app).get("/api/notifications").set(viewerHeaders);
+    const preview = await request(app).get(`/api/profile/${other._id}`).set(viewerHeaders);
+    assert.equal(suggestions.status, 200);
+    assert.equal(search.status, 200);
+    assert.equal(notes.status, 200);
+    assert.equal(preview.status, 200);
+    assertNoMatchPercent(suggestions.body);
+    assertNoMatchPercent(search.body);
+    assertNoMatchPercent(notes.body);
+    assertNoMatchPercent(preview.body);
+
+    const accepted = await request(app)
+      .put("/api/interest/respond")
+      .set(otherHeaders)
+      .send({ senderId: String(viewer._id), status: "accepted" });
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+    assertNoMatchPercent(accepted.body);
+
+    const matches = await request(app).get("/api/match").set(viewerHeaders);
+    assert.equal(matches.status, 200, JSON.stringify(matches.body));
+    assert.equal(matches.body.matches.length, 1);
+    assertNoMatchPercent(matches.body);
+    const activeLists = await request(app).get("/api/suggestions").set(viewerHeaders);
+    assertNoMatchPercent(activeLists.body);
+
+    const adminSuggestions = await request(app).get("/api/admin/suggestions").set(adminHeaders);
+    assert.equal(adminSuggestions.status, 200, JSON.stringify(adminSuggestions.body));
+    const pair = adminSuggestions.body.suggestions.find((item) => {
+      const ids = [String(item.sender?._id), String(item.receiver?._id)];
+      return ids.includes(String(viewer._id)) && ids.includes(String(other._id));
+    });
+    assert.ok(pair);
+    assert.equal(typeof pair.matchPercent, "number");
+
+    await request(app).post("/api/interest/send-to-manager").set(viewerHeaders).send({ otherUserId: String(other._id) });
+    await request(app).post("/api/interest/send-to-manager").set(otherHeaders).send({ otherUserId: String(viewer._id) });
+    const cases = await request(app).get("/api/admin/cases").set(adminHeaders);
+    assert.equal(cases.status, 200, JSON.stringify(cases.body));
+    const opened = cases.body.cases.find((item) => {
+      const ids = [String(item.sender?._id), String(item.receiver?._id)];
+      return ids.includes(String(viewer._id)) && ids.includes(String(other._id));
+    });
+    assert.ok(opened);
+    assert.equal(typeof opened.matchPercent, "number");
+    const memberAfter = await request(app).get("/api/match").set(viewerHeaders);
+    assertNoMatchPercent(memberAfter.body);
   });
 });

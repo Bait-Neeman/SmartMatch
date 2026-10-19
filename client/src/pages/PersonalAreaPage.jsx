@@ -6,11 +6,7 @@ import {
   Box,
   Button,
   CircularProgress,
-  FormControl,
-  FormHelperText,
-  MenuItem,
   Paper,
-  Select,
   Snackbar,
   Stack,
   TextField,
@@ -46,6 +42,31 @@ import {
 import { getSession } from "../utils/session.js";
 import { brand } from "../theme/tokens.js";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
+import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
+import ExcludeIncomplete from "../components/profile/ExcludeIncomplete.jsx";
+import InstitutionChecklist from "../components/profile/InstitutionChecklist.jsx";
+import OptionChecklist from "../components/profile/OptionChecklist.jsx";
+import RangePair from "../components/profile/RangePair.jsx";
+import WorkFilters from "../components/profile/WorkFilters.jsx";
+import useInstitutionLists from "../hooks/useInstitutionLists.js";
+import {
+  APPEARANCE_VALUES,
+  asNameList,
+  asOptionList,
+  ETHNICITY_VALUES,
+  institutionKey,
+  MARITAL_VALUES,
+  STYLE_VALUES,
+  buildPreferenceFields,
+  buildProfileFields,
+  lookingForHelp,
+  lookingForTitle,
+  NO_CITY_PREFERENCE,
+  NO_OCCUPATION_PREFERENCE,
+  NO_SEMINAR_PREFERENCE,
+  NO_YESHIVA_PREFERENCE,
+  ABOUT_ME_TITLE,
+} from "../utils/genderForms.js";
 import ProtectedImage from "../components/common/ProtectedFile.jsx";
 import StatusPill from "../components/common/StatusPill.jsx";
 
@@ -54,9 +75,13 @@ const toText = (value) => {
   return String(value);
 };
 
-const toNumberOrEmpty = (value) => {
-  if (value === "" || value === undefined || value === null) return "";
-  return Number(value);
+const labelsOf = (options, value) => {
+  const selected = asOptionList(
+    value,
+    options.map((option) => option.value)
+  );
+  if (!selected.length) return "לא משנה";
+  return selected.map((code) => labelOf(options, code)).join(", ");
 };
 
 const appendIfNotEmpty = (formData, key, value) => {
@@ -117,29 +142,6 @@ const fieldRowSx = {
   columnGap: 1.25,
   rowGap: 0.5,
   alignItems: "center",
-};
-
-const lineFieldSx = {
-  "& .MuiInputBase-root": {
-    fontWeight: 600,
-    color: brand.navy,
-    fontSize: "15.5px",
-  },
-  "& .MuiInput-underline:before": {
-    borderBottomColor: brand.fieldLine,
-  },
-  "& .MuiInput-underline:hover:not(.Mui-disabled, .Mui-error):before": {
-    borderBottomColor: brand.gold,
-  },
-  "& .MuiInput-underline:after": {
-    borderBottomColor: brand.gold,
-  },
-  "& .MuiInputBase-input": {
-    padding: "6px 2px",
-  },
-  "& .MuiSelect-select": {
-    padding: "6px 2px",
-  },
 };
 
 const readValueSx = {
@@ -217,6 +219,9 @@ const ICONS = {
   sliders: <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />,
   spark: (
     <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.5 1.5M16.9 16.9l1.5 1.5M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5" />
+  ),
+  phone: (
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.5-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
   ),
   school: <path d="M22 10 12 5 2 10l10 5zM6 12v5c3 3 9 3 12 0v-5" />,
   work: (
@@ -320,38 +325,6 @@ function ReadValue({ value, pill = false, tone = "neutral" }) {
   );
 }
 
-function LineText({ field, label, error, helperText, ...rest }) {
-  return (
-    <TextField
-      {...field}
-      {...rest}
-      variant="standard"
-      fullWidth
-      hiddenLabel
-      error={Boolean(error)}
-      helperText={error?.message || helperText}
-      slotProps={{ htmlInput: { "aria-label": label } }}
-      sx={lineFieldSx}
-    />
-  );
-}
-
-function SelectField({ field, label, options, error, required = false }) {
-  return (
-    <FormControl fullWidth required={required} error={Boolean(error)} variant="standard" sx={lineFieldSx}>
-      <Select {...field} displayEmpty slotProps={{ input: { "aria-label": label } }}>
-        {!required && <MenuItem value="">לא נבחר</MenuItem>}
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
-      </Select>
-      {error && <FormHelperText>{error.message}</FormHelperText>}
-    </FormControl>
-  );
-}
-
 function FormActions({ submitting, saveLabel, onCancel }) {
   return (
     <Box sx={actionsSx}>
@@ -365,8 +338,8 @@ function FormActions({ submitting, saveLabel, onCancel }) {
   );
 }
 
-function PhotoFrame({ src, alt, onOpen }) {
-  let picture = <PersonAvatar size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />;
+function PhotoFrame({ src, alt, onOpen, gender }) {
+  let picture = <PersonAvatar gender={gender} size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />;
   if (src && isAppFileUrl(src)) {
     picture = <ProtectedImage url={src} alt={alt} sx={photoImgSx} />;
   } else if (src) {
@@ -531,8 +504,10 @@ function profileSubtitle(profile) {
 }
 
 function ProfileSummary({ profile }) {
+  const female = profile?.gender === "female";
+  const male = profile?.gender === "male";
   const height = profile?.height ? `${profile.height} ס"מ` : "";
-  const showSchool = Boolean(profile?.yeshiva || profile?.seminar);
+  const workLabel = profile?.working === true ? "עובדת" : profile?.working === false ? "לא" : "";
 
   return (
     <>
@@ -540,72 +515,96 @@ function ProfileSummary({ profile }) {
         <FieldRow icon="user" label="מגדר">
           <ReadValue value={labelOf(genderOptions, profile?.gender)} pill />
         </FieldRow>
-        <FieldRow icon="user" label="גיל">
-          <ReadValue value={toText(profile?.age)} />
-        </FieldRow>
-        <FieldRow icon="ruler" label="גובה">
-          <ReadValue value={height} />
-        </FieldRow>
         <FieldRow icon="star" label="עדה">
           <ReadValue value={labelOf(ethnicityOptions, profile?.ethnicity)} pill tone="pending" />
         </FieldRow>
+        <FieldRow icon="user" label="גיל">
+          <ReadValue value={toText(profile?.age)} />
+        </FieldRow>
+        <FieldRow icon="user" label="סטטוס">
+          <ReadValue value={labelOf(maritalStatusOptions, profile?.maritalStatus)} />
+        </FieldRow>
+        {male ? (
+          <FieldRow icon="school" label="ישיבה">
+            <ReadValue value={profile?.yeshiva} />
+          </FieldRow>
+        ) : null}
+        {female ? (
+          <FieldRow icon="school" label="סמינר">
+            <ReadValue value={profile?.seminar} />
+          </FieldRow>
+        ) : null}
+        {female ? (
+          <FieldRow icon="work" label="מקצוע">
+            <ReadValue value={profile?.occupation} />
+          </FieldRow>
+        ) : null}
+        {female ? (
+          <FieldRow icon="work" label="עבודה">
+            <ReadValue value={workLabel} />
+          </FieldRow>
+        ) : null}
+        {female && profile?.working ? (
+          <FieldRow icon="work" label="מקום עבודה">
+            <ReadValue value={profile?.workplace} />
+          </FieldRow>
+        ) : null}
+        {female && profile?.working ? (
+          <FieldRow icon="work" label="מקצוע נלמד">
+            <ReadValue value={profile?.workingInProfession === true ? "עובדת במקצוע שלמדתי" : "לא"} />
+          </FieldRow>
+        ) : null}
         <FieldRow icon="pin" label="עיר">
           <ReadValue value={profile?.city} />
+        </FieldRow>
+        <FieldRow icon="phone" label="טלפון נייד ליצירת קשר">
+          <Box dir="ltr" sx={{ textAlign: "right" }}>
+            <ReadValue value={profile?.phone} />
+          </Box>
+        </FieldRow>
+        <FieldRow icon="ruler" label='גובה (בס"מ)'>
+          <ReadValue value={height} />
         </FieldRow>
         <FieldRow icon="sliders" label="סגנון">
           <ReadValue value={labelOf(styleOptions, profile?.style)} pill tone="pending" />
         </FieldRow>
-        <FieldRow icon="spark" label="מראה">
+        <FieldRow icon="spark" label="מראה חיצוני">
           <ReadValue value={labelOf(appearanceOptions, profile?.appearance)} pill />
         </FieldRow>
-        {showSchool && (
-          <Box component="li" sx={{ display: "block" }}>
-            <BlockTitle>מוסד לימוד</BlockTitle>
-          </Box>
-        )}
-        {profile?.yeshiva && (
-          <FieldRow icon="school" label="ישיבה">
-            <ReadValue value={profile.yeshiva} />
+        {male ? (
+          <FieldRow icon="sliders" label="דרישה כספית">
+            <ReadValue value={toText(profile?.financialDemand)} />
           </FieldRow>
-        )}
-        {profile?.seminar && (
-          <FieldRow icon="school" label="סמינר">
-            <ReadValue value={profile.seminar} />
+        ) : null}
+        {male ? (
+          <FieldRow icon="sliders" label="השתתפות כספית">
+            <ReadValue value={toText(profile?.financialParticipation)} />
           </FieldRow>
-        )}
-        {profile?.occupation && (
-          <FieldRow icon="work" label="עיסוק">
-            <ReadValue value={profile.occupation} />
+        ) : null}
+        {female ? (
+          <FieldRow icon="sliders" label="השתתפות כספית">
+            <ReadValue value={toText(profile?.financialParticipation)} />
           </FieldRow>
-        )}
-        <FieldRow icon="user" label="סטטוס">
-          <ReadValue value={labelOf(maritalStatusOptions, profile?.maritalStatus)} />
-        </FieldRow>
-        <FieldRow icon="sliders" label="דרישה כספית">
-          <ReadValue value={toText(profile?.financialDemand)} />
-        </FieldRow>
-        <FieldRow icon="sliders" label="השתתפות כספית">
-          <ReadValue value={toText(profile?.financialParticipation)} />
-        </FieldRow>
+        ) : null}
+        {female ? (
+          <FieldRow icon="sliders" label="דרישה כספית">
+            <ReadValue value={toText(profile?.financialDemand)} />
+          </FieldRow>
+        ) : null}
       </Box>
-      {profile?.lookingFor && (
+      {profile?.description ? (
         <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
-          <BlockTitle>מה אני מחפש/ת</BlockTitle>
-          <Box sx={descriptionBoxSx}>{profile.lookingFor}</Box>
-        </Box>
-      )}
-      {profile?.description && (
-        <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
-          <BlockTitle>קצת עליי / תכונות</BlockTitle>
+          <BlockTitle>{ABOUT_ME_TITLE}</BlockTitle>
           <Box sx={descriptionBoxSx}>{profile.description}</Box>
         </Box>
-      )}
+      ) : null}
     </>
   );
 }
 
 function ProfileForm({
   control,
+  cities,
   onSubmit,
   submitting,
   formError,
@@ -619,211 +618,9 @@ function ProfileForm({
 }) {
   return (
     <Box component="form" onSubmit={onSubmit} noValidate>
-      <Box component="ul" sx={listSx}>
-        <Controller
-          name="gender"
-          control={control}
-          rules={{ required: "מין הוא שדה חובה" }}
-          render={({ field, fieldState }) => (
-            <FieldRow icon="user" label="מין" required>
-              <SelectField field={field} label="מין" options={genderOptions} error={fieldState.error} required />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="age"
-          control={control}
-          rules={{ required: "גיל הוא שדה חובה" }}
-          render={({ field, fieldState }) => (
-            <FieldRow icon="user" label="גיל" required>
-              <LineText field={field} label="גיל" type="number" error={fieldState.error} />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="height"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="ruler" label='גובה (בס"מ)'>
-              <LineText field={field} label='גובה (בס"מ)' type="number" placeholder="לדוגמה 175" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="ethnicity"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="star" label="עדה">
-              <SelectField field={field} label="עדה" options={ethnicityOptions} />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="city"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="pin" label="עיר">
-              <LineText field={field} label="עיר" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="style"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="סגנון">
-              <SelectField field={field} label="סגנון" options={styleOptions} />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="appearance"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="spark" label="מראה">
-              <SelectField field={field} label="מראה" options={appearanceOptions} />
-            </FieldRow>
-          )}
-        />
-        <Box component="li" sx={{ display: "block" }}>
-          <BlockTitle>מוסד לימוד</BlockTitle>
-        </Box>
-        <Controller
-          name="yeshiva"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="school" label="ישיבה">
-              <LineText field={field} label="ישיבה" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="seminar"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="school" label="סמינר">
-              <LineText field={field} label="סמינר" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="occupation"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="work" label="עיסוק">
-              <LineText field={field} label="עיסוק" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="financialStatus"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="מדד כספי להתאמה">
-              <LineText
-                field={field}
-                label="מדד כספי להתאמה"
-                type="number"
-                helperText="מספר שמשמש להתאמה לפי מצב כלכלי"
-              />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="financialRequirement"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="דרישה כספית">
-              <LineText field={field} label="דרישה כספית" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="financialCapabilities"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="יכולת כספית">
-              <LineText field={field} label="יכולת כספית" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="maritalStatus"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="user" label="סטטוס">
-              <SelectField field={field} label="סטטוס" options={maritalStatusOptions} />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="financialDemand"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="דרישה כספית">
-              <LineText field={field} label="דרישה כספית" type="number" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="financialParticipation"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="השתתפות כספית">
-              <LineText field={field} label="השתתפות כספית" type="number" />
-            </FieldRow>
-          )}
-        />
-      </Box>
-      <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
-        <BlockTitle>מה אני מחפש/ת</BlockTitle>
-        <Controller
-          name="lookingFor"
-          control={control}
-          rules={{ maxLength: { value: 1000, message: "הטקסט יכול להכיל עד 1000 תווים" } }}
-          render={({ field, fieldState }) => (
-            <TextField
-              {...field}
-              hiddenLabel
-              multiline
-              minRows={3}
-              fullWidth
-              placeholder="מה אני מחפש/ת"
-              error={Boolean(fieldState.error)}
-              helperText={fieldState.error?.message}
-              slotProps={{ htmlInput: { "aria-label": "מה אני מחפש/ת" } }}
-            />
-          )}
-        />
-      </Box>
+      <GenderProfileFields control={control} cities={cities} />
 
-      <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
-        <BlockTitle>קצת עליי / תכונות</BlockTitle>
-        <Controller
-          name="description"
-          control={control}
-          rules={{ maxLength: { value: 1000, message: "התיאור יכול להכיל עד 1000 תווים" } }}
-          render={({ field, fieldState }) => (
-            <TextField
-              {...field}
-              hiddenLabel
-              multiline
-              minRows={4}
-              fullWidth
-              placeholder="תיאור"
-              error={Boolean(fieldState.error)}
-              helperText={fieldState.error?.message}
-              slotProps={{ htmlInput: { "aria-label": "תיאור" } }}
-              sx={{
-                "& .MuiInputBase-root": { lineHeight: 1.75, bgcolor: "background.paper" },
-                "& .MuiOutlinedInput-notchedOutline": { borderColor: brand.inputLine },
-              }}
-            />
-          )}
-        />
-      </Box>
-
-      <ResumeBlock
+            <ResumeBlock
         resumeUrl={resumeUrl}
         pdfFile={pdfFile}
         editing
@@ -847,182 +644,269 @@ function ProfileForm({
   );
 }
 
-function PreferencesSummary({ preferences }) {
+function PreferencesSummary({ preferences, profile }) {
+  const female = profile?.gender === "female";
+  const male = profile?.gender === "male";
+  const names = asNameList(female ? preferences?.preferredYeshiva : preferences?.preferredSeminar, institutionKey);
+  const occupations = asNameList(preferences?.preferredOccupation);
+  const cities = asNameList(preferences?.city);
+  const schoolLabel = female ? "ישיבה" : "סמינר";
+  const noneLabel = female ? NO_YESHIVA_PREFERENCE : NO_SEMINAR_PREFERENCE;
+  const title = lookingForTitle(profile?.gender);
+
   return (
     <>
       <Box component="ul" sx={listSx}>
-        <FieldRow icon="user" label="גיל">
+        <FieldRow icon="user" label="טווח גילאים">
           <ReadValue value={formatRange(preferences?.ageMin, preferences?.ageMax)} />
         </FieldRow>
-        <FieldRow icon="ruler" label="גובה">
+        <FieldRow icon="ruler" label="טווח גובה">
           <ReadValue value={formatRange(preferences?.heightMin, preferences?.heightMax, ' ס"מ')} />
         </FieldRow>
-        <FieldRow icon="pin" label="עיר">
-          <ReadValue value={preferences?.city} />
+        {male ? (
+          <FieldRow icon="school" label={schoolLabel}>
+            <ReadValue value={names.length ? names.join(", ") : noneLabel} />
+          </FieldRow>
+        ) : null}
+        {male ? (
+          <FieldRow icon="work" label="מקצוע">
+            <ReadValue value={occupations.length ? occupations.join(", ") : NO_OCCUPATION_PREFERENCE} />
+          </FieldRow>
+        ) : null}
+        {male && preferences?.onlyWorking ? (
+          <FieldRow icon="work" label="עבודה">
+            <ReadValue value="רק בחורה עובדת" />
+          </FieldRow>
+        ) : null}
+        {male && preferences?.onlyWorkingInProfession ? (
+          <FieldRow icon="work" label="מקצוע נלמד">
+            <ReadValue value="רק בחורה שעובדת במקצוע שלמדה" />
+          </FieldRow>
+        ) : null}
+        <FieldRow icon="user" label="סטטוס">
+          <ReadValue value={labelsOf(maritalStatusOptions, preferences?.preferredMaritalStatus)} />
         </FieldRow>
         <FieldRow icon="sliders" label="סגנון">
-          <ReadValue value={labelOf(styleOptions, preferences?.style)} pill tone="pending" />
+          <ReadValue value={labelsOf(styleOptions, preferences?.style)} pill tone="pending" />
         </FieldRow>
-        <FieldRow icon="spark" label="מראה">
-          <ReadValue value={labelOf(appearanceOptions, preferences?.preferredAppearance)} pill />
-        </FieldRow>
-        <FieldRow icon="sliders" label="מצב כלכלי">
-          <ReadValue value={formatRange(preferences?.financialMin, preferences?.financialMax)} />
-        </FieldRow>
-        <FieldRow icon="user" label="סטטוס מועדף">
-          <ReadValue value={labelOf(maritalStatusOptions, preferences?.preferredMaritalStatus)} />
+        <FieldRow icon="spark" label="מראה חיצוני">
+          <ReadValue value={labelsOf(appearanceOptions, preferences?.preferredAppearance)} pill />
         </FieldRow>
         <FieldRow icon="star" label="עדה">
-          <ReadValue value={labelOf(ethnicityOptions, preferences?.preferredEthnicity)} pill tone="pending" />
+          <ReadValue value={labelsOf(ethnicityOptions, preferences?.preferredEthnicity)} pill tone="pending" />
         </FieldRow>
-        <FieldRow icon="school" label="ישיבה">
-          <ReadValue value={preferences?.preferredYeshiva} />
+        <FieldRow icon="pin" label="עיר">
+          <ReadValue value={cities.length ? cities.join(", ") : NO_CITY_PREFERENCE} />
         </FieldRow>
-        <FieldRow icon="school" label="סמינר">
-          <ReadValue value={preferences?.preferredSeminar} />
+        <FieldRow icon="sliders" label="הצעות בלי פרטים">
+          <ReadValue value={preferences?.excludeIncomplete === true ? "לא יוצגו" : "מוצגות"} />
         </FieldRow>
+        {female ? (
+          <FieldRow icon="school" label={schoolLabel}>
+            <ReadValue value={names.length ? names.join(", ") : noneLabel} />
+          </FieldRow>
+        ) : null}
       </Box>
-      <Typography variant="body2" sx={{ mt: 1.5, color: "text.secondary" }}>
-        שדה שלא צוין אינו מגביל את ההתאמות.
-      </Typography>
+      {profile?.lookingFor ? (
+        <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
+          <BlockTitle>{title}</BlockTitle>
+          <Box sx={descriptionBoxSx}>{profile.lookingFor}</Box>
+        </Box>
+      ) : null}
     </>
   );
 }
 
-function PreferencesForm({ control, onSubmit, submitting, formError, onCancel }) {
+function PreferencesForm({
+  control,
+  setValue,
+  gender,
+  yeshivas,
+  seminars,
+  professions,
+  cities,
+  listError,
+  onSubmit,
+  submitting,
+  formError,
+  onCancel,
+  profileExists,
+}) {
+  const male = gender === "male";
+  const female = gender === "female";
+  const title = lookingForTitle(gender);
+  const help = lookingForHelp(gender);
+
+  if (!male && !female) {
+    return <Alert severity="info">יש ליצור פרופיל ולבחור מגדר לפני מילוי ההעדפות.</Alert>;
+  }
+
   return (
     <Box component="form" onSubmit={onSubmit} noValidate>
       <Typography sx={{ color: "text.secondary", mb: 2 }}>
-        כל השדות רשות. שדה שנשאר ריק לא מגביל את ההתאמות.
+        שדה שנשאר ריק לא מגביל את ההתאמות. סטטוס מתחיל ברווק/ה.
       </Typography>
-      <BlockTitle first>טווח גילאים</BlockTitle>
-      <Box component="ul" sx={listSx}>
+      <RangePair title="טווח גילאים" minName="ageMin" maxName="ageMax" minLabel="מגיל" maxLabel="עד גיל" control={control} />
+      <RangePair
+        title="טווח גובה"
+        minName="heightMin"
+        maxName="heightMax"
+        minLabel='מגובה (ס"מ)'
+        maxLabel='עד גובה (ס"מ)'
+        control={control}
+      />
+      <Box component="ul" sx={{ ...listSx, rowGap: 1.5 }}>
+        {male ? (
+          <Controller
+            name="preferredSeminar"
+            control={control}
+            render={({ field }) => (
+              <Box component="li" sx={{ display: "block" }}>
+                <InstitutionChecklist
+                  label="סמינר"
+                  noneLabel={NO_SEMINAR_PREFERENCE}
+                  options={seminars}
+                  institutions
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </Box>
+            )}
+          />
+        ) : null}
+        {male ? (
+          <Controller
+            name="preferredOccupation"
+            control={control}
+            render={({ field }) => (
+              <Box component="li" sx={{ display: "block" }}>
+                <InstitutionChecklist
+                  label="מקצוע"
+                  noneLabel={NO_OCCUPATION_PREFERENCE}
+                  options={professions}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </Box>
+            )}
+          />
+        ) : null}
+        {male ? (
+          <Box component="li" sx={{ display: "block" }}>
+            <WorkFilters control={control} setValue={setValue} />
+          </Box>
+        ) : null}
         <Controller
-          name="ageMin"
+          name="preferredMaritalStatus"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="user" label="גיל מינימום">
-              <LineText field={field} label="גיל מינימום" type="number" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="ageMax"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="user" label="גיל מקסימום">
-              <LineText field={field} label="גיל מקסימום" type="number" />
-            </FieldRow>
-          )}
-        />
-      </Box>
-      <BlockTitle>פרטים מועדפים</BlockTitle>
-      <Box component="ul" sx={listSx}>
-        <Controller
-          name="heightMin"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="ruler" label='גובה מינימום (ס"מ)'>
-              <LineText field={field} label='גובה מינימום (ס"מ)' type="number" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="heightMax"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="ruler" label='גובה מקסימום (ס"מ)'>
-              <LineText field={field} label='גובה מקסימום (ס"מ)' type="number" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="city"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="pin" label="עיר">
-              <LineText field={field} label="עיר" />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="סטטוס" options={maritalStatusOptions} value={field.value} onChange={field.onChange} />
+            </Box>
           )}
         />
         <Controller
           name="style"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="sliders" label="סגנון">
-              <SelectField field={field} label="סגנון" options={styleOptions} />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="סגנון" options={styleOptions} value={field.value} onChange={field.onChange} />
+            </Box>
           )}
         />
         <Controller
           name="preferredAppearance"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="spark" label="מראה מועדף">
-              <SelectField field={field} label="מראה מועדף" options={appearanceOptions} />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="financialMin"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="מדד כספי מינימום">
-              <LineText field={field} label="מדד כספי מינימום" type="number" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="financialMax"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="sliders" label="מדד כספי מקסימום">
-              <LineText field={field} label="מדד כספי מקסימום" type="number" />
-            </FieldRow>
-          )}
-        />
-        <Controller
-          name="preferredMaritalStatus"
-          control={control}
-          render={({ field }) => (
-            <FieldRow icon="user" label="סטטוס מועדף">
-              <SelectField field={field} label="סטטוס מועדף" options={maritalStatusOptions} />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="מראה חיצוני" options={appearanceOptions} value={field.value} onChange={field.onChange} />
+            </Box>
           )}
         />
         <Controller
           name="preferredEthnicity"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="star" label="עדה">
-              <SelectField field={field} label="עדה" options={ethnicityOptions} />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <OptionChecklist label="עדה" options={ethnicityOptions} value={field.value} onChange={field.onChange} />
+            </Box>
           )}
         />
         <Controller
-          name="preferredYeshiva"
+          name="city"
           control={control}
           render={({ field }) => (
-            <FieldRow icon="school" label="ישיבה">
-              <LineText field={field} label="ישיבה" />
-            </FieldRow>
+            <Box component="li" sx={{ display: "block" }}>
+              <InstitutionChecklist
+                label="עיר"
+                noneLabel={NO_CITY_PREFERENCE}
+                options={cities}
+                emptyHint="ערים חדשות יתווספו לרשימה אוטומטית"
+                value={field.value}
+                onChange={field.onChange}
+              />
+            </Box>
           )}
         />
+        {female ? (
+          <Controller
+            name="preferredYeshiva"
+            control={control}
+            render={({ field }) => (
+              <Box component="li" sx={{ display: "block" }}>
+                <InstitutionChecklist
+                  label="ישיבה"
+                  noneLabel={NO_YESHIVA_PREFERENCE}
+                  options={yeshivas}
+                  institutions
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              </Box>
+            )}
+          />
+        ) : null}
+        <Box component="li" sx={{ display: "block" }}>
+          <ExcludeIncomplete control={control} />
+        </Box>
+      </Box>
+      <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>
+        <BlockTitle>{title}</BlockTitle>
+        <Typography sx={{ color: "text.secondary", fontSize: 13, lineHeight: 1.5, mb: 1 }}>{help}</Typography>
         <Controller
-          name="preferredSeminar"
+          name="lookingFor"
           control={control}
-          render={({ field }) => (
-            <FieldRow icon="school" label="סמינר">
-              <LineText field={field} label="סמינר" />
-            </FieldRow>
+          rules={{ maxLength: { value: 1000, message: "הטקסט יכול להכיל עד 1000 תווים" } }}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              hiddenLabel
+              multiline
+              minRows={4}
+              fullWidth
+              placeholder={title}
+              error={Boolean(fieldState.error)}
+              helperText={fieldState.error?.message}
+              slotProps={{ htmlInput: { "aria-label": title } }}
+            />
           )}
         />
       </Box>
-      {formError && (
+      {!profileExists ? (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          {title} נשמר אחרי יצירת פרופיל.
+        </Alert>
+      ) : null}
+      {listError ? (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          {listError}
+        </Alert>
+      ) : null}
+      {formError ? (
         <Alert severity="error" sx={{ mt: 2 }}>
           {formError}
         </Alert>
-      )}
+      ) : null}
       <FormActions submitting={submitting} saveLabel="שמירת העדפות" onCancel={onCancel} />
     </Box>
   );
@@ -1032,6 +916,7 @@ export default function PersonalAreaPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { token, user, isAdmin } = getSession();
+  const { yeshivas, seminars, professions, cities, error: listError } = useInstitutionLists();
   const canLoadData = !isAdmin && Boolean(token);
 
   const [profileExists, setProfileExists] = useState(false);
@@ -1083,6 +968,10 @@ export default function PersonalAreaPage() {
       yeshiva: "",
       seminar: "",
       occupation: "",
+      working: false,
+      workingInProfession: false,
+      workplace: "",
+      phone: "",
       description: "",
     },
   });
@@ -1091,21 +980,27 @@ export default function PersonalAreaPage() {
     control: preferencesControl,
     handleSubmit: handlePreferencesSubmit,
     reset: resetPreferences,
+    setValue: setPreferenceValue,
   } = useForm({
     defaultValues: {
       ageMin: "",
       ageMax: "",
-      city: "",
+      city: [],
       heightMin: "",
       heightMax: "",
-      style: "",
-      preferredAppearance: "",
+      style: [],
+      preferredAppearance: [],
       financialMin: "",
       financialMax: "",
-      preferredMaritalStatus: "",
-      preferredEthnicity: "",
-      preferredYeshiva: "",
-      preferredSeminar: "",
+      preferredMaritalStatus: ["single"],
+      preferredEthnicity: [],
+      excludeIncomplete: false,
+      preferredYeshiva: [],
+      preferredSeminar: [],
+      preferredOccupation: [],
+      onlyWorking: false,
+      onlyWorkingInProfession: false,
+      lookingFor: "",
     },
   });
 
@@ -1131,6 +1026,10 @@ export default function PersonalAreaPage() {
         yeshiva: profile?.yeshiva || "",
         seminar: profile?.seminar || "",
         occupation: profile?.occupation || "",
+        working: Boolean(profile?.working),
+        workingInProfession: Boolean(profile?.workingInProfession),
+        workplace: profile?.workplace || "",
+        phone: profile?.phone || "",
         description: profile?.description || "",
       });
     },
@@ -1138,23 +1037,29 @@ export default function PersonalAreaPage() {
   );
 
   const fillPreferencesForm = useCallback(
-    (preferences) => {
+    (preferences, profile) => {
       setPreferencesData(preferences || null);
+      const onlyWorkingInProfession = Boolean(preferences?.onlyWorkingInProfession);
 
       resetPreferences({
         ageMin: toText(preferences?.ageMin),
         ageMax: toText(preferences?.ageMax),
-        city: preferences?.city || "",
+        city: asNameList(preferences?.city),
         heightMin: toText(preferences?.heightMin),
         heightMax: toText(preferences?.heightMax),
-        style: preferences?.style || "",
-        preferredAppearance: preferences?.preferredAppearance || "",
+        style: asOptionList(preferences?.style, STYLE_VALUES),
+        preferredAppearance: asOptionList(preferences?.preferredAppearance, APPEARANCE_VALUES),
         financialMin: toText(preferences?.financialMin),
         financialMax: toText(preferences?.financialMax),
-        preferredMaritalStatus: preferences?.preferredMaritalStatus || "",
-        preferredEthnicity: preferences?.preferredEthnicity || "",
-        preferredYeshiva: preferences?.preferredYeshiva || "",
-        preferredSeminar: preferences?.preferredSeminar || "",
+        preferredMaritalStatus: preferences ? asOptionList(preferences.preferredMaritalStatus, MARITAL_VALUES) : ["single"],
+        preferredEthnicity: asOptionList(preferences?.preferredEthnicity, ETHNICITY_VALUES),
+        excludeIncomplete: preferences?.excludeIncomplete === true,
+        preferredYeshiva: asNameList(preferences?.preferredYeshiva, institutionKey),
+        preferredSeminar: asNameList(preferences?.preferredSeminar, institutionKey),
+        preferredOccupation: asNameList(preferences?.preferredOccupation),
+        onlyWorkingInProfession,
+        onlyWorking: Boolean(preferences?.onlyWorking) || onlyWorkingInProfession,
+        lookingFor: profile?.lookingFor || "",
       });
     },
     [resetPreferences]
@@ -1163,8 +1068,9 @@ export default function PersonalAreaPage() {
   // A 404 means the user hasn't created a profile/preferences yet; any other error is thrown
   const applyLoadedData = useCallback(
     ([profileResult, preferencesResult]) => {
+      let profile = null;
       if (profileResult.status === "fulfilled") {
-        const profile = profileResult.value?.profile || profileResult.value;
+        profile = profileResult.value?.profile || profileResult.value;
         setProfileExists(true);
         fillProfileForm(profile);
       } else if (profileResult.reason?.response?.status === 404) {
@@ -1178,10 +1084,10 @@ export default function PersonalAreaPage() {
         const preferences =
           preferencesResult.value?.preferences || preferencesResult.value;
         setPreferencesExists(true);
-        fillPreferencesForm(preferences);
+        fillPreferencesForm(preferences, profile);
       } else if (preferencesResult.reason?.response?.status === 404) {
         setPreferencesExists(false);
-        fillPreferencesForm(null);
+        fillPreferencesForm(null, profile);
       } else {
         throw preferencesResult.reason;
       }
@@ -1247,29 +1153,16 @@ export default function PersonalAreaPage() {
 
   const buildProfileFormData = (data) => {
     const formData = new FormData();
-    // When updating, empty fields are sent too - that is how a value is removed
+    // When updating, empty fields are sent too - that is how a value is removed.
+    // lookingFor stays on the preferences form, so a profile save does not clear it.
     const append = profileExists
       ? (form, key, value) => form.append(key, value ?? "")
       : appendIfNotEmpty;
+    const fields = buildProfileFields(data);
 
-    append(formData, "gender", data.gender);
-    append(formData, "ethnicity", data.ethnicity);
-    append(formData, "age", toNumberOrEmpty(data.age));
-    append(formData, "city", data.city);
-    append(formData, "height", toNumberOrEmpty(data.height));
-    append(formData, "style", data.style);
-    append(formData, "appearance", data.appearance);
-    append(formData, "financialRequirement", data.financialRequirement);
-    append(formData, "financialCapabilities", data.financialCapabilities);
-    append(formData, "financialStatus", toNumberOrEmpty(data.financialStatus));
-    append(formData, "financialDemand", toNumberOrEmpty(data.financialDemand));
-    append(formData, "financialParticipation", toNumberOrEmpty(data.financialParticipation));
-    append(formData, "maritalStatus", data.maritalStatus);
-    append(formData, "lookingFor", data.lookingFor);
-    append(formData, "yeshiva", data.yeshiva);
-    append(formData, "seminar", data.seminar);
-    append(formData, "occupation", data.occupation);
-    append(formData, "description", data.description);
+    for (const [key, value] of Object.entries(fields)) {
+      append(formData, key, value);
+    }
 
     if (imageFile) {
       formData.append("image", imageFile);
@@ -1301,32 +1194,22 @@ export default function PersonalAreaPage() {
     }
   };
 
-  const buildPreferencesPayload = (data) => ({
-    ageMin: toNumberOrEmpty(data.ageMin),
-    ageMax: toNumberOrEmpty(data.ageMax),
-    city: data.city || "",
-    heightMin: toNumberOrEmpty(data.heightMin),
-    heightMax: toNumberOrEmpty(data.heightMax),
-    style: data.style || "",
-    preferredAppearance: data.preferredAppearance || "",
-    financialMin: toNumberOrEmpty(data.financialMin),
-    financialMax: toNumberOrEmpty(data.financialMax),
-    preferredMaritalStatus: data.preferredMaritalStatus || "",
-    preferredEthnicity: data.preferredEthnicity || "",
-    preferredYeshiva: data.preferredYeshiva || "",
-    preferredSeminar: data.preferredSeminar || "",
-  });
-
   const onSavePreferences = async (data) => {
     try {
       setSubmitting(true);
       setFormError("");
 
-      const payload = buildPreferencesPayload(data);
+      const payload = buildPreferenceFields(data, profileData?.gender);
       const response = preferencesExists ? await updatePreferences(payload) : await createPreferences(payload);
+      let profile = profileData;
+      if (profileExists) {
+        const updated = await updateProfile({ lookingFor: data.lookingFor || "" });
+        profile = updated?.profile || { ...profileData, lookingFor: data.lookingFor || "" };
+        setProfileData(profile);
+      }
 
       setPreferencesExists(true);
-      fillPreferencesForm(response?.preferences || response);
+      fillPreferencesForm(response?.preferences || response, profile);
       closeForm();
       setSuccessMessage("ההעדפות נשמרו בהצלחה");
     } catch (error) {
@@ -1457,6 +1340,7 @@ export default function PersonalAreaPage() {
             <PhotoFrame
               src={shownImage}
               alt={user?.name ? `תמונה של ${user.name}` : "תמונת פרופיל"}
+              gender={profileData?.gender}
               onOpen={imageUrl && !imagePreview ? onViewFile : undefined}
             />
             {editingProfile ? (
@@ -1532,6 +1416,7 @@ export default function PersonalAreaPage() {
             {editingProfile ? (
               <ProfileForm
                 control={profileControl}
+                cities={cities}
                 onSubmit={handleProfileSubmit(onSaveProfile)}
                 submitting={submitting}
                 formError={formError}
@@ -1586,6 +1471,14 @@ export default function PersonalAreaPage() {
         {openForm === "preferences" ? (
           <PreferencesForm
             control={preferencesControl}
+            setValue={setPreferenceValue}
+            gender={profileData?.gender}
+            yeshivas={yeshivas}
+            seminars={seminars}
+            professions={professions}
+            cities={cities}
+            listError={listError}
+            profileExists={profileExists}
             onSubmit={handlePreferencesSubmit(onSavePreferences)}
             submitting={submitting}
             formError={formError}
@@ -1593,7 +1486,7 @@ export default function PersonalAreaPage() {
           />
         ) : preferencesExists ? (
           <>
-            <PreferencesSummary preferences={preferencesData} />
+            <PreferencesSummary preferences={preferencesData} profile={profileData} />
             <Box sx={actionsSx}>
               <Button variant="contained" onClick={() => toggleForm("preferences")} sx={{ minWidth: 160 }}>
                 עדכון העדפות

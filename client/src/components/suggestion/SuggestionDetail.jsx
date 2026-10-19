@@ -8,12 +8,10 @@ import {
   School,
   Stars,
   Payments,
-  Phone,
   Work,
 } from "@mui/icons-material";
 import { brand, statusTones } from "../../theme/tokens.js";
 import StatusPill from "../common/StatusPill.jsx";
-import MatchRing from "../common/MatchRing.jsx";
 import { LockedPhoto } from "./LockedMedia.jsx";
 import { SUGGESTION_KINDS } from "../../utils/suggestionView.js";
 
@@ -27,7 +25,6 @@ const FIELD_ICONS = {
   financialRequirement: Payments,
   financialDemand: Payments,
   financialParticipation: Payments,
-  phone: Phone,
 };
 
 export default function SuggestionDetail({
@@ -161,7 +158,6 @@ export default function SuggestionDetail({
                   </Typography>
                 ) : null}
               </Box>
-              {view.percent != null ? <MatchRing value={view.percent} size={84} caption="התאמה" /> : null}
             </Box>
 
             {view.fields.length > 0 ? (
@@ -285,7 +281,7 @@ export default function SuggestionDetail({
               top: { lg: 24 },
             }}
           >
-            {photo || <LockedPhoto />}
+            {photo || <LockedPhoto gender={view?.gender} />}
             {actions ? (
               <Box
                 sx={{

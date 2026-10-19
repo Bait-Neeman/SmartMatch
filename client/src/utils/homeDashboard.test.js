@@ -70,7 +70,7 @@ describe("home dashboard", () => {
 
     assert.equal(card.title, "בן 26");
     assert.equal(card.city, "ירושלים");
-    assert.equal(card.percent, 91);
+    assert.equal(card.percent, null);
     assert.deepEqual(
       card.lines.map((line) => line.key),
       ["community", "occupation", "height", "maritalStatus", "financialDemand", "financialParticipation", "financialStatus"]

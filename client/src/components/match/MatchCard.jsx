@@ -5,7 +5,6 @@ import { AutoAwesome, LocationOn, Send } from "@mui/icons-material";
 import { sendInterest } from "../../store/slices/matchesSlice.js";
 import { appearanceOptions, labelOf, maritalStatusOptions, styleOptions } from "../../constants/profileOptions.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
-import MatchRing from "../common/MatchRing.jsx";
 import SuggestionRow from "../suggestion/SuggestionRow.jsx";
 import SuggestionDetail from "../suggestion/SuggestionDetail.jsx";
 import { cleanText, idOf, toSuggestionView } from "../../utils/suggestionView.js";
@@ -22,8 +21,6 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
   const [message, setMessage] = useState("");
 
   const receiverId = idOf(match);
-
-  const matchPercent = typeof match?.matchPercent === "number" && Number.isFinite(match.matchPercent) ? match.matchPercent : undefined;
 
   const details = [
     match?.age && `גיל ${match.age}`,
@@ -93,8 +90,7 @@ const MatchCard = ({ match, onSent, onOpen, variant = "card", offline = false, v
       <CardContent
         sx={{ p: 3, flexGrow: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
       >
-        <PersonAvatar size={72} />
-        {matchPercent !== undefined && <MatchRing value={matchPercent} />}
+        <PersonAvatar size={72} gender={match?.gender} />
 
         <Typography variant="h6" sx={{ fontWeight: 800, wordBreak: "break-word" }}>
           {displayName(match?.name)}

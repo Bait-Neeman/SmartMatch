@@ -10,6 +10,7 @@ import {
   WorkOutlined,
 } from "@mui/icons-material";
 import { brand } from "../../theme/tokens.js";
+import PersonAvatar from "../common/PersonAvatar.jsx";
 import StatusPill from "../common/StatusPill.jsx";
 
 const LINE_ICONS = {
@@ -82,6 +83,12 @@ export default function HomeSuggestionCard({ card, onOpen, onInterest, sending =
             overflow: "hidden",
           }}
         >
+          <PersonAvatar
+            gender={card.gender}
+            fit="contain"
+            size="100%"
+            sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: 0 }}
+          />
           <Box
             sx={{
               width: 46,
@@ -90,6 +97,8 @@ export default function HomeSuggestionCard({ card, onOpen, onInterest, sending =
               display: "grid",
               placeItems: "center",
               bgcolor: "rgba(11, 31, 58, 0.35)",
+              position: "relative",
+              zIndex: 1,
             }}
           >
             <LockOutlined sx={{ fontSize: 22 }} />
@@ -130,10 +139,6 @@ export default function HomeSuggestionCard({ card, onOpen, onInterest, sending =
               </Typography>
             );
           })}
-
-          {card.percent != null ? (
-            <Typography sx={{ mt: 1, fontWeight: 700, fontSize: 14, color: brand.pillGreenText }}>התאמה {card.percent}%</Typography>
-          ) : null}
 
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: "14px" }}>
             <Box

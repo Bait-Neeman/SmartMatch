@@ -126,12 +126,13 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
   };
 
   const ownProfile = async (token, body, file) => {
+    const payload = { phone: "0521234567", ...body };
     const call = request(app).post("/api/profile").set(auth(token));
     if (file) {
-      Object.entries(body).forEach(([key, value]) => call.field(key, String(value)));
+      Object.entries(payload).forEach(([key, value]) => call.field(key, String(value)));
       return call.attach("resumePdf", file.buffer, { filename: file.name, contentType: "application/pdf" });
     }
-    return call.send(body);
+    return call.send(payload);
   };
 
   it("saves profile fields, age range, and resume metadata on create, update, and get-me", async () => {
@@ -153,7 +154,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(created.body.profile.financialParticipation, 80);
     assert.equal(created.body.profile.ageMin, 22);
     assert.equal(created.body.profile.ageMax, 30);
-    assert.equal(created.body.profile.preferredMaritalStatus, "single");
+    assert.deepEqual(created.body.profile.preferredMaritalStatus, ["single"]);
     assert.equal(created.body.profile.resumeSize, pdf.length);
     assert.ok(created.body.profile.resumeUploadedAt);
     assert.equal(created.body.profile.idNumber, undefined);
@@ -238,7 +239,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(card.description, "about text");
     assert.equal(card.seminar, "seminar-name");
     assert.equal(card.maritalStatus, "divorced");
-    assert.equal(typeof card.matchPercent, "number");
+    assert.equal(Object.hasOwn(card, "matchPercent"), false);
     for (const key of IDENTITY_KEYS) {
       assert.equal(Object.hasOwn(card, key), false, key);
     }
@@ -271,7 +272,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(person.maritalStatus, "single");
     assert.equal(person.financialDemand, 10);
     assert.equal(person.financialParticipation, 80);
-    assert.equal(typeof person.matchPercent, "number");
+    assert.equal(Object.hasOwn(person, "matchPercent"), false);
     assert.equal(incoming.body.interests[0].stage, "received");
     for (const key of IDENTITY_KEYS) assert.equal(Object.hasOwn(person, key), false, key);
 
@@ -284,7 +285,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const revealed = await request(app).get(`/api/profile/${viewer._id}`).set(auth(tokenFor(other)));
     assert.equal(revealed.status, 200);
     assert.equal(revealed.body.profile.name, "SECRET-VIEWER");
-    assert.equal(revealed.body.profile.phone, "0501111111");
+    assert.equal(revealed.body.profile.phone, undefined);
+    assert.equal(JSON.stringify(revealed.body).includes("0501111111"), false);
     assert.equal(revealed.body.profile.email, "secret-viewer@example.test");
     assert.equal(revealed.body.profile.maritalStatus, "single");
     assert.equal(revealed.body.profile.lookingFor, "viewer looking");
@@ -327,14 +329,19 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(listed.status, 200, JSON.stringify(listed.body));
     const ids = listed.body.candidates.map((card) => String(card._id));
     assert.deepEqual(ids, [String(good._id)]);
-    assert.equal(listed.body.candidates[0].matchPercent, 97);
+    assert.equal(Object.hasOwn(listed.body.candidates[0], "matchPercent"), false);
+    const viewerProfile = await Profile.findOne({ user: viewer._id }).lean();
+    const viewerPreference = await Preference.findOne({ user: viewer._id }).lean();
+    const goodProfile = await Profile.findOne({ user: good._id }).lean();
+    const openProfile = await Profile.findOne({ user: openMoney._id }).lean();
+    assert.equal(computeMatchPercent(viewerProfile, viewerPreference, goodProfile, null), 97);
+    assert.ok(computeMatchPercent(viewerProfile, viewerPreference, openProfile, null) < 95);
 
     await User.updateOne({ _id: viewer._id }, { $unset: { minMatchPercent: 1 } });
     const wider = await request(app).get("/api/match/candidates").set(headers);
     const widerIds = wider.body.candidates.map((card) => String(card._id)).sort();
     assert.deepEqual(widerIds, [String(good._id), String(openMoney._id)].sort());
-    const openCard = wider.body.candidates.find((card) => String(card._id) === String(openMoney._id));
-    assert.ok(openCard.matchPercent < 95);
+    assert.equal(JSON.stringify(wider.body).includes("matchPercent"), false);
 
     const filtered = await request(app).get("/api/match/candidates?percent=95").set(headers);
     assert.deepEqual(
@@ -382,9 +389,11 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
 
     const profileA = await request(app).post("/api/profile").set(auth(tokenA)).send({
       ...baseProfile({ gender: "male", age: 28, maritalStatus: "single", financialDemand: 50, financialParticipation: 150, lookingFor: "בית חם" }),
+      phone: "0521111111",
     });
     const profileB = await request(app).post("/api/profile").set(auth(tokenB)).send({
       ...baseProfile({ gender: "female", age: 24, maritalStatus: "single", financialDemand: 100, financialParticipation: 200, lookingFor: "מידות טובות" }),
+      phone: "0542222222",
     });
     assert.equal(profileA.status, 201, JSON.stringify(profileA.body));
     assert.equal(profileB.status, 201, JSON.stringify(profileB.body));
@@ -429,7 +438,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(fileText, "resumePdf:resume-b");
     const seen = await request(app).get(`/api/profile/${idB}`).set(auth(tokenA));
     assert.equal(seen.body.profile.name, "רבקה לוי");
-    assert.equal(seen.body.profile.phone, "0503333333");
+    assert.equal(seen.body.profile.phone, undefined);
+    assert.equal(JSON.stringify(seen.body).includes("0503333333"), false);
     assert.equal(seen.body.profile.resumeSize, 184);
 
     const forwardA = await request(app).post("/api/interest/send-to-manager").set(auth(tokenA)).send({ otherUserId: idB });
@@ -450,6 +460,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(under.body.matchmaker.length, 1);
     assert.equal(under.body.matchmaker[0].stage, "matchmaker");
     assert.equal(under.body.active.length, 0);
+    assert.equal(JSON.stringify(under.body).includes("0503333333"), false);
+    assert.equal(Object.hasOwn(under.body.matchmaker[0], "phone"), false);
 
     const admin = await createUser({ n: 39, role: "admin", idNumber: "311111119" });
     const pending = await request(app).get("/api/admin/pending-matches").set(auth(tokenFor(admin)));
@@ -609,7 +621,15 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(singleCard.maritalStatus, "single");
     assert.equal(divorcedCard.maritalStatus, "divorced");
     assert.equal(singleCard.name, undefined);
-    assert.ok(singleCard.matchPercent > divorcedCard.matchPercent);
+    assert.equal(Object.hasOwn(singleCard, "matchPercent"), false);
+    assert.equal(Object.hasOwn(divorcedCard, "matchPercent"), false);
+    const viewerProfile = await Profile.findOne({ user: viewer._id }).lean();
+    const singleProfile = await Profile.findOne({ user: single._id }).lean();
+    const divorcedProfile = await Profile.findOne({ user: divorced._id }).lean();
+    assert.ok(
+      computeMatchPercent(viewerProfile, null, singleProfile, null) >
+        computeMatchPercent(viewerProfile, null, divorcedProfile, null)
+    );
   });
 
   it("tells a paused user why a new interest is blocked, and still accepts a reply", async () => {
@@ -728,7 +748,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const saved = await request(app)
       .post("/api/profile")
       .set(headers)
-      .send(baseProfile({ financialDemand: 100000000, financialParticipation: 0 }));
+      .send({ ...baseProfile({ financialDemand: 100000000, financialParticipation: 0 }), phone: "0521234567" });
     assert.equal(saved.status, 201, JSON.stringify(saved.body));
     assert.equal(saved.body.profile.financialDemand, 100000000);
     assert.equal(saved.body.profile.financialParticipation, 0);
@@ -847,7 +867,7 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(row.receiver.city, "Elad");
     assert.equal(row.receiver.maritalStatus, "single");
     assert.equal(row.receiver.financialDemand, 40);
-    assert.equal(typeof row.receiver.matchPercent, "number");
+    assert.equal(row.receiver.matchPercent, undefined);
     const blob = JSON.stringify(lists.body.declined);
     for (const secret of ["DECLINE-OTHER", "decline-other@example.test", "0507777777", "secret-image", "secret-resume"]) {
       assert.equal(blob.includes(secret), false, secret);

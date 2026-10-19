@@ -39,6 +39,7 @@ const IDENTITY_KEYS = [
   "resumeUrl",
   "imageUrl",
   "contact",
+  "workplace",
 ];
 
 export const SUGGESTION_KINDS = {
@@ -228,7 +229,8 @@ export const toSuggestionView = (person, kind = "new", extra) => {
     description,
     lookingFor,
     lookingForHeading: lookingForHeading(source.gender),
-    percent: readPercent(source, extra),
+    gender: source.gender === "male" || source.gender === "female" ? source.gender : "",
+    percent: null,
     fields,
   };
 };

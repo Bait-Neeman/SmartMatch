@@ -5,7 +5,6 @@ import { AutoAwesome, FavoriteBorder, MailOutlined, PersonAdd, Send } from "@mui
 import { brand } from "../theme/tokens.js";
 import { getSession } from "../utils/session.js";
 import { getSuggestionLists, profileRequired } from "../services/suggestion.service.js";
-import { getSettings } from "../services/settings.service.js";
 import { sendInterest } from "../services/interest.service.js";
 import { suggestionHref } from "../utils/suggestionView.js";
 import {
@@ -34,7 +33,6 @@ export default function HomePage() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [needsProfile, setNeedsProfile] = useState(false);
-  const [showMatchPercent, setShowMatchPercent] = useState(true);
   const [sendingId, setSendingId] = useState("");
   const [cardError, setCardError] = useState({ id: "", message: "" });
 
@@ -74,14 +72,6 @@ export default function HomePage() {
       .finally(() => {
         if (active) setReady(true);
       });
-    getSettings()
-      .then((data) => {
-        if (!active) return;
-        if (typeof data?.settings?.showMatchPercent === "boolean") {
-          setShowMatchPercent(data.settings.showMatchPercent);
-        }
-      })
-      .catch(() => {});
     return () => {
       active = false;
     };
@@ -90,9 +80,7 @@ export default function HomePage() {
   if (isAdmin) return <Navigate to="/admin" replace />;
 
   const counts = payload ? homeCounts(payload) : null;
-  const cards = toHomeCards(payload?.newSuggestions).map((card) =>
-    showMatchPercent ? card : { ...card, percent: null }
-  );
+  const cards = toHomeCards(payload?.newSuggestions);
   const summary = !ready
     ? "טוענים את ההצעות שנבחרו עבורך…"
     : needsProfile

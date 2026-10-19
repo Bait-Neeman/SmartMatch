@@ -1,5 +1,5 @@
 const Preference = require("../models/preference.model");
-const { ETHNICITIES, MARITAL_STATUSES } = require("../models/options");
+const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES } = require("../models/options");
 const HttpError = require("../utils/httpError");
 
 // The fields a user may set, with their Hebrew names for error messages
@@ -11,14 +11,111 @@ const NUMBER_FIELDS = {
   financialMin: "מצב כלכלי מינימלי",
   financialMax: "מצב כלכלי מקסימלי",
 };
-const TEXT_FIELDS = {
+const LIST_FIELDS = {
   city: "עיר",
-  style: "סגנון",
-  preferredAppearance: "מראה חיצוני",
-  preferredMaritalStatus: "סטטוס משפחתי",
-  preferredEthnicity: "עדה",
   preferredYeshiva: "ישיבה",
   preferredSeminar: "סמינר",
+  preferredOccupation: "מקצוע",
+};
+const CHOICE_FIELDS = {
+  style: { label: "סגנון", allowed: STYLES },
+  preferredAppearance: { label: "מראה חיצוני", allowed: APPEARANCES },
+  preferredMaritalStatus: { label: "סטטוס משפחתי", allowed: MARITAL_STATUSES },
+  preferredEthnicity: { label: "עדה", allowed: ETHNICITIES },
+};
+const BOOLEAN_FIELDS = {
+  onlyWorking: "רק בחורה עובדת",
+  onlyWorkingInProfession: "רק בחורה שעובדת במקצוע שלמדה",
+  excludeIncomplete: "הצעות בלי פרטים",
+};
+const LIST_LIMIT = 100;
+const NAME_LIMIT = 100;
+// The checklist's "no preference" row is a UI state. It is not stored.
+const NO_PREFERENCE = new Set([
+  "אין העדפה",
+  "אין העדפת ישיבה",
+  "אין העדפת סמינר",
+  "אין העדפת מקצוע",
+  "אין העדפת עיר",
+  "לא משנה",
+]);
+
+const normaliseName = (value) =>
+  String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[-–—־]/g, " ")
+    .replace(/\s+/g, " ");
+
+// One stored string (older clients) or a list of names. Empty means no filter.
+const parseInstitutionList = (value, label) => {
+  if (value == null || value === "") return { clear: true };
+  const raw = Array.isArray(value) ? value : [value];
+  if (raw.length > LIST_LIMIT) {
+    throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+  }
+
+  const seen = new Set();
+  const names = [];
+  for (const item of raw) {
+    if (typeof item !== "string") {
+      throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+    }
+    const trimmed = item.trim().replace(/\s+/g, " ");
+    if (!trimmed || NO_PREFERENCE.has(trimmed)) continue;
+    if (trimmed.length > NAME_LIMIT) {
+      throw new HttpError(400, `השדה ${label} ארוך מדי`);
+    }
+    const key = normaliseName(trimmed);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(trimmed);
+  }
+
+  if (names.length === 0) return { clear: true };
+  return { value: names };
+};
+
+// One stored code, or a list of them. A value outside the option list is rejected.
+const parseChoiceList = (value, label, allowed) => {
+  if (value == null || value === "") return { clear: true };
+  const raw = Array.isArray(value) ? value : [value];
+  if (raw.length > LIST_LIMIT) {
+    throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+  }
+  const seen = new Set();
+  const names = [];
+  for (const item of raw) {
+    if (typeof item !== "string") {
+      throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+    }
+    const trimmed = item.trim();
+    if (!trimmed || NO_PREFERENCE.has(trimmed)) continue;
+    if (!allowed.includes(trimmed)) {
+      throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+    }
+    if (seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    names.push(trimmed);
+  }
+  if (names.length === 0) return { clear: true };
+  return { value: names };
+};
+
+const parseFlag = (value) => {
+  if (value === true || value === "true" || value === "1" || value === 1) return true;
+  if (value === false || value === "false" || value === "0" || value === 0) return false;
+  return null;
+};
+
+const readInstitutionList = (value) => {
+  if (value == null || value === "") return null;
+  const raw = Array.isArray(value) ? value : [value];
+  const names = raw
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim().replace(/\s+/g, " "))
+    .filter((item) => item && !NO_PREFERENCE.has(item));
+  return names.length ? names : null;
 };
 const RANGES = [
   ["ageMin", "ageMax", "הגיל"],
@@ -32,39 +129,58 @@ const parsePreferences = (body = {}) => {
   const values = {};
   const cleared = [];
 
-  for (const [field, label] of Object.entries({ ...NUMBER_FIELDS, ...TEXT_FIELDS })) {
+  for (const [field, label] of Object.entries(LIST_FIELDS)) {
+    if (body[field] === undefined) continue;
+    const parsed = parseInstitutionList(body[field], label);
+    if (parsed.clear) cleared.push(field);
+    else values[field] = parsed.value;
+  }
+
+  for (const [field, spec] of Object.entries(CHOICE_FIELDS)) {
+    if (body[field] === undefined) continue;
+    const parsed = parseChoiceList(body[field], spec.label, spec.allowed);
+    if (parsed.clear) cleared.push(field);
+    else values[field] = parsed.value;
+  }
+
+  for (const [field, label] of Object.entries(NUMBER_FIELDS)) {
     let value = body[field];
-    if (value === undefined) {
-      continue;
-    }
-    if (typeof value === "string") {
-      value = value.trim();
-    }
+    if (value === undefined) continue;
+    if (typeof value === "string") value = value.trim();
     if (value === null || value === "") {
       cleared.push(field);
       continue;
     }
-
-    if (field in NUMBER_FIELDS) {
-      value = typeof value === "string" ? Number(value) : value;
-      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-        throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
-      }
-      if ((field === "ageMin" || field === "ageMax") && (value < 18 || value > 99)) {
-        throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
-      }
-    } else if (typeof value !== "string") {
+    value = typeof value === "string" ? Number(value) : value;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
       throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
     }
-
-    if (field === "preferredMaritalStatus" && !MARITAL_STATUSES.includes(value)) {
-      throw new HttpError(400, "ערך לא תקין בשדה סטטוס משפחתי");
+    if ((field === "ageMin" || field === "ageMax") && (value < 18 || value > 99)) {
+      throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
     }
-    if (field === "preferredEthnicity" && !ETHNICITIES.includes(value)) {
-      throw new HttpError(400, "ערך לא תקין בשדה עדה");
-    }
-
     values[field] = value;
+  }
+
+  for (const [field, label] of Object.entries(BOOLEAN_FIELDS)) {
+    if (body[field] === undefined) continue;
+    let value = body[field];
+    if (typeof value === "string") value = value.trim();
+    if (value === null || value === "") {
+      cleared.push(field);
+      continue;
+    }
+    const parsed = parseFlag(value);
+    if (parsed == null) {
+      throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+    }
+    values[field] = parsed;
+  }
+
+  // The studied-profession filter includes "only a working woman".
+  if (values.onlyWorkingInProfession === true) {
+    values.onlyWorking = true;
+    const index = cleared.indexOf("onlyWorking");
+    if (index >= 0) cleared.splice(index, 1);
   }
 
   return { values, cleared };
@@ -84,17 +200,21 @@ const toPreferenceResponse = (preference) => ({
   _id: preference._id,
   ageMin: preference.ageMin,
   ageMax: preference.ageMax,
-  city: preference.city,
-  style: preference.style,
-  preferredAppearance: preference.preferredAppearance,
+  city: readInstitutionList(preference.city),
+  style: readInstitutionList(preference.style),
+  preferredAppearance: readInstitutionList(preference.preferredAppearance),
   heightMin: preference.heightMin,
   heightMax: preference.heightMax,
   financialMin: preference.financialMin,
   financialMax: preference.financialMax,
-  preferredMaritalStatus: preference.preferredMaritalStatus ?? null,
-  preferredEthnicity: preference.preferredEthnicity ?? null,
-  preferredYeshiva: preference.preferredYeshiva ?? null,
-  preferredSeminar: preference.preferredSeminar ?? null,
+  preferredMaritalStatus: readInstitutionList(preference.preferredMaritalStatus),
+  preferredEthnicity: readInstitutionList(preference.preferredEthnicity),
+  excludeIncomplete: preference.excludeIncomplete === true,
+  preferredYeshiva: readInstitutionList(preference.preferredYeshiva),
+  preferredSeminar: readInstitutionList(preference.preferredSeminar),
+  preferredOccupation: readInstitutionList(preference.preferredOccupation),
+  onlyWorking: preference.onlyWorking === true,
+  onlyWorkingInProfession: preference.onlyWorkingInProfession === true,
 });
 
 const createPreferenceForUser = async (userId, body) => {
@@ -103,6 +223,7 @@ const createPreferenceForUser = async (userId, body) => {
   }
 
   const preference = new Preference({ ...parsePreferences(body).values, user: userId });
+  if (preference.onlyWorkingInProfession === true) preference.onlyWorking = true;
   assertValidRanges(preference);
   await preference.save();
 
@@ -129,6 +250,7 @@ const updatePreferenceByUserId = async (userId, body) => {
     preference.set(field, undefined);
   }
 
+  if (preference.onlyWorkingInProfession === true) preference.onlyWorking = true;
   assertValidRanges(preference);
   await preference.save({ validateModifiedOnly: true });
 

@@ -33,7 +33,7 @@ export default function SuggestionRow({
           "@media (max-width:1280px)": percentNode ? undefined : { display: "none" },
         }}
       >
-        {percentNode || (view.percent == null ? "" : `${view.percent}%`)}
+        {percentNode || null}
       </Box>
     ) : null;
 
@@ -67,7 +67,7 @@ export default function SuggestionRow({
           },
         }}
       >
-        {leading || <LockedAvatar />}
+        {leading || <LockedAvatar gender={view?.gender} />}
         <Box sx={{ flex: statusBelow ? "0 1 auto" : "0 1 260px", minWidth: statusBelow ? "auto" : 0, maxWidth: statusBelow ? 520 : undefined }}>
           <Typography
             component="h3"

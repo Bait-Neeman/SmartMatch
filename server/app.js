@@ -13,6 +13,7 @@ const settingsRoutes = require("./src/routes/settings.routes");
 const suggestionRoutes = require("./src/routes/suggestion.routes");
 const searchRoutes = require("./src/routes/search.routes");
 const notificationRoutes = require("./src/routes/notification.routes");
+const institutionRoutes = require("./src/routes/institution.routes");
 const { apiLimiter } = require("./src/middleware/rateLimit.middleware");
 const { notFound, errorHandler } = require("./src/middleware/error.middleware");
 
@@ -70,6 +71,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/suggestions", suggestionRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/institutions", institutionRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

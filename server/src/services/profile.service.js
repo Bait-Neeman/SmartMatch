@@ -4,7 +4,7 @@ const Interest = require("../models/interest.model");
 const User = require("../models/user.model");
 const { MARITAL_STATUSES } = require("../models/options");
 const HttpError = require("../utils/httpError");
-const { assertObjectId } = require("../utils/validators");
+const { assertObjectId, normalizeIsraeliMobile } = require("../utils/validators");
 const { uploadProfileFile, deleteProfileFile, fileAccessPath } = require("./storage.service");
 const { toPublicPerson } = require("./privacy.service");
 const { getCandidatesForUser } = require("./match.service");
@@ -28,7 +28,10 @@ const EDITABLE_FIELDS = {
   maritalStatus: "סטטוס משפחתי",
   yeshiva: "ישיבה",
   seminar: "סמינר",
-  occupation: "עיסוק",
+  occupation: "מקצוע",
+  working: "עבודה",
+  workingInProfession: "עובדת במקצוע שלמדתי",
+  workplace: "מקום עבודה",
   // financialRequirement is the older free-text דרישה כספית.
   // financialDemand / financialParticipation are the numeric pair used by matching.
   financialRequirement: "דרישה כספית",
@@ -38,6 +41,13 @@ const EDITABLE_FIELDS = {
   financialParticipation: "השתתפות כספית",
 };
 const NUMBER_FIELDS = new Set(["age", "height", "financialStatus", "financialDemand", "financialParticipation"]);
+const BOOLEAN_FIELDS = new Set(["working", "workingInProfession"]);
+
+const parseWorking = (value) => {
+  if (value === true || value === "true" || value === "1" || value === 1) return true;
+  if (value === false || value === "false" || value === "0" || value === 0) return false;
+  return null;
+};
 const NON_NEGATIVE_FIELDS = new Set(["financialDemand", "financialParticipation"]);
 const MONEY_MAX = 100000000;
 const REQUIRED_FIELDS = ["gender", "age"];
@@ -63,6 +73,15 @@ const pickProfileFields = (body = {}) => {
       continue;
     }
 
+    if (BOOLEAN_FIELDS.has(field)) {
+      const parsed = parseWorking(value);
+      if (parsed == null) {
+        throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+      }
+      values[field] = parsed;
+      continue;
+    }
+
     if (NUMBER_FIELDS.has(field)) {
       value = typeof value === "string" ? Number(value) : value;
       if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -85,6 +104,14 @@ const pickProfileFields = (body = {}) => {
   return { values, cleared };
 };
 
+// A workplace and "עובדת במקצוע שלמדתי" are kept only while "עובדת" is checked.
+const clearWorkplaceUnlessWorking = (profile) => {
+  if (profile.working !== true) {
+    profile.set("workplace", undefined);
+    profile.set("workingInProfession", undefined);
+  }
+};
+
 // Stored file IDs are replaced by signed URLs - or by null when the viewer may not see the files.
 const toProfileResponse = (profile, { includeFiles = true } = {}) => {
   const data = typeof profile.toObject === "function" ? profile.toObject() : { ...profile };
@@ -96,11 +123,15 @@ const toProfileResponse = (profile, { includeFiles = true } = {}) => {
   return data;
 };
 
-// The owner's own profile, including age-range preference and resume metadata.
+// The owner's own profile, including age-range preference, resume metadata, and
+// the contact phone stored on the account. Another user never receives that phone.
 const toOwnerProfile = async (profile) => {
   const data = toProfileResponse(profile);
   const userId = data.user?._id || data.user;
-  const preference = await Preference.findOne({ user: userId }).lean();
+  const [preference, account] = await Promise.all([
+    Preference.findOne({ user: userId }).lean(),
+    User.findById(userId).select("phone").lean(),
+  ]);
   data.lookingFor = data.lookingFor ?? null;
   data.maritalStatus = data.maritalStatus ?? null;
   data.financialDemand = data.financialDemand ?? null;
@@ -108,7 +139,34 @@ const toOwnerProfile = async (profile) => {
   data.ageMin = preference?.ageMin ?? null;
   data.ageMax = preference?.ageMax ?? null;
   data.preferredMaritalStatus = preference?.preferredMaritalStatus ?? null;
+  data.phone = account?.phone || null;
   return data;
+};
+
+const PHONE_REQUIRED = "טלפון נייד ליצירת קשר הוא שדה חובה";
+const PHONE_INVALID = "מספר הטלפון הנייד אינו תקין";
+
+const storeContactPhone = async (userId, raw) => {
+  if (raw == null || (typeof raw === "string" && raw.trim() === "")) {
+    throw new HttpError(400, PHONE_REQUIRED);
+  }
+  const phone = typeof raw === "string" ? normalizeIsraeliMobile(raw) : null;
+  if (!phone) {
+    throw new HttpError(400, PHONE_INVALID);
+  }
+  await User.updateOne({ _id: userId }, { $set: { phone } });
+};
+
+// A new profile cannot be saved without a mobile. The same 05XXXXXXXX rule
+// as a later edit. The number is stored on the account, not on the profile.
+const requireContactPhone = (userId, body = {}) => storeContactPhone(userId, body.phone);
+
+// Present only when the profile form sent it. A save that omits the key
+// (for example a free-text update) leaves the stored number as it is,
+// including an older account that still has none.
+const applyContactPhone = async (userId, body = {}) => {
+  if (!Object.prototype.hasOwnProperty.call(body, "phone")) return;
+  await storeContactPhone(userId, body.phone);
 };
 
 const deleteFiles = (fileIds) =>
@@ -162,8 +220,10 @@ const createProfileForUser = async (userId, body, files) => {
   }
 
   const profile = new Profile({ ...pickProfileFields(body).values, user: userId });
+  clearWorkplaceUnlessWorking(profile);
   // Reject invalid data before uploading any file or writing preferences
   await profile.validate();
+  await requireContactPhone(userId, body);
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 
@@ -196,9 +256,11 @@ const updateProfileByUserId = async (userId, body, files) => {
   for (const field of cleared) {
     profile.set(field, undefined);
   }
+  clearWorkplaceUnlessWorking(profile);
 
   // Only the changed fields are validated, so older profiles can still be edited
   await profile.validate(undefined, { validateModifiedOnly: true });
+  await applyContactPhone(userId, body);
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 
@@ -236,8 +298,9 @@ const isCurrentCandidate = async (viewerId, targetUserId) => {
 
 // The owner and an admin see the stored profile. Another registered user sees the
 // anonymized profile when that person is a current suggestion or a still-pending
-// interest. Name, contact, photo, and resume are added only when this request
+// interest. Name, photo, and resume are added only when this request
 // still finds an accepted interest — a decline closes that access immediately.
+// The contact phone is never added for another user.
 // A decline at any stage, a stranger, and an unknown id all get the same not-found response.
 const getProfileForViewer = async (viewer, targetUserId) => {
   assertObjectId(targetUserId);
@@ -264,7 +327,7 @@ const getProfileForViewer = async (viewer, targetUserId) => {
   }
 
   const user = accepted
-    ? await User.findById(targetUserId).select("name email phone").lean()
+    ? await User.findById(targetUserId).select("name email").lean()
     : { _id: targetUserId };
 
   return toPublicPerson(user, profile, { revealIdentity: accepted });

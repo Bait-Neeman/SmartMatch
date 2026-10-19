@@ -11,6 +11,9 @@ const { fileAccessPath } = require("./storage.service");
 // yeshiva and seminar are the learning institution (מוסד).
 // lookingFor, maritalStatus, financialDemand, and financialParticipation are
 // visible before approval, the same as age, city, and the other public fields.
+// workplace (where she works) can name an employer, so it stays hidden until
+// mutual approval, like a name. A phone number is never sent to another user,
+// at any stage. The work checkboxes and מקצוע stay public.
 const PUBLIC_PROFILE_FIELDS = [
   "age",
   "height",
@@ -20,6 +23,8 @@ const PUBLIC_PROFILE_FIELDS = [
   "appearance",
   "gender",
   "occupation",
+  "working",
+  "workingInProfession",
   "description",
   "lookingFor",
   "maritalStatus",
@@ -32,18 +37,15 @@ const PUBLIC_PROFILE_FIELDS = [
   "financialParticipation",
 ];
 
-// Never sent to another user, even after mutual approval.
-// The national ID stays with the account owner and with admins.
-const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber"]);
+// Never sent to another user, even after mutual approval or a matchmaker stage.
+// The national ID and the contact phone stay with the account owner and with admins.
+const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber", "phone", "mobile", "telephone"]);
 
 // Identifying keys removed from every suggestion until mutual approval.
 // maritalStatus is not one of them: it is a public profile field.
 const IDENTITY_KEYS = new Set([
   "name",
   "email",
-  "phone",
-  "mobile",
-  "telephone",
   "contact",
   "image",
   "resumePdf",
@@ -54,6 +56,7 @@ const IDENTITY_KEYS = new Set([
   "imageUrl",
   "resumeSize",
   "resumeUploadedAt",
+  "workplace",
 ]);
 
 const asPlain = (value) => {
@@ -110,19 +113,37 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
   if (revealIdentity) {
     person.name = plainUser?.name ?? null;
     person.email = plainUser?.email ?? null;
-    if (plainUser?.phone) person.phone = plainUser.phone;
     // Stable file paths. Opening them checks that the match is still accepted.
     person.image = fileAccessPath(id, "image", plainProfile?.image);
     person.resumePdf = fileAccessPath(id, "resumePdf", plainProfile?.resumePdf);
     if (plainProfile?.resumeSize != null) person.resumeSize = plainProfile.resumeSize;
     if (plainProfile?.resumeUploadedAt) person.resumeUploadedAt = plainProfile.resumeUploadedAt;
+    if (plainProfile?.workplace) person.workplace = plainProfile.workplace;
   }
 
   return redactIdentity(person, { revealIdentity });
 };
 
+// Members never receive a match percent. Sorting and a minimum still use the
+// score, then this drops the field from the payload they are sent. Admin
+// responses are built on their own and keep the number.
+const withoutMatchPercent = (value) => {
+  if (Array.isArray(value)) return value.map(withoutMatchPercent);
+  if (!value || typeof value !== "object") return value;
+  if (value instanceof Date || isObjectId(value)) return value;
+
+  const copy = { ...value };
+  delete copy.matchPercent;
+  for (const key of Object.keys(copy)) {
+    const child = copy[key];
+    if (child && typeof child === "object") copy[key] = withoutMatchPercent(child);
+  }
+  return copy;
+};
+
 module.exports = {
   toPublicPerson,
   redactIdentity,
+  withoutMatchPercent,
   PUBLIC_PROFILE_FIELDS,
 };

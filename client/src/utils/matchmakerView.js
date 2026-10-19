@@ -3,7 +3,7 @@ import { toActiveView } from "./activeSuggestionView.js";
 
 // GET /suggestions puts a row in `matchmaker` only after both sides have forwarded.
 // Name and photo stay on the view the active page already builds for an accepted match.
-// Email, national ID, and anything else that view does not copy stay off this page.
+// Email, phone, national ID, and anything else that view does not copy stay off this page.
 const bothForwarded = (person) =>
   person?.stage === "matchmaker" && person.viewerForwarded !== false && person.otherForwarded !== false;
 
