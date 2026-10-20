@@ -13,7 +13,7 @@ export const brand = {
   goldDeep: "#B8913F",
   goldDark: "#A8823A",
   goldText: "#8A6A2A",
-  mut: "#7A8598",
+  mut: "#5C6A80",
   mut2: "#AAB4C3",
   mist: "#7A8598",
   mistDeep: "#7A8598",

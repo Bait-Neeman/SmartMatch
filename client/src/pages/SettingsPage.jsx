@@ -22,6 +22,8 @@ import { changePassword, deleteAccount, getSettings, updateSettings } from "../s
 import { clearSession } from "../utils/session.js";
 import { passwordError } from "../utils/authForm.js";
 import { brand } from "../theme/tokens.js";
+import ConfirmDialog from "../components/common/ConfirmDialog.jsx";
+import { pendingCopy } from "../copy/pendingCopy.js";
 
 const NOTIFICATION_ROWS = [
   { key: "newSuggestion", title: "הצעה חדשה", detail: "כשנבחרת עבורך הצעה חדשה" },
@@ -288,7 +290,6 @@ export default function SettingsPage() {
   const removeAccount = async () => {
     setError("");
     if (!currentPassword) {
-      setConfirmDelete(true);
       setError("יש להזין את הסיסמה הנוכחית כדי למחוק את החשבון");
       return;
     }
@@ -480,13 +481,25 @@ export default function SettingsPage() {
             title="מחיקת חשבון"
             detail="הסרה מלאה של הפרופיל והנתונים. נדרשת הסיסמה הנוכחית."
             control={
-              <Button variant="outlined" size="small" disabled={busy} onClick={() => (confirmDelete ? removeAccount() : setConfirmDelete(true))}>
-                {confirmDelete ? "אישור מחיקה" : "מחיקה"}
+              <Button variant="outlined" size="small" disabled={busy} onClick={() => setConfirmDelete(true)}>
+                מחיקה
               </Button>
             }
           />
         </Card>
       </Box>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={pendingCopy.deleteTitle}
+        body="הסרה מלאה של הפרופיל והנתונים. נדרשת הסיסמה הנוכחית."
+        confirmLabel="אישור מחיקה"
+        busy={busy}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false);
+          removeAccount();
+        }}
+      />
     </Box>
   );
 }

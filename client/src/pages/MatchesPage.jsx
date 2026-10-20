@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Alert, Box, CircularProgress, Container, Snackbar, Typography } from "@mui/material";
+import { Alert, Box, Container, Snackbar, Typography } from "@mui/material";
 import { ArrowForward, PersonAdd, SearchOff, Tune } from "@mui/icons-material";
 import MatchCard from "../components/match/MatchCard.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
 import PageHeader from "../components/common/PageHeader.jsx";
+import { ListSkeleton } from "../components/common/PageSkeleton.jsx";
 import {
   fetchMatches,
   selectMatches,
@@ -37,9 +38,7 @@ const MatchesPage = () => {
   const renderContent = () => {
     if (loading) {
       return (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <ListSkeleton />
       );
     }
 

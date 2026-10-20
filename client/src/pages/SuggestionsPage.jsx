@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   InputAdornment,
   MenuItem,
   TextField,
@@ -15,6 +14,7 @@ import MatchCard from "../components/match/MatchCard.jsx";
 import InterestCard from "../components/interest/InterestCard.jsx";
 import SuggestionRow from "../components/suggestion/SuggestionRow.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
+import { ListSkeleton } from "../components/common/PageSkeleton.jsx";
 import useSuggestions from "../hooks/useSuggestions.js";
 import { brand } from "../theme/tokens.js";
 import { filterSuggestions, suggestionHref } from "../utils/suggestionView.js";
@@ -109,9 +109,7 @@ export default function SuggestionsPage() {
   const renderBody = () => {
     if (loading) {
       return (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <ListSkeleton />
       );
     }
 

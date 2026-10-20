@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Button } from "@mui/material";
+import ConfirmDialog from "../common/ConfirmDialog.jsx";
+import { pendingCopy } from "../../copy/pendingCopy.js";
 import { Close, Groups, HourglassTop, HowToReg, Link as LinkIcon, Send } from "@mui/icons-material";
 import SuggestionRow from "./SuggestionRow.jsx";
 import SuggestionDetail from "./SuggestionDetail.jsx";
@@ -27,6 +29,7 @@ export default function ActiveSuggestionCard({
 }) {
   const [pending, setPending] = useState("");
   const [error, setError] = useState("");
+  const [confirmDecline, setConfirmDecline] = useState(false);
   const view = item.view;
   const icon = ICONS[view.kind] || <HowToReg />;
   const showForward = canForward(view);
@@ -68,7 +71,7 @@ export default function ActiveSuggestionCard({
           disabled={Boolean(pending) || !item.userId}
           onClick={(event) => {
             event.stopPropagation();
-            run("decline", onDecline);
+            setConfirmDecline(true);
           }}
         >
           לא מעוניין להמשיך
@@ -79,41 +82,62 @@ export default function ActiveSuggestionCard({
 
   if (!view.revealed) return null;
 
+  const declineDialog = (
+    <ConfirmDialog
+      open={confirmDecline}
+      title={pendingCopy.declineTitle}
+      body={pendingCopy.declineBody}
+      confirmLabel="לא מעוניין להמשיך"
+      busy={Boolean(pending)}
+      onClose={() => setConfirmDecline(false)}
+      onConfirm={() => {
+        setConfirmDecline(false);
+        run("decline", onDecline);
+      }}
+    />
+  );
+
   if (variant === "detail") {
     return (
-      <SuggestionDetail
-        view={view}
-        icon={icon}
-        actions={actions}
-        error={error}
-        onBack={onOpen}
-        photo={<RevealedPhoto url={view.image} name={view.name} gender={view.gender} />}
-        notice={null}
-        bannerText={otherForwardedBanner(view)}
-        afterText={
-          view.resumePdf ? (
-            <ResumeCard
-              name={view.name}
-              url={view.resumePdf}
-              size={view.resumeSize}
-              uploadedAt={view.resumeUploadedAt}
-            />
-          ) : null
-        }
-      />
+      <>
+        <SuggestionDetail
+          view={view}
+          icon={icon}
+          actions={actions}
+          error={error}
+          onBack={onOpen}
+          photo={<RevealedPhoto url={view.image} name={view.name} gender={view.gender} />}
+          notice={null}
+          bannerText={otherForwardedBanner(view)}
+          afterText={
+            view.resumePdf ? (
+              <ResumeCard
+                name={view.name}
+                url={view.resumePdf}
+                size={view.resumeSize}
+                uploadedAt={view.resumeUploadedAt}
+              />
+            ) : null
+          }
+        />
+        {declineDialog}
+      </>
     );
   }
 
   return (
-    <SuggestionRow
-      view={view}
-      icon={icon}
-      actions={actions}
-      error={error}
-      onOpen={onOpen}
-      leading={<RevealedAvatar url={view.image} name={view.name} gender={view.gender} />}
-      showStatus={view.kind !== "accepted"}
-      statusPlacement="below"
-    />
+    <>
+      <SuggestionRow
+        view={view}
+        icon={icon}
+        actions={actions}
+        error={error}
+        onOpen={onOpen}
+        leading={<RevealedAvatar url={view.image} name={view.name} gender={view.gender} />}
+        showStatus={view.kind !== "accepted"}
+        statusPlacement="below"
+      />
+      {declineDialog}
+    </>
   );
 }

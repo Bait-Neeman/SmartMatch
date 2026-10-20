@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link as RouterLink, Navigate, useNavigate } from "react-router-dom";
-import { Alert, Box, Button, CircularProgress, Paper, Typography } from "@mui/material";
-import { AutoAwesome, FavoriteBorder, MailOutlined, PersonAdd, Send } from "@mui/icons-material";
+import { Alert, Box, Button, Paper, Snackbar, Typography } from "@mui/material";
+import { AutoAwesome, FavoriteBorder, MailOutlined, PersonAdd, SearchOff, Send, Tune } from "@mui/icons-material";
 import { brand } from "../theme/tokens.js";
 import { getSession } from "../utils/session.js";
 import { getSuggestionLists, profileRequired } from "../services/suggestion.service.js";
@@ -16,6 +16,7 @@ import {
 } from "../utils/homeDashboard.js";
 import HomeSuggestionCard from "../components/home/HomeSuggestionCard.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
+import { ListSkeleton } from "../components/common/PageSkeleton.jsx";
 
 const heroBackground = `radial-gradient(400px 200px at 0% 0%, ${brand.goldGlow}, transparent 70%), linear-gradient(90deg, ${brand.paper}, ${brand.heroEnd})`;
 
@@ -35,6 +36,7 @@ export default function HomePage() {
   const [needsProfile, setNeedsProfile] = useState(false);
   const [sendingId, setSendingId] = useState("");
   const [cardError, setCardError] = useState({ id: "", message: "" });
+  const [sentNotice, setSentNotice] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -94,6 +96,7 @@ export default function HomePage() {
     setCardError({ id: "", message: "" });
     try {
       await sendInterest(card.id);
+      setSentNotice("ההתעניינות נשלחה בהצלחה");
       await load();
     } catch (err) {
       setCardError({ id: card.id, message: err?.message || "לא הצלחנו לשלוח התעניינות" });
@@ -217,9 +220,7 @@ export default function HomePage() {
       </Box>
 
       {!ready ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress />
-        </Box>
+        <ListSkeleton rows={3} />
       ) : needsProfile ? (
         <EmptyState
           icon={<PersonAdd />}
@@ -228,9 +229,11 @@ export default function HomePage() {
           actions={[{ label: "יצירת פרופיל", to: "/profile", icon: <PersonAdd /> }]}
         />
       ) : cards.length === 0 ? (
-        <Paper sx={{ p: 3, textAlign: "center" }}>
-          <Typography sx={{ color: brand.mut }}>אין הצעות חדשות כרגע</Typography>
-        </Paper>
+        <EmptyState
+          icon={<SearchOff />}
+          title="אין הצעות חדשות כרגע"
+          actions={[{ label: "עדכון העדפות", to: "/preferences", icon: <Tune /> }]}
+        />
       ) : (
         <Box
           sx={{
@@ -251,6 +254,13 @@ export default function HomePage() {
           ))}
         </Box>
       )}
+      <Snackbar
+        open={Boolean(sentNotice)}
+        autoHideDuration={4000}
+        onClose={() => setSentNotice("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        message={sentNotice}
+      />
     </Box>
   );
 }

@@ -20,7 +20,17 @@ export const getSession = () => {
   };
 };
 
-const ONBOARDING_PATHS = new Set(["/profile", "/preferences"]);
+const ONBOARDING_PATHS = new Set(["/identity", "/profile", "/preferences"]);
+
+export const identityComplete = (user) => {
+  const name = typeof user?.name === "string" ? user.name.trim() : "";
+  return name.length > 0 && (user?.gender === "male" || user?.gender === "female");
+};
+
+export const rememberUser = (patch) => {
+  const current = getSession().user || {};
+  localStorage.setItem("user", JSON.stringify({ ...current, ...patch }));
+};
 
 // A finished account lands on /home. A new account stays on onboarding until it is done.
 export const pathForSession = (session, onboardingPath) => {

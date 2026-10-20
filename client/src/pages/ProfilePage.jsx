@@ -9,7 +9,9 @@ import { brand } from "../theme/tokens.js";
 import { buildProfileFields } from "../utils/genderForms.js";
 import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
 import useInstitutionLists from "../hooks/useInstitutionLists.js";
-import { getSession, setOnboardingPath } from "../utils/session.js";
+import { getSession, rememberUser, setOnboardingPath } from "../utils/session.js";
+import OnboardingSteps from "../components/common/OnboardingSteps.jsx";
+import { FormSkeleton } from "../components/common/PageSkeleton.jsx";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
 
 const PHOTO_NOTE = "התמונה מוצגת לאחרים רק לאחר אישור התעניינות הדדי";
@@ -200,7 +202,8 @@ export default function ProfilePage() {
 
   const { control, handleSubmit, reset } = useForm({
     defaultValues: {
-      gender: "",
+      fullName: getSession().user?.name || "",
+      gender: getSession().user?.gender || "",
       ethnicity: "",
       age: "",
       city: "",
@@ -231,7 +234,8 @@ export default function ProfilePage() {
         setProfileExists(true);
         setStoredResumeUrl(toSafeFileUrl(profile.resumePdf));
         reset({
-          gender: profile.gender || "",
+          fullName: data?.profile?.name || getSession().user?.name || "",
+          gender: profile.gender || getSession().user?.gender || "",
           ethnicity: profile.ethnicity || "",
           age: profile.age ?? "",
           city: profile.city || "",
@@ -310,6 +314,7 @@ export default function ProfilePage() {
     try {
       if (profileExists) await updateProfile(requestData);
       else await createProfile(requestData);
+      rememberUser({ name: data.fullName.trim(), gender: data.gender });
       setSuccessMessage(profileExists ? "הפרופיל נשמר" : "הפרופיל נוצר בהצלחה");
       const nextPath = profileExists ? "/personal-area" : "/preferences";
       setOnboardingPath(nextPath);
@@ -322,8 +327,15 @@ export default function ProfilePage() {
     }
   };
 
+  const onboarding = typeof localStorage !== "undefined" ? localStorage.getItem("onboarding") : "";
+
+  if (loadingProfile) {
+    return <FormSkeleton />;
+  }
+
   return (
     <Box sx={{ maxWidth: 1120, mx: "auto" }}>
+      {onboarding === "/profile" || onboarding === "/identity" ? <OnboardingSteps current={3} /> : null}
       <Box sx={{ mb: 2.25 }}>
         <Typography component="h1" sx={pageTitleSx}>
           הפרופיל שלי

@@ -5,7 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Paper,
   Snackbar,
   Stack,
@@ -40,7 +39,7 @@ import {
   maritalStatusOptions,
   styleOptions,
 } from "../constants/profileOptions.js";
-import { getSession } from "../utils/session.js";
+import { getSession, rememberUser } from "../utils/session.js";
 import { brand } from "../theme/tokens.js";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
 import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
@@ -70,6 +69,7 @@ import {
 } from "../utils/genderForms.js";
 import ProtectedImage from "../components/common/ProtectedFile.jsx";
 import StatusPill from "../components/common/StatusPill.jsx";
+import { FormSkeleton } from "../components/common/PageSkeleton.jsx";
 
 const toText = (value) => {
   if (value === undefined || value === null) return "";
@@ -937,7 +937,8 @@ export default function PersonalAreaPage() {
     reset: resetProfile,
   } = useForm({
     defaultValues: {
-      gender: "",
+      fullName: getSession().user?.name || "",
+      gender: getSession().user?.gender || "",
       ethnicity: "",
       age: "",
       city: "",
@@ -995,7 +996,8 @@ export default function PersonalAreaPage() {
       setProfileData(profile || null);
 
       resetProfile({
-        gender: profile?.gender || "",
+        fullName: profile?.name || getSession().user?.name || "",
+        gender: profile?.gender || getSession().user?.gender || "",
         ethnicity: profile?.ethnicity || "",
         age: toText(profile?.age),
         city: profile?.city || "",
@@ -1170,6 +1172,7 @@ export default function PersonalAreaPage() {
       const response = profileExists ? await updateProfile(formData) : await createProfile(formData);
 
       setProfileExists(true);
+      rememberUser({ name: data.fullName.trim(), gender: data.gender || profileData?.gender });
       fillProfileForm(response?.profile || response);
       closeForm();
       setSuccessMessage("הפרופיל נשמר בהצלחה");
@@ -1240,9 +1243,7 @@ export default function PersonalAreaPage() {
 
   if (loadingData) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-        <CircularProgress />
-      </Box>
+      <FormSkeleton />
     );
   }
 

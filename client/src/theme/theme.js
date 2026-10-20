@@ -90,6 +90,18 @@ const theme = createTheme({
           minHeight: "100vh",
           textAlign: "start",
         },
+        "*:focus-visible": {
+          outline: `2px solid ${brand.goldDark}`,
+          outlineOffset: 2,
+        },
+        "@media (prefers-reduced-motion: reduce)": {
+          "*, *::before, *::after": {
+            animationDuration: "0.01ms !important",
+            animationIterationCount: "1 !important",
+            transitionDuration: "0.01ms !important",
+            scrollBehavior: "auto !important",
+          },
+        },
       },
     },
     MuiButton: {

@@ -15,6 +15,11 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
+export const saveIdentity = async (payload) => {
+  const response = await api.post("/auth/identity", payload);
+  return response.data;
+};
+
 export const requestPasswordReset = async (payload) => {
   const response = await api.post("/auth/forgot-password", payload);
   return response.data;

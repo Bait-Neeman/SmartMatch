@@ -3,6 +3,8 @@ import { useDispatch } from "react-redux";
 import { Alert, Box, Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { Check, Close, Inbox, Send, SupervisorAccount } from "@mui/icons-material";
 import PersonAvatar from "../common/PersonAvatar.jsx";
+import ConfirmDialog from "../common/ConfirmDialog.jsx";
+import { pendingCopy } from "../../copy/pendingCopy.js";
 import StatusPill from "../common/StatusPill.jsx";
 import SuggestionRow from "../suggestion/SuggestionRow.jsx";
 import SuggestionDetail from "../suggestion/SuggestionDetail.jsx";
@@ -39,6 +41,7 @@ const InterestCard = ({
 }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
+  const [confirmDecline, setConfirmDecline] = useState(false);
   const [message, setMessage] = useState({ severity: "success", text: "" });
 
   const otherUser = type === "incoming" ? interest?.sender : interest?.receiver;
@@ -68,6 +71,16 @@ const InterestCard = ({
     }
   };
 
+  const declineLabel = variant === "card" ? "דחייה" : "לא מעוניין/ת";
+  const askDecline = (event) => {
+    event?.stopPropagation?.();
+    setConfirmDecline(true);
+  };
+  const confirmAndDecline = () => {
+    setConfirmDecline(false);
+    run(rejectInterest(otherUserId), "rejected", variant === "card" ? "הפנייה נדחתה" : "");
+  };
+
   if (variant === "row" || variant === "detail") {
     const person = type === "incoming" ? interest?.sender : interest?.receiver;
     const suggestion = viewProp || toSuggestionView(person, kind, interest);
@@ -92,37 +105,52 @@ const InterestCard = ({
             size="small"
             startIcon={<Close />}
             disabled={loading || !otherUserId}
-            onClick={(event) => {
-              event.stopPropagation();
-              run(rejectInterest(otherUserId), "rejected");
-            }}
+            onClick={askDecline}
           >
-            לא מעוניין/ת
+            {declineLabel}
           </Button>
         </>
       ) : null;
 
+    const declineDialog = (
+      <ConfirmDialog
+        open={confirmDecline}
+        title={pendingCopy.declineTitle}
+        body={pendingCopy.declineBody}
+        confirmLabel={declineLabel}
+        busy={loading}
+        onClose={() => setConfirmDecline(false)}
+        onConfirm={confirmAndDecline}
+      />
+    );
+
     if (variant === "detail") {
       return (
-        <SuggestionDetail
-          view={suggestion}
-          icon={icon}
-          actions={actions}
-          error={message.severity === "error" ? message.text : ""}
-          onBack={onOpen}
-        />
+        <>
+          <SuggestionDetail
+            view={suggestion}
+            icon={icon}
+            actions={actions}
+            error={message.severity === "error" ? message.text : ""}
+            onBack={onOpen}
+          />
+          {declineDialog}
+        </>
       );
     }
 
     return (
-      <SuggestionRow
-        view={suggestion}
-        icon={icon}
-        actions={actions}
-        error={message.severity === "error" ? message.text : ""}
-        onOpen={onOpen}
-        reservePercent={reservePercent}
-      />
+      <>
+        <SuggestionRow
+          view={suggestion}
+          icon={icon}
+          actions={actions}
+          error={message.severity === "error" ? message.text : ""}
+          onOpen={onOpen}
+          reservePercent={reservePercent}
+        />
+        {declineDialog}
+      </>
     );
   }
 
@@ -161,6 +189,7 @@ const InterestCard = ({
   };
 
   return (
+    <>
     <Card sx={{ height: "100%" }}>
       <CardContent
         sx={{ p: 3, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 1.5 }}
@@ -188,7 +217,7 @@ const InterestCard = ({
               color="error"
               startIcon={<Close />}
               disabled={loading || !otherUserId}
-              onClick={() => run(rejectInterest(otherUserId), "rejected", "הפנייה נדחתה")}
+              onClick={askDecline}
             >
               דחייה
             </Button>
@@ -208,6 +237,16 @@ const InterestCard = ({
         )}
       </CardContent>
     </Card>
+    <ConfirmDialog
+      open={confirmDecline}
+      title={pendingCopy.declineTitle}
+      body={pendingCopy.declineBody}
+      confirmLabel="דחייה"
+      busy={loading}
+      onClose={() => setConfirmDecline(false)}
+      onConfirm={confirmAndDecline}
+    />
+    </>
   );
 };
 

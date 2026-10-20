@@ -27,11 +27,13 @@ import {
   Person,
   Settings,
 } from "@mui/icons-material";
-import { getSession, logout } from "../../utils/session.js";
+import { getSession, identityComplete, logout } from "../../utils/session.js";
 import useMyGender from "../../hooks/useMyGender.js";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
 import TopBar from "./TopBar.jsx";
+import BottomNav from "./BottomNav.jsx";
+import { pendingCopy } from "../../copy/pendingCopy.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import AdminSearch from "../admin/AdminSearch.jsx";
 
@@ -44,6 +46,8 @@ const USER_LINKS = [
   { to: "/matches", label: "התאמות", icon: <PeopleAlt /> },
   { to: "/settings", label: "הגדרות", icon: <Settings /> },
 ];
+
+const BOTTOM_TO = new Set(["/home", "/suggestions", "/active", "/matchmaker", "/personal-area"]);
 
 const ADMIN_LINKS = [
   { to: "/admin", label: "דשבורד", icon: <HomeOutlined />, end: true },
@@ -142,6 +146,7 @@ export default function AppLayout() {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { user, isAdmin } = getSession();
   const gender = useMyGender();
   const links = isAdmin ? ADMIN_LINKS : USER_LINKS;
@@ -152,8 +157,32 @@ export default function AppLayout() {
     window.scrollTo(0, 0);
   }, [pathname]);
 
+  const bottomLinks = isAdmin ? [] : links.filter((link) => BOTTOM_TO.has(link.to));
+  const showBottomNav = isCompact && identityComplete(user) && pathname !== "/identity" && bottomLinks.length > 0;
+
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", bgcolor: "background.default" }}>
+      <Box
+        component="a"
+        href="#main"
+        sx={{
+          position: "absolute",
+          zIndex: 40,
+          top: 8,
+          insetInlineStart: 8,
+          px: 1.5,
+          py: 1,
+          borderRadius: "10px",
+          bgcolor: brand.paper,
+          color: brand.navy,
+          fontWeight: 700,
+          textDecoration: "none",
+          transform: "translateY(-140%)",
+          "&:focus": { transform: "none" },
+        }}
+      >
+        {pendingCopy.skipToContent}
+      </Box>
       {!isCompact && (
         <Box
           component="nav"
@@ -188,11 +217,15 @@ export default function AppLayout() {
             sx={{
               minHeight: brand.topBarHeight,
               gap: "10px",
+              width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
+              boxSizing: "border-box",
               px: "clamp(16px, 2vw, 32px)",
               py: "clamp(8px, 1.2vh, 12px)",
             }}
           >
-            {isCompact && (
+            {isCompact && !mobileSearchOpen && (
               <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)} sx={{ color: brand.paper }}>
                 <MenuIcon />
               </IconButton>
@@ -202,8 +235,9 @@ export default function AppLayout() {
               name={user?.name || ""}
               gender={gender}
               searchSlot={isAdmin ? <AdminSearch /> : null}
+              onMobileSearch={setMobileSearchOpen}
             />
-            {isCompact && (
+            {isCompact && !mobileSearchOpen && (
               <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: brand.paper }}>
                 <Logout />
               </IconButton>
@@ -229,17 +263,26 @@ export default function AppLayout() {
         </Drawer>
 
         <Box
+          id="main"
           component="main"
+          tabIndex={-1}
           sx={{
             flex: 1,
             minWidth: 0,
             px: "clamp(20px, 2.4vw, 36px)",
             py: 3,
-            pb: 7,
+            pb: showBottomNav ? "calc(96px + env(safe-area-inset-bottom))" : 7,
+            "@keyframes memberEnter": {
+              from: { opacity: 0, transform: "translateY(6px)" },
+              to: { opacity: 1, transform: "none" },
+            },
+            "& > *": { animation: "memberEnter .28s ease" },
+            "@media (prefers-reduced-motion: reduce)": { "& > *": { animation: "none" } },
           }}
         >
           <Outlet />
         </Box>
+        {showBottomNav ? <BottomNav links={bottomLinks} /> : null}
       </Box>
     </Box>
   );
