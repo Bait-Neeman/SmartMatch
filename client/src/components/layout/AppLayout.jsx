@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   AppBar,
@@ -36,6 +37,7 @@ import BottomNav from "./BottomNav.jsx";
 import { pendingCopy } from "../../copy/pendingCopy.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import AdminSearch from "../admin/AdminSearch.jsx";
+import { fetchAdminSettings } from "../../store/slices/adminSlice.js";
 
 const USER_LINKS = [
   { to: "/home", label: "דף הבית", icon: <HomeOutlined />, end: true },
@@ -142,6 +144,7 @@ function SideNav({ links, onNavigate, identity, gender, logoutLabel = "התנת�
 }
 
 export default function AppLayout() {
+  const dispatch = useDispatch();
   const { pathname } = useLocation();
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
@@ -156,6 +159,10 @@ export default function AppLayout() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+
+  useEffect(() => {
+    if (isAdmin) dispatch(fetchAdminSettings());
+  }, [dispatch, isAdmin]);
 
   const bottomLinks = isAdmin ? [] : links.filter((link) => BOTTOM_TO.has(link.to));
   const showBottomNav =

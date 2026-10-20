@@ -14,6 +14,7 @@ const adminSettingsSchema = new mongoose.Schema(
     dailySummary: { type: Boolean, default: true },
     autoClose: { type: Boolean, default: false },
     revealIdentity: { type: Boolean, default: true },
+    hideFemalePhotos: { type: Boolean, default: false },
     activityArea: { type: String, trim: true, maxlength: 100, default: "" },
   },
   { timestamps: true }
@@ -26,6 +27,7 @@ const DEFAULT_SETTINGS = {
   dailySummary: true,
   autoClose: false,
   revealIdentity: true,
+  hideFemalePhotos: false,
   activityArea: "",
 };
 

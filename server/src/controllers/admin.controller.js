@@ -22,12 +22,12 @@ const {
 // Admin access is checked by the requireAdmin middleware on every admin route.
 
 const getPending = async (req, res) => {
-  const matches = await getPendingMatches();
+  const matches = await getPendingMatches(req.user.userId);
   res.status(200).json({ matches });
 };
 
 const getSuggestions = async (req, res) => {
-  const suggestions = await getAdminSuggestions();
+  const suggestions = await getAdminSuggestions(req.user.userId);
   res.status(200).json({ suggestions });
 };
 
@@ -38,12 +38,12 @@ const removePending = async (req, res) => {
 };
 
 const getUsers = async (req, res) => {
-  const users = await getAllUsers();
+  const users = await getAllUsers(req.user.userId);
   res.status(200).json({ users });
 };
 
 const getUserProfile = async (req, res) => {
-  const data = await getUserProfileForAdmin(req.params.userId);
+  const data = await getUserProfileForAdmin(req.params.userId, req.user.userId);
   res.status(200).json(data);
 };
 

@@ -1,5 +1,6 @@
 const Profile = require("../models/profile.model");
 const Interest = require("../models/interest.model");
+const AdminSettings = require("../models/adminSettings.model");
 const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
 const { readStoredFile } = require("./storage.service");
@@ -50,7 +51,14 @@ const openProfileFile = async (viewer, ownerId, routeKind) => {
     throw new HttpError(404, FILE_NOT_FOUND);
   }
 
-  const profile = await Profile.findOne({ user: ownerId }).select(field).lean();
+  const profile = await Profile.findOne({ user: ownerId }).select(`${field} gender`).lean();
+  // This admin asked not to see photos of female members. Same response as a missing file.
+  if (field === "image" && isAdmin && profile?.gender === "female") {
+    const settings = await AdminSettings.findOne({ user: viewer.userId }).select("hideFemalePhotos").lean();
+    if (settings?.hideFemalePhotos === true) {
+      throw new HttpError(404, FILE_NOT_FOUND);
+    }
+  }
   const publicId = profile?.[field];
   if (!publicId) {
     throw new HttpError(404, FILE_NOT_FOUND);

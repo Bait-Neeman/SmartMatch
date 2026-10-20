@@ -28,6 +28,7 @@ import AddMatchmakerDialog from "../components/admin/AddMatchmakerDialog.jsx";
 import StatusPill from "../components/common/StatusPill.jsx";
 import { CASE_STATUS } from "../components/admin/format.js";
 import { createAdminMatchmaker } from "../services/admin.service.js";
+import { pendingCopy } from "../copy/pendingCopy.js";
 
 const TOGGLES = [
   {
@@ -143,6 +144,16 @@ export default function AdminSettingsPage() {
             alignItems: "start",
           }}
         >
+          <Paper sx={{ p: "22px" }}>
+            <SettingRow title={pendingCopy.hideFemalePhotos}>
+              <Switch
+                checked={Boolean(settings?.hideFemalePhotos)}
+                onChange={() => toggle("hideFemalePhotos")}
+                slotProps={{ input: { "aria-label": pendingCopy.hideFemalePhotos } }}
+              />
+            </SettingRow>
+          </Paper>
+
           <Paper sx={{ p: "22px" }}>
             <CardTitle icon={<NotificationsNone />}>התראות לשדכן</CardTitle>
             {TOGGLES.map((item) => (
@@ -288,7 +299,7 @@ function SettingRow({ title, detail, children }) {
     >
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ display: "block", color: brand.navy, fontWeight: 600 }}>{title}</Typography>
-        <Typography sx={{ color: brand.mut, fontSize: 13 }}>{detail}</Typography>
+        {detail ? <Typography sx={{ color: brand.mut, fontSize: 13 }}>{detail}</Typography> : null}
       </Box>
       {children}
     </Box>

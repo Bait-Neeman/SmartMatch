@@ -52,6 +52,7 @@ const SETTING_FLAGS = [
   "dailySummary",
   "autoClose",
   "revealIdentity",
+  "hideFemalePhotos",
 ];
 const STALE_MS = 60 * 24 * 60 * 60 * 1000;
 const USER_FIELDS = "name email phone role gender createdAt credentialSetupRequired createdBy";
@@ -112,7 +113,14 @@ const toAdminPreference = (preference) => {
   return full;
 };
 
-const toAdminProfile = (userId, profile) => {
+// A female member's photo is left out when this admin has asked to hide those photos.
+// The resume path stays. Missing the flag, or any other gender, keeps the photo path.
+const adminImagePath = (userId, profile, hideFemalePhotos) => {
+  if (hideFemalePhotos && profile?.gender === "female") return null;
+  return fileAccessPath(userId, "image", profile?.image);
+};
+
+const toAdminProfile = (userId, profile, hideFemalePhotos = false) => {
   if (!profile) return null;
   return {
     ...blankFields(PROFILE_DETAIL_FIELDS),
@@ -122,14 +130,14 @@ const toAdminProfile = (userId, profile) => {
         profile[field],
       ])
     ),
-    image: fileAccessPath(userId, "image", profile.image),
+    image: adminImagePath(userId, profile, hideFemalePhotos),
     resumePdf: fileAccessPath(userId, "resumePdf", profile.resumePdf),
   };
 };
 
 // Full contact, profile, and preference for one person. Password and token
 // version are never copied, even if the caller loaded them.
-const toAdminPerson = (user, profile, preference) => {
+const toAdminPerson = (user, profile, preference, hideFemalePhotos = false) => {
   const id = user?._id || profile?.user || null;
   return {
     _id: id,
@@ -140,9 +148,9 @@ const toAdminPerson = (user, profile, preference) => {
     age: profile?.age ?? null,
     city: profile?.city || "",
     gender: profile?.gender || "",
-    image: fileAccessPath(id, "image", profile?.image),
+    image: adminImagePath(id, profile, hideFemalePhotos),
     resumePdf: fileAccessPath(id, "resumePdf", profile?.resumePdf),
-    profile: toAdminProfile(id, profile),
+    profile: toAdminProfile(id, profile, hideFemalePhotos),
     preference: toAdminPreference(preference),
   };
 };
@@ -188,7 +196,8 @@ const removePendingMatch = async (senderId, receiverId) => {
 
 const caseNumberFrom = (id) => String(parseInt(String(id).slice(-4), 16) % 10000).padStart(4, "0");
 
-const toParty = (user, profile, preference) => toAdminPerson(user, profile, preference);
+const toParty = (user, profile, preference, hideFemalePhotos = false) =>
+  toAdminPerson(user, profile, preference, hideFemalePhotos);
 
 const monthStart = (now = new Date()) => new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -202,8 +211,15 @@ const readSettings = async (adminId) => {
     dailySummary: stored.dailySummary,
     autoClose: stored.autoClose,
     revealIdentity: stored.revealIdentity,
+    hideFemalePhotos: stored.hideFemalePhotos === true,
     activityArea: stored.activityArea || "",
   };
+};
+
+const femalePhotosHidden = async (adminId) => {
+  if (!adminId) return false;
+  const settings = await readSettings(adminId);
+  return settings.hideFemalePhotos === true;
 };
 
 const publicSettings = (settings) => ({
@@ -211,9 +227,10 @@ const publicSettings = (settings) => ({
   notifyOneSide: settings.notifyOneSide,
   notifyNewRegistration: settings.notifyNewRegistration,
   dailySummary: settings.dailySummary,
-  autoClose: settings.autoClose,
-  revealIdentity: settings.revealIdentity,
-  activityArea: settings.activityArea || "",
+    autoClose: settings.autoClose,
+    revealIdentity: settings.revealIdentity,
+    hideFemalePhotos: settings.hideFemalePhotos === true,
+    activityArea: settings.activityArea || "",
 });
 
 const closeStaleCases = async (adminId) => {
@@ -268,7 +285,7 @@ const closeStaleCases = async (adminId) => {
 
 const loadForwarded = () => Interest.find(FORWARDED).sort({ createdAt: -1 }).lean();
 
-const shapeCases = async (interests) => {
+const shapeCases = async (interests, hideFemalePhotos = false) => {
   if (!interests.length) return [];
 
   const userIds = [
@@ -310,13 +327,13 @@ const shapeCases = async (interests) => {
       ),
       stage: "matchmaker",
       manageable: true,
-      sender: toParty(userById.get(senderId), senderProfile, preferenceByUser.get(senderId)),
-      receiver: toParty(userById.get(receiverId), receiverProfile, preferenceByUser.get(receiverId)),
+      sender: toParty(userById.get(senderId), senderProfile, preferenceByUser.get(senderId), hideFemalePhotos),
+      receiver: toParty(userById.get(receiverId), receiverProfile, preferenceByUser.get(receiverId), hideFemalePhotos),
     };
   });
 };
 
-const toDirectoryUser = (user, profile, status, preference) => {
+const toDirectoryUser = (user, profile, status, preference, hideFemalePhotos = false) => {
   const accessCode = readStoredAccessCode(user);
   return {
     _id: user._id,
@@ -330,13 +347,14 @@ const toDirectoryUser = (user, profile, status, preference) => {
     credentialSetupRequired: user.credentialSetupRequired === true,
     createdBy: presentCreatedBy(user.createdBy),
     ...(accessCode ? { accessCode } : {}),
-    profile: toAdminProfile(user._id, profile),
+    profile: toAdminProfile(user._id, profile, hideFemalePhotos),
     preference: toAdminPreference(preference),
   };
 };
 
 // Password is never selected. Profile files are stable paths, not storage ids.
-const getAllUsers = async () => {
+const getAllUsers = async (adminId) => {
+  const hideFemalePhotos = await femalePhotosHidden(adminId);
   const [users, profiles, preferences, buckets] = await Promise.all([
     User.find({ role: "user" }).select(`${USER_FIELDS} +accessCodeCipher`).sort({ createdAt: -1 }).lean(),
     Profile.find().lean(),
@@ -351,12 +369,13 @@ const getAllUsers = async () => {
       user,
       profileByUser.get(String(user._id)),
       candidateStatus(String(user._id), buckets),
-      preferenceByUser.get(String(user._id))
+      preferenceByUser.get(String(user._id)),
+      hideFemalePhotos
     )
   );
 };
 
-const getUserProfileForAdmin = async (userId) => {
+const getUserProfileForAdmin = async (userId, adminId) => {
   assertObjectId(userId);
 
   const user = await User.findById(userId).select("+accessCodeCipher").lean();
@@ -364,14 +383,20 @@ const getUserProfileForAdmin = async (userId) => {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
 
-  const [profile, preference] = await Promise.all([
+  const [profile, preference, hideFemalePhotos] = await Promise.all([
     Profile.findOne({ user: userId }),
     Preference.findOne({ user: userId }).lean(),
+    femalePhotosHidden(adminId),
   ]);
+
+  const ownerProfile = profile ? await toOwnerProfile(profile) : null;
+  if (ownerProfile && hideFemalePhotos && ownerProfile.gender === "female") {
+    ownerProfile.image = null;
+  }
 
   return {
     user: toAdminAccount(user),
-    profile: profile ? await toOwnerProfile(profile) : null,
+    profile: ownerProfile,
     preference: toAdminPreference(preference),
   };
 };
@@ -401,8 +426,13 @@ const loadPeople = async (ids) => {
   };
 };
 
-const personFrom = (maps, id) =>
-  toAdminPerson(maps.userById.get(String(id)), maps.profileByUser.get(String(id)), maps.preferenceByUser.get(String(id)));
+const personFrom = (maps, id, hideFemalePhotos = false) =>
+  toAdminPerson(
+    maps.userById.get(String(id)),
+    maps.profileByUser.get(String(id)),
+    maps.preferenceByUser.get(String(id)),
+    hideFemalePhotos
+  );
 
 const discoverNewPairs = async () => {
   const users = await User.find({ role: "user", pauseSuggestions: { $ne: true } }).select("_id").lean();
@@ -430,7 +460,8 @@ const discoverNewPairs = async () => {
 
 // Every suggestion the matchmaker can open, at every stage, with both people in full.
 // New rows are candidate pairs that do not yet have an interest.
-const getAdminSuggestions = async () => {
+const getAdminSuggestions = async (adminId) => {
+  const hideFemalePhotos = await femalePhotosHidden(adminId);
   await migrateLegacyAdminCases();
   const [interests, newPairs] = await Promise.all([
     Interest.find().sort({ updatedAt: -1 }).lean(),
@@ -474,8 +505,8 @@ const getAdminSuggestions = async () => {
         maps.profileByUser.get(receiverId),
         maps.preferenceByUser.get(receiverId)
       ),
-      sender: personFrom(maps, senderId),
-      receiver: personFrom(maps, receiverId),
+      sender: personFrom(maps, senderId, hideFemalePhotos),
+      receiver: personFrom(maps, receiverId, hideFemalePhotos),
     };
   });
 
@@ -500,15 +531,15 @@ const getAdminSuggestions = async () => {
       maps.profileByUser.get(pair.otherId),
       maps.preferenceByUser.get(pair.otherId)
     ),
-    sender: personFrom(maps, pair.viewerId),
-    receiver: personFrom(maps, pair.otherId),
+    sender: personFrom(maps, pair.viewerId, hideFemalePhotos),
+    receiver: personFrom(maps, pair.otherId, hideFemalePhotos),
   }));
 
   return [...interestRows, ...newRows];
 };
 
-const getPendingMatches = async () => {
-  const suggestions = await getAdminSuggestions();
+const getPendingMatches = async (adminId) => {
+  const suggestions = await getAdminSuggestions(adminId);
   return suggestions.filter((item) => item.stage === "matchmaker");
 };
 
@@ -516,13 +547,17 @@ const getAdminCases = async (adminId, { applyAutoClose = true } = {}) => {
   await migrateLegacyAdminCases();
   if (applyAutoClose) await closeStaleCases(adminId);
   const settings = await readSettings(adminId);
-  const [cases, suggestions] = await Promise.all([shapeCases(await loadForwarded()), getAdminSuggestions()]);
+  const hideFemalePhotos = settings.hideFemalePhotos === true;
+  const [cases, suggestions] = await Promise.all([
+    shapeCases(await loadForwarded(), hideFemalePhotos),
+    getAdminSuggestions(adminId),
+  ]);
   return { cases, suggestions, revealIdentity: settings.revealIdentity !== false };
 };
 
 const getAdminSummary = async (adminId) => {
   const [users, { cases, suggestions, revealIdentity }, admin] = await Promise.all([
-    getAllUsers(),
+    getAllUsers(adminId),
     getAdminCases(adminId),
     User.findById(adminId).select("name").lean(),
   ]);
@@ -561,7 +596,7 @@ const searchAdmin = async (adminId, rawQuery) => {
   if (!query) return { candidates: [], cases: [] };
 
   const [users, { cases }] = await Promise.all([
-    getAllUsers(),
+    getAllUsers(adminId),
     getAdminCases(adminId, { applyAutoClose: false }),
   ]);
 
@@ -633,8 +668,9 @@ const updateAdminCase = async (interestId, body = {}, adminId) => {
   const current = normalizeCase(existing);
   const next = hasStatus || hasAction ? nextCaseState(current, body) : null;
   const changed = Boolean(next) && !sameState(current, next);
+  const hideFemalePhotos = await femalePhotosHidden(adminId);
   if (!changed && !hasNote) {
-    const [unchanged] = await shapeCases([interest.toObject()]);
+    const [unchanged] = await shapeCases([interest.toObject()], hideFemalePhotos);
     return unchanged;
   }
 
@@ -674,7 +710,7 @@ const updateAdminCase = async (interestId, body = {}, adminId) => {
     setDefaultsOnInsert: true,
   });
 
-  const [shaped] = await shapeCases([interest.toObject()]);
+  const [shaped] = await shapeCases([interest.toObject()], hideFemalePhotos);
   return shaped;
 };
 

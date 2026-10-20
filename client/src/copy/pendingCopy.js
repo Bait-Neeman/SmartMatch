@@ -33,4 +33,5 @@ export const pendingCopy = {
   resetAccess: "איפוס כניסה",
   addedBy: "נוסף על ידי",
   phoneOptionalHint: "לא חובה עכשיו",
+  hideFemalePhotos: "הסתרת תמונות של בנות",
 };
