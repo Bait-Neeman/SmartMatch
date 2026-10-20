@@ -3,6 +3,7 @@ const Interest = require("../models/interest.model");
 const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
 const { readStoredFile } = require("./storage.service");
+const { describeResume } = require("../utils/resumeFile");
 
 // Same wording when the file is missing and when this viewer may not open it.
 const FILE_NOT_FOUND = "הקובץ לא נמצא";
@@ -19,18 +20,13 @@ const CONTENT_TYPE = {
 
 const mediaType = (value) => String(value || "").split(";")[0].trim().toLowerCase();
 
-const isPdfBuffer = (body) =>
-  Buffer.isBuffer(body) && body.length >= 5 && body.subarray(0, 5).toString("latin1") === "%PDF-";
-
-// A resume PDF must be served as application/pdf so the browser opens it.
-// A specific non-PDF type (an older image resume) is left unchanged.
 const contentTypeForDelivery = (field, upstream, body) => {
+  if (field === "resumePdf") {
+    const described = describeResume(body);
+    if (described) return described.contentType;
+  }
   const type = mediaType(upstream);
   const declared = type ? String(upstream).split(";")[0].trim() : "";
-  if (field === "resumePdf") {
-    if (type.startsWith("image/")) return declared;
-    if (isPdfBuffer(body) || type === "application/pdf" || !type) return "application/pdf";
-  }
   if (declared) return declared;
   return CONTENT_TYPE[field];
 };
@@ -38,6 +34,18 @@ const contentTypeForDelivery = (field, upstream, body) => {
 const FILENAME = {
   image: "photo.jpg",
   resumePdf: "resume.pdf",
+};
+
+const deliveryFor = (field, upstream, body) => {
+  if (field === "resumePdf") {
+    const described = describeResume(body);
+    if (described) return described;
+  }
+  return {
+    contentType: contentTypeForDelivery(field, upstream, body),
+    filename: FILENAME[field],
+    disposition: "inline",
+  };
 };
 
 const hasAcceptedInterest = (viewerId, ownerId) =>
@@ -75,10 +83,12 @@ const openProfileFile = async (viewer, ownerId, routeKind) => {
   }
 
   const file = await readStoredFile(field, publicId);
+  const delivered = deliveryFor(field, file.contentType, file.body);
   return {
     body: file.body,
-    contentType: contentTypeForDelivery(field, file.contentType, file.body),
-    filename: FILENAME[field],
+    contentType: delivered.contentType,
+    filename: delivered.filename,
+    disposition: delivered.disposition,
   };
 };
 

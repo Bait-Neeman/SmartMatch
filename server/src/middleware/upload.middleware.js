@@ -1,16 +1,16 @@
 const multer = require("multer");
 const HttpError = require("../utils/httpError");
+const { detectResumeType } = require("../utils/resumeFile");
 
 const MAX_FILE_SIZE_MB = 10;
 
 const ALLOWED_TYPES = {
   image: ["image/jpeg", "image/png", "image/gif", "image/webp"],
-  resumePdf: ["application/pdf"],
 };
 
 const TYPE_ERRORS = {
   image: "יש להעלות תמונה מסוג JPG, PNG, GIF או WEBP",
-  resumePdf: "יש להעלות קובץ PDF",
+  resumePdf: "יש להעלות קובץ",
 };
 
 // The type declared by the browser can be faked, so the file's first bytes are checked too.
@@ -21,7 +21,6 @@ const FILE_SIGNATURES = {
   "image/gif": (bytes) => ["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString("latin1")),
   "image/webp": (bytes) =>
     bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP",
-  "application/pdf": (bytes) => bytes.subarray(0, 5).toString("latin1") === "%PDF-",
 };
 
 // Files are kept in memory only until they are uploaded to Cloudinary - nothing is written to disk.
@@ -29,8 +28,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE_MB * 1024 * 1024, files: 2, fields: 30, parts: 40 },
   fileFilter: (req, file, cb) => {
-    if (!ALLOWED_TYPES[file.fieldname].includes(file.mimetype)) {
-      return cb(new HttpError(400, TYPE_ERRORS[file.fieldname]));
+    // Resume bytes are checked after the file is buffered. The declared type is not enough.
+    if (file.fieldname === "resumePdf") return cb(null, true);
+    const allowed = ALLOWED_TYPES[file.fieldname];
+    if (!allowed || !allowed.includes(file.mimetype)) {
+      return cb(new HttpError(400, TYPE_ERRORS[file.fieldname] || TYPE_ERRORS.image));
     }
     cb(null, true);
   },
@@ -39,16 +41,21 @@ const upload = multer({
 const verifyFileContents = (req, res, next) => {
   for (const [field, files] of Object.entries(req.files || {})) {
     for (const file of files) {
-      const isGenuine = ALLOWED_TYPES[field].some((type) => FILE_SIGNATURES[type](file.buffer));
+      if (field === "resumePdf") {
+        if (!detectResumeType(file.buffer)) throw new HttpError(400, TYPE_ERRORS.resumePdf);
+        continue;
+      }
+      const allowed = ALLOWED_TYPES[field] || [];
+      const isGenuine = allowed.some((type) => FILE_SIGNATURES[type](file.buffer));
       if (!isGenuine) {
-        throw new HttpError(400, TYPE_ERRORS[field]);
+        throw new HttpError(400, TYPE_ERRORS[field] || TYPE_ERRORS.image);
       }
     }
   }
   next();
 };
 
-// Accepts an optional profile image and an optional resume PDF.
+// Accepts an optional profile image and an optional resume file.
 const profileUpload = [
   upload.fields([
     { name: "image", maxCount: 1 },
