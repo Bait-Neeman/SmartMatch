@@ -6,6 +6,7 @@ import SuggestionDetail from "./SuggestionDetail.jsx";
 import ResumeCard from "./ResumeCard.jsx";
 import { RevealedAvatar, RevealedPhoto } from "./RevealedMedia.jsx";
 import { canForward, otherForwardedBanner } from "../../utils/activeSuggestionView.js";
+import { isFinalCase } from "../../utils/caseStatus.js";
 
 const ICONS = {
   accepted: <HowToReg />,
@@ -29,6 +30,7 @@ export default function ActiveSuggestionCard({
   const view = item.view;
   const icon = ICONS[view.kind] || <HowToReg />;
   const showForward = canForward(view);
+  const finished = isFinalCase(view.caseStatus);
 
   const run = async (action, handler) => {
     try {
@@ -58,18 +60,20 @@ export default function ActiveSuggestionCard({
           העבר לטיפול שדכן
         </Button>
       ) : null}
-      <Button
-        variant="outlined"
-        size={variant === "row" ? "small" : "medium"}
-        startIcon={<Close />}
-        disabled={Boolean(pending) || !item.userId}
-        onClick={(event) => {
-          event.stopPropagation();
-          run("decline", onDecline);
-        }}
-      >
-        לא מעוניין להמשיך
-      </Button>
+      {finished ? null : (
+        <Button
+          variant="outlined"
+          size={variant === "row" ? "small" : "medium"}
+          startIcon={<Close />}
+          disabled={Boolean(pending) || !item.userId}
+          onClick={(event) => {
+            event.stopPropagation();
+            run("decline", onDecline);
+          }}
+        >
+          לא מעוניין להמשיך
+        </Button>
+      )}
     </>
   );
 

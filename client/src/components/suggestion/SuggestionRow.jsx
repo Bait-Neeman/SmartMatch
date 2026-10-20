@@ -18,8 +18,10 @@ export default function SuggestionRow({
 }) {
   const meta = SUGGESTION_KINDS[view.kind] || SUGGESTION_KINDS.new;
   const statusBelow = statusPlacement === "below";
+  const statusLabel = view.statusLabel || meta.label;
+  const statusTone = view.statusTone || meta.tone;
   const status =
-    showStatus && meta.label ? <StatusPill tone={meta.tone} label={meta.label} icon={icon} /> : null;
+    showStatus && statusLabel ? <StatusPill tone={statusTone} label={statusLabel} icon={icon} /> : null;
   const percent =
     percentNode || reservePercent ? (
       <Box

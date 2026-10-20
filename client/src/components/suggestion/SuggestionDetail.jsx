@@ -40,7 +40,9 @@ export default function SuggestionDetail({
   bannerText,
 }) {
   const meta = SUGGESTION_KINDS[view.kind] || SUGGESTION_KINDS.new;
-  const tone = statusTones[meta.tone] || statusTones.pending;
+  const statusLabel = view.statusLabel || meta.label;
+  const statusTone = view.statusTone || meta.tone;
+  const tone = statusTones[statusTone] || statusTones.pending;
   const heading = bannerTitle || meta.bannerTitle;
   const subheading = bannerText ?? meta.bannerText;
 
@@ -107,7 +109,7 @@ export default function SuggestionDetail({
             {subheading}
           </Typography>
         </Box>
-        <StatusPill tone={meta.tone} label={meta.label} icon={icon} />
+        <StatusPill tone={statusTone} label={statusLabel} icon={icon} />
       </Box>
 
       <Box

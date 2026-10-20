@@ -5,6 +5,7 @@ const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { stageForViewer } = require("../utils/suggestionStage");
 const { toPublicPerson, redactIdentity, withoutMatchPercent } = require("./privacy.service");
+const { blockedFromSuggestions, caseStagesByInterest } = require("./caseState.service");
 const { institutionKey } = require("./institution.service");
 
 const otherUserId = (interest, viewerId) =>
@@ -277,9 +278,13 @@ const getMatchesForUser = async (userId) => {
   }).lean();
 
   const otherIds = accepted.map((item) => otherUserId(item, userId));
-  const [users, context] = await Promise.all([
+  const matchmakerIds = accepted
+    .filter((item) => item.senderApprovedToManager && item.receiverApprovedToManager)
+    .map((item) => item._id);
+  const [users, context, stages] = await Promise.all([
     User.find({ _id: { $in: otherIds } }).select("name email role").lean(),
     loadPairContext(userId, otherIds),
+    caseStagesByInterest(matchmakerIds),
   ]);
   const userById = new Map(users.map((user) => [String(user._id), user]));
 
@@ -291,13 +296,16 @@ const getMatchesForUser = async (userId) => {
       const person = toPublicPerson(otherUser, context.profileByUser.get(String(otherId)), {
         revealIdentity: true,
       });
+      const stage = stageForViewer(item, userId);
+      const caseStage = stage.stage === "matchmaker" ? stages.get(String(item._id)) : null;
       return redactIdentity(
         {
           ...person,
           role: otherUser.role,
           matchedAt: item.updatedAt || item.createdAt,
           matchPercent: percentBetween(context, userId, otherId),
-          ...stageForViewer(item, userId),
+          ...stage,
+          ...(caseStage || {}),
         },
         { revealIdentity: true }
       );
@@ -410,12 +418,20 @@ const getCandidatesForUser = async (userId, { minPercent } = {}) => {
     return { candidates: [], hiddenByPreference: emptyHidden() };
   }
 
-  // Users who already have an interest with this user, in either direction, are not suggested again
+  // An open matchmaker case, or an engagement, takes this person out of new
+  // suggestions for everyone. An ended case does not.
+  const blocked = await blockedFromSuggestions();
+  if (blocked.has(String(userId))) {
+    return { candidates: [], hiddenByPreference: emptyHidden() };
+  }
+
+  // Users who already have an interest with this user, in either direction, are not suggested again.
+  // That includes a pair whose shidduch ended: they are not offered to each other again.
   const interests = await Interest.find({ $or: [{ sender: userId }, { receiver: userId }] })
     .select("sender receiver")
     .lean();
 
-  const excludedUserIds = new Set([userId]);
+  const excludedUserIds = new Set([userId, ...blocked]);
   for (const interest of interests) {
     excludedUserIds.add(String(interest.sender));
     excludedUserIds.add(String(interest.receiver));

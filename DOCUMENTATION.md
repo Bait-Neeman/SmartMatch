@@ -178,7 +178,6 @@ navigate("/personal-area");
 ```js
 {
   name: "חנה כהן",
-  idNumber: "327824552",
   email: "hana@gmail.com",
   password: "$2b$12$...", // מוצפן
   role: "user"

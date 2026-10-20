@@ -40,15 +40,16 @@ npm run dev    # restarts on file changes; sets NODE_ENV=development so auth rat
 
 The server will run on http://localhost:3000
 
-## ID number index
+## ID numbers
 
-Email-only accounts have no `idNumber`. Registration works only when `users.idNumber_1` is unique and sparse. From the `server` directory, with `MONGO_URI` in `.env`:
+Accounts do not store a national ID. From the `server` directory, with `MONGO_URI` in `.env`:
 
 ```bash
+npm run fix:idNumberIndex -- --dry-run
 npm run fix:idNumberIndex
 ```
 
-If `idNumber_1` exists and is not sparse, the script drops it. If the index is missing after that, it creates `{ idNumber: 1 }` as a unique sparse index named `idNumber_1`. An index that is already sparse is left in place. The script prints the final index names and options. It is safe to run again.
+`--dry-run` only prints how many users still have `idNumber` and whether the `idNumber_1` index exists. It does not drop an index or unset a field. Without `--dry-run`, the script drops every `users` index whose key is exactly `{ idNumber: 1 }` (including `idNumber_1`, whatever its options) and unsets `idNumber` on existing users. It is safe to run again. `npm run migrate:idNumber` does not copy an ID; it prints that IDs are not stored and exits.
 
 ## API Endpoints
 
@@ -113,7 +114,9 @@ Until both sides have an accepted interest, suggestions, incoming and outgoing i
 
 After mutual approval, name, email, and the stable photo and resume paths are included. If both users send interest at the same time, that is mutual approval (`accepted`), not a conflict. Either person can decline a pending or an accepted interest. A decline is final: it is not overwritten by a later accept, and name, email, photo, and resume are no longer returned.
 
-The national ID number is still returned only to the user themselves and to admins.
+A phone number is returned only to the account owner, on their own settings, and to an admin. It is not included in another user's suggestion, profile, search, or notification, including after mutual approval.
+
+National ID numbers are not stored. A leftover `idNumber` on an old document is omitted from API responses.
 
 `GET /api/profile/:userId` is limited to the profile owner, an admin, a logged-in user for whom that person is a current suggestion, or a pair with a still-pending or accepted interest. A declined pair, anyone else, and an unknown id get the same not-found response. A request without a login token is rejected as unauthorized.
 
