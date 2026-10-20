@@ -27,7 +27,7 @@ import {
   Person,
   Settings,
 } from "@mui/icons-material";
-import { getSession, identityComplete, logout } from "../../utils/session.js";
+import { getSession, identityComplete, logout, needsCredentialSetup } from "../../utils/session.js";
 import useMyGender from "../../hooks/useMyGender.js";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
@@ -158,7 +158,13 @@ export default function AppLayout() {
   }, [pathname]);
 
   const bottomLinks = isAdmin ? [] : links.filter((link) => BOTTOM_TO.has(link.to));
-  const showBottomNav = isCompact && identityComplete(user) && pathname !== "/identity" && bottomLinks.length > 0;
+  const showBottomNav =
+    isCompact &&
+    identityComplete(user) &&
+    !needsCredentialSetup(user) &&
+    pathname !== "/identity" &&
+    pathname !== "/account-setup" &&
+    bottomLinks.length > 0;
 
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", bgcolor: "background.default" }}>

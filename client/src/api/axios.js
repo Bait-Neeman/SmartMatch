@@ -19,7 +19,7 @@ const api = axios.create({
 
 const isCredentialRequest = (url) => {
   const path = url || "";
-  return path.includes("/auth/login") || path.includes("/auth/register");
+  return path.includes("/auth/login") || path.includes("/auth/register") || path.includes("/auth/code-login");
 };
 
 api.interceptors.request.use(

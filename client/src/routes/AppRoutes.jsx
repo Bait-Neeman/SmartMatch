@@ -25,6 +25,8 @@ import AdminRoute from "../components/AdminRoute.jsx";
 import AppLayout from "../components/layout/AppLayout.jsx";
 import AdminMatchmakerPage from "../pages/AdminMatchmakerPage";
 import IdentityPage from "../pages/IdentityPage.jsx";
+import AccountSetupPage from "../pages/AccountSetupPage.jsx";
+import AdminCreateMemberPage from "../pages/AdminCreateMemberPage.jsx";
 import SettingsPage from "../pages/SettingsPage";
 import MemberGate from "../components/MemberGate.jsx";
 import StatusesPage from "../pages/StatusesPage";
@@ -55,6 +57,7 @@ export default function AppRoutes() {
       {/* User Routes (with the site header) */}
       <Route element={<ProtectedRoute><MemberGate><AppLayout /></MemberGate></ProtectedRoute>}>
         <Route path="/identity" element={<IdentityPage />} />
+        <Route path="/account-setup" element={<AccountSetupPage />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/personal-area" element={<PersonalAreaPage />} />
         <Route path="/settings" element={<SettingsPage />} />
@@ -74,6 +77,7 @@ export default function AppRoutes() {
       {/* Admin Routes (with the site header) */}
       <Route element={<AdminRoute><AppLayout /></AdminRoute>}>
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/members/new" element={<AdminCreateMemberPage />} />
         <Route path="/admin/boys" element={<AdminDirectoryPage gender="male" />} />
         <Route path="/admin/girls" element={<AdminDirectoryPage gender="female" />} />
         <Route path="/admin/cases" element={<AdminCasesPage />} />

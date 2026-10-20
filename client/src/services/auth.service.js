@@ -10,6 +10,16 @@ export const loginUser = async (payload) => {
   return response.data;
 };
 
+export const loginWithAccessCode = async (payload) => {
+  const response = await api.post("/auth/code-login", payload);
+  return response.data;
+};
+
+export const saveAccountCredentials = async (payload) => {
+  const response = await api.post("/auth/account-setup", payload);
+  return response.data;
+};
+
 export const getCurrentUser = async () => {
   const response = await api.get("/auth/me");
   return response.data;

@@ -236,7 +236,7 @@ const saveWithFiles = async (profile, files) => {
   await deleteFiles(replaced);
 };
 
-const createProfileForUser = async (userId, body, files) => {
+const createProfileForUser = async (userId, body, files, options = {}) => {
   if (await Profile.exists({ user: userId })) {
     throw new HttpError(409, "כבר קיים פרופיל למשתמש זה");
   }
@@ -253,9 +253,16 @@ const createProfileForUser = async (userId, body, files) => {
 
   const profile = new Profile({ ...values, user: userId });
   clearWorkplaceUnlessWorking(profile);
-  // Reject invalid data before uploading any file or writing preferences
+  // Reject invalid data before uploading any file or writing preferences.
+  // An admin opening an account may leave the phone empty. The member's own
+  // save still requires it.
   await profile.validate();
-  await requireContactPhone(userId, body);
+  const requirePhone = options.requirePhone !== false;
+  if (requirePhone) {
+    await requireContactPhone(userId, body);
+  } else if (typeof body.phone === "string" && body.phone.trim()) {
+    await storeContactPhone(userId, body.phone);
+  }
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
 

@@ -67,6 +67,16 @@ export const createAdminCandidate = async (payload) => {
   return response.data;
 };
 
+export const createAdminMember = async (payload) => {
+  const response = await api.post("/admin/members", payload);
+  return response.data;
+};
+
+export const regenerateAdminAccessCode = async (userId) => {
+  const response = await api.post(`/admin/users/${userId}/access-code`);
+  return response.data;
+};
+
 export const createAdminMatchmaker = async (payload) => {
   const response = await api.post("/admin/matchmakers", payload);
   return response.data;

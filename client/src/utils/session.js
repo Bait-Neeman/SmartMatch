@@ -27,6 +27,11 @@ export const identityComplete = (user) => {
   return name.length > 0 && (user?.gender === "male" || user?.gender === "female");
 };
 
+// Off unless the server says this account still uses a matchmaker code and
+// ALLOW_CODE_LOGIN is not on. The flag comes from the login response.
+export const needsCredentialSetup = (user) =>
+  user?.credentialSetupRequired === true && user?.allowCodeLogin !== true;
+
 export const rememberUser = (patch) => {
   const current = getSession().user || {};
   localStorage.setItem("user", JSON.stringify({ ...current, ...patch }));
@@ -35,6 +40,7 @@ export const rememberUser = (patch) => {
 // A finished account lands on /home. A new account stays on onboarding until it is done.
 export const pathForSession = (session, onboardingPath) => {
   if (session?.isAdmin) return "/admin";
+  if (needsCredentialSetup(session?.user)) return "/account-setup";
   if (ONBOARDING_PATHS.has(onboardingPath)) return onboardingPath;
   return "/home";
 };

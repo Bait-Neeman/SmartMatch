@@ -2,6 +2,7 @@ const User = require("../models/user.model");
 const HttpError = require("../utils/httpError");
 const { verifyToken } = require("../config/jwt");
 const { isObjectId } = require("../utils/validators");
+const { allowCodeLogin } = require("../utils/accessCode");
 
 const SESSION_EXPIRED = "פג תוקף ההתחברות, יש להתחבר מחדש";
 
@@ -33,7 +34,24 @@ const protect = async (req, res, next) => {
     throw new HttpError(401, SESSION_EXPIRED);
   }
 
-  req.user = { userId: String(user._id), role: user.role };
+  req.user = {
+    userId: String(user._id),
+    role: user.role,
+    credentialSetupRequired: user.credentialSetupRequired === true,
+  };
+  next();
+};
+
+// An admin-created member sets an email and password before using the site.
+// ALLOW_CODE_LOGIN skips this. Admins are never held here.
+const requireAccountReady = (req, res, next) => {
+  if (req.user?.role === "admin" || allowCodeLogin()) {
+    next();
+    return;
+  }
+  if (req.user?.credentialSetupRequired) {
+    throw new HttpError(403, "יש להגדיר אימייל וסיסמה");
+  }
   next();
 };
 
@@ -44,4 +62,4 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { protect, requireAdmin };
+module.exports = { protect, requireAdmin, requireAccountReady };

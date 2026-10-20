@@ -23,7 +23,9 @@ import {
 import { ABOUT_ME_TITLE, EXCLUDE_INCOMPLETE_LABEL, lookingForTitle } from "../../utils/genderForms.js";
 import { toSafeFileUrl } from "../../utils/files.js";
 import { openProtectedFile } from "../../utils/protectedFile.js";
-import { resetAdminUserPassword } from "../../services/admin.service.js";
+import { regenerateAdminAccessCode, resetAdminUserPassword } from "../../services/admin.service.js";
+import { pendingCopy } from "../../copy/pendingCopy.js";
+import AccessCodePanel from "../common/AccessCodePanel.jsx";
 import AdminAvatar from "./AdminAvatar.jsx";
 import { formatDotDate } from "./format.js";
 
@@ -78,7 +80,8 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const user = data?.user;
   const profile = data?.profile;
   const preference = data?.preference;
-  const gender = profile?.gender === "female" || profile?.gender === "male" ? profile.gender : "";
+  const accountGender = user?.gender === "female" || user?.gender === "male" ? user.gender : "";
+  const gender = profile?.gender === "female" || profile?.gender === "male" ? profile.gender : accountGender;
   const female = gender === "female";
   const male = gender === "male";
   const image = toSafeFileUrl(profile?.image);
@@ -91,6 +94,15 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const [resetError, setResetError] = useState("");
   const [resetSuccess, setResetSuccess] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [seenUser, setSeenUser] = useState(userId);
+  if (userId !== seenUser) {
+    setSeenUser(userId);
+    setAccessCode("");
+    setCodeError("");
+  }
 
   const closeReset = () => {
     setResetOpen(false);
@@ -219,10 +231,39 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
                 צפייה ברזומה
               </Button>
             ) : null}
+
+            {accessCode ? <AccessCodePanel code={accessCode} /> : null}
+            {codeError ? <Alert severity="error">{codeError}</Alert> : null}
+
+            {user?.createdBy?._id ? (
+              <Typography sx={{ color: brand.mut, fontSize: 14, pt: 1, borderTop: `1px solid ${brand.line}` }}>
+                {pendingCopy.addedBy} {user.createdBy.name || "—"}
+              </Typography>
+            ) : null}
           </Stack>
         )}
       </DialogContent>
       <DialogActions>
+        {userId && user?.credentialSetupRequired ? (
+          <Button
+            disabled={codeBusy}
+            onClick={async () => {
+              setCodeError("");
+              setCodeBusy(true);
+              try {
+                const result = await regenerateAdminAccessCode(userId);
+                setAccessCode(result?.accessCode || "");
+              } catch (error) {
+                setCodeError(error?.message || pendingCopy.regenerateCode);
+              } finally {
+                setCodeBusy(false);
+              }
+            }}
+            sx={{ color: brand.goldDark, fontWeight: 600 }}
+          >
+            {pendingCopy.regenerateCode}
+          </Button>
+        ) : null}
         {userId ? (
           <Button
             onClick={() => {

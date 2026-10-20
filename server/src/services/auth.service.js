@@ -5,15 +5,18 @@ const HttpError = require("../utils/httpError");
 const { hashPassword, comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
 const { validateEmail, validateName, passwordErrorMessage } = require("../utils/validators");
+const { allowCodeLogin, normalizeAccessCode, accessCodeLookup } = require("../utils/accessCode");
 
 const GENDERS = new Set(["male", "female"]);
 
 const buildUserResponse = (user) => ({
   _id: user._id,
   name: typeof user.name === "string" ? user.name : "",
-  email: user.email,
+  email: user.email || "",
   role: user.role,
   gender: GENDERS.has(user.gender) ? user.gender : "",
+  credentialSetupRequired: user.credentialSetupRequired === true,
+  allowCodeLogin: allowCodeLogin(),
 });
 
 const asTrimmedString = (value) => (typeof value === "string" ? value.trim() : "");
@@ -122,6 +125,83 @@ const backfillGender = async (user) => {
   await User.updateOne({ _id: user._id }, { $set: { gender: profile.gender } });
 };
 
+const loginWithAccessCode = async ({ code } = {}) => {
+  const normalized = normalizeAccessCode(code);
+  if (!normalized) {
+    throw new HttpError(400, "יש להזין קוד");
+  }
+  if (normalized.length > 64) {
+    throw new HttpError(401, "הקוד אינו תקין");
+  }
+
+  let lookup;
+  try {
+    lookup = accessCodeLookup(normalized);
+  } catch (error) {
+    if (typeof error?.message === "string" && error.message.includes("JWT_SECRET")) throw error;
+    throw new HttpError(401, "הקוד אינו תקין");
+  }
+
+  const user = await User.findOne({ accessCodeLookup: lookup }).select("+password +tokenVersion");
+  const isMatch = await comparePassword(normalized, user ? user.password : await getDummyHash());
+
+  if (!user || !isMatch || user.credentialSetupRequired !== true) {
+    throw new HttpError(401, "הקוד אינו תקין");
+  }
+
+  return {
+    token: generateToken(user._id, user.role, user.tokenVersion || 0),
+    user: buildUserResponse(user),
+  };
+};
+
+// Replaces the access code. The code can no longer be used, and email must be unique.
+const completeCredentialSetup = async (userId, { email, password } = {}) => {
+  const cleanEmail = asTrimmedString(email).toLowerCase();
+  if (!validateEmail(cleanEmail)) {
+    throw new HttpError(400, "כתובת האימייל אינה תקינה");
+  }
+  const passwordMessage = passwordErrorMessage(password);
+  if (passwordMessage) {
+    throw new HttpError(400, passwordMessage);
+  }
+
+  const user = await User.findById(userId).select("+password +tokenVersion +accessCodeLookup");
+  if (!user) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+  if (user.credentialSetupRequired !== true) {
+    throw new HttpError(400, "החשבון כבר מוגדר");
+  }
+
+  const existing = await findUserByEmail(cleanEmail);
+  if (existing && String(existing._id) !== String(user._id)) {
+    throw new HttpError(409, "האימייל כבר רשום");
+  }
+
+  user.email = cleanEmail;
+  user.password = password;
+  user.credentialSetupRequired = false;
+  user.accessCodeLookup = undefined;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+
+  try {
+    await user.save();
+  } catch (error) {
+    if (error?.code === 11000 && (error.keyPattern?.email || error.keyValue?.email)) {
+      throw new HttpError(409, "האימייל כבר רשום");
+    }
+    throw error;
+  }
+
+  await User.updateOne({ _id: user._id }, { $unset: { accessCodeLookup: 1 } });
+
+  return {
+    token: generateToken(user._id, user.role, user.tokenVersion || 0),
+    user: buildUserResponse(user),
+  };
+};
+
 const getUserById = async (userId) => {
   const user = await User.findById(userId).lean();
   if (!user) {
@@ -165,6 +245,8 @@ const saveIdentity = async (userId, body = {}) => {
 module.exports = {
   registerUser,
   loginUser,
+  loginWithAccessCode,
+  completeCredentialSetup,
   getUserById,
   saveIdentity,
   findUserByEmail,

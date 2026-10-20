@@ -39,7 +39,17 @@ const PUBLIC_PROFILE_FIELDS = [
 
 // Never sent to another user, even after mutual approval or a matchmaker stage.
 // The national ID and the contact phone stay with the account owner and with admins.
-const ALWAYS_SECRET_KEYS = new Set(["password", "idNumber", "phone", "mobile", "telephone"]);
+const ALWAYS_SECRET_KEYS = new Set([
+  "password",
+  "idNumber",
+  "phone",
+  "mobile",
+  "telephone",
+  "createdBy",
+  "accessCodeLookup",
+  "credentialSetupRequired",
+  "accessCode",
+]);
 
 // Identifying keys removed from every suggestion until mutual approval.
 // maritalStatus is not one of them: it is a public profile field.

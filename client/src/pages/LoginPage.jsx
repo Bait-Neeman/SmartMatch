@@ -18,7 +18,8 @@ import { Visibility, VisibilityOff } from "@mui/icons-material";
 import AuthLayout, { AuthFooter } from "../components/layout/AuthLayout.jsx";
 import { authFieldSx, authSubmitSx } from "../components/layout/authStyles.js";
 import { brand } from "../theme/tokens.js";
-import { loginUser } from "../services/auth.service.js";
+import { loginUser, loginWithAccessCode } from "../services/auth.service.js";
+import { pendingCopy } from "../copy/pendingCopy.js";
 import { getMyProfile } from "../services/profile.service.js";
 import { getMyPreferences } from "../services/preference.service.js";
 import { authErrorMessage, destinationAfterLogin, emailError, normalizeEmail, passwordError } from "../utils/authForm.js";
@@ -42,6 +43,8 @@ export default function LoginPage() {
   const [apiError, setApiError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [codeMode, setCodeMode] = useState(false);
+  const [code, setCode] = useState("");
 
   const {
     control,
@@ -58,6 +61,71 @@ export default function LoginPage() {
     setShowPassword((prev) => !prev);
   };
 
+  const storeSession = (res) => {
+    localStorage.setItem("token", res.token);
+    localStorage.setItem("user", JSON.stringify(res.user));
+    localStorage.setItem("role", res.user.role || "user");
+  };
+
+  const finishLogin = async (res) => {
+    if (!res?.token || !res?.user) {
+      setApiError("ההתחברות נכשלה. נסו שוב.");
+      return;
+    }
+
+    storeSession(res);
+
+    if (res.user.role === "admin") {
+      setOnboardingPath(null);
+      navigate("/admin");
+      return;
+    }
+
+    if (res.user.credentialSetupRequired) {
+      navigate("/account-setup");
+      return;
+    }
+
+    const profile = await readOptional(getMyProfile);
+    if (profile.error) {
+      setApiError(authErrorMessage(profile.error, "לא הצלחנו להשלים את ההתחברות. נסו שוב."));
+      return;
+    }
+
+    const preferences = profile.missing ? { missing: true } : await readOptional(getMyPreferences);
+    if (preferences.error) {
+      setApiError(authErrorMessage(preferences.error, "לא הצלחנו להשלים את ההתחברות. נסו שוב."));
+      return;
+    }
+
+    const destination = destinationAfterLogin({
+      role: res.user.role,
+      hasIdentity: identityComplete(res.user) || !profile.missing,
+      hasProfile: !profile.missing,
+      hasPreferences: !preferences.missing,
+    });
+    setOnboardingPath(destination);
+    navigate(destination);
+  };
+
+  const onCodeSubmit = async (event) => {
+    event.preventDefault();
+    setApiError("");
+    if (!code.trim()) {
+      setApiError(pendingCopy.codeRequired);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await loginWithAccessCode({ code: code.trim() });
+      await finishLogin(res);
+    } catch (err) {
+      setApiError(authErrorMessage(err, pendingCopy.codeRequired));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const onSubmit = async (data) => {
     setApiError("");
     setIsSubmitting(true);
@@ -68,47 +136,44 @@ export default function LoginPage() {
         password: data.password,
       });
 
-      if (!res?.token || !res?.user) {
-        setApiError("ההתחברות נכשלה. נסו שוב.");
-        return;
-      }
-
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.user));
-      localStorage.setItem("role", res.user.role || "user");
-
-      if (res.user.role === "admin") {
-        setOnboardingPath(null);
-        navigate("/admin");
-        return;
-      }
-
-      const profile = await readOptional(getMyProfile);
-      if (profile.error) {
-        setApiError(authErrorMessage(profile.error, "לא הצלחנו להשלים את ההתחברות. נסו שוב."));
-        return;
-      }
-
-      const preferences = profile.missing ? { missing: true } : await readOptional(getMyPreferences);
-      if (preferences.error) {
-        setApiError(authErrorMessage(preferences.error, "לא הצלחנו להשלים את ההתחברות. נסו שוב."));
-        return;
-      }
-
-      const destination = destinationAfterLogin({
-        role: res.user.role,
-        hasIdentity: identityComplete(res.user) || !profile.missing,
-        hasProfile: !profile.missing,
-        hasPreferences: !preferences.missing,
-      });
-      setOnboardingPath(destination);
-      navigate(destination);
+      await finishLogin(res);
     } catch (err) {
       setApiError(authErrorMessage(err, "ההתחברות נכשלה. נסו שוב."));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (codeMode) {
+    return (
+      <AuthLayout title={pendingCopy.codeLoginTitle}>
+        <Box component="form" onSubmit={onCodeSubmit} noValidate sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <TextField
+            label={pendingCopy.codeLabel}
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            fullWidth
+            autoComplete="off"
+            sx={authFieldSx}
+          />
+          {apiError ? <Alert severity="error">{apiError}</Alert> : null}
+          <Button type="submit" variant="contained" size="large" disabled={isSubmitting} sx={{ ...authSubmitSx, width: "100%" }}>
+            {isSubmitting ? "ממשיכים..." : "התחברות"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              setCodeMode(false);
+              setApiError("");
+            }}
+            sx={{ color: brand.goldDark, fontWeight: 600 }}
+          >
+            {pendingCopy.codeLoginBack}
+          </Button>
+        </Box>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout title="ברוכים הבאים" subtitle="התחברו כדי לצפות בהצעות שלכם">
@@ -199,6 +264,16 @@ export default function LoginPage() {
       </Box>
 
       <AuthFooter question="אין לך חשבון?" label="להרשמה" to="/register" />
+      <Button
+        type="button"
+        onClick={() => {
+          setApiError("");
+          setCodeMode(true);
+        }}
+        sx={{ mt: 2, width: "100%", color: brand.navy, fontWeight: 700 }}
+      >
+        כניסה לחשבון שהשדכן פתח לי
+      </Button>
     </AuthLayout>
   );
 }

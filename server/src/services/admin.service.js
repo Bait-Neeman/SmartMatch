@@ -16,7 +16,9 @@ const { comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
 const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES } = require("../models/options");
 const { fileAccessPath } = require("./storage.service");
-const { toOwnerProfile } = require("./profile.service");
+const { toOwnerProfile, createProfileForUser } = require("./profile.service");
+const { createPreferenceForUser } = require("./preference.service");
+const { generateAccessCode, accessCodeLookup } = require("../utils/accessCode");
 const { getCandidatesForUser, computeMatchPercent } = require("./match.service");
 const AdminStaff = require("../models/adminStaff.model");
 const {
@@ -52,7 +54,7 @@ const SETTING_FLAGS = [
   "revealIdentity",
 ];
 const STALE_MS = 60 * 24 * 60 * 60 * 1000;
-const USER_FIELDS = "name email phone role createdAt";
+const USER_FIELDS = "name email phone role gender createdAt credentialSetupRequired createdBy";
 const GENDERS = new Set(["male", "female"]);
 
 // Every stored profile field the matchmaker is allowed to read. File ids are
@@ -145,13 +147,24 @@ const toAdminPerson = (user, profile, preference) => {
   };
 };
 
+const presentCreatedBy = (createdBy) => {
+  const id = createdBy?.id || createdBy?._id;
+  if (!id) return null;
+  return {
+    _id: id,
+    name: typeof createdBy.name === "string" ? createdBy.name : "",
+  };
+};
+
 const toAdminAccount = (user) => {
   if (!user) return null;
   const plain = typeof user.toObject === "function" ? user.toObject() : { ...user };
   delete plain.password;
   delete plain.tokenVersion;
+  delete plain.accessCodeLookup;
   delete plain.idNumber;
   delete plain.__v;
+  if (plain.createdBy) plain.createdBy = presentCreatedBy(plain.createdBy);
   return plain;
 };
 
@@ -306,8 +319,11 @@ const toDirectoryUser = (user, profile, status, preference) => ({
   email: user.email || null,
   phone: user.phone || null,
   role: user.role,
+  gender: profile?.gender || user.gender || "",
   createdAt: user.createdAt,
   status,
+  credentialSetupRequired: user.credentialSetupRequired === true,
+  createdBy: presentCreatedBy(user.createdBy),
   profile: toAdminProfile(user._id, profile),
   preference: toAdminPreference(preference),
 });
@@ -504,7 +520,7 @@ const getAdminSummary = async (adminId) => {
     User.findById(adminId).select("name").lean(),
   ]);
   const start = monthStart();
-  const ofGender = (gender) => users.filter((user) => user.profile?.gender === gender);
+  const ofGender = (gender) => users.filter((user) => (user.profile?.gender || user.gender) === gender);
   const addedThisMonth = (list) =>
     list.filter((user) => user.createdAt && new Date(user.createdAt) >= start).length;
   const boys = ofGender("male");
@@ -561,7 +577,7 @@ const searchAdmin = async (adminId, rawQuery) => {
     .map((user) => ({
       _id: user._id,
       name: user.name,
-      gender: user.profile?.gender || "",
+      gender: user.profile?.gender || user.gender || "",
       age: user.profile?.age ?? null,
       city: user.profile?.city || "",
       image: user.profile?.image || "",
@@ -789,6 +805,142 @@ const createAdminCandidate = async (body = {}) => {
   return toDirectoryUser(user, profile, "none");
 };
 
+const hasContent = (value) => {
+  if (value == null || value === "") return false;
+  if (typeof value === "boolean") return value === true;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+};
+
+const PROFILE_CONTENT_KEYS = [
+  "age",
+  "city",
+  "height",
+  "style",
+  "appearance",
+  "ethnicity",
+  "description",
+  "lookingFor",
+  "maritalStatus",
+  "occupation",
+  "working",
+  "workingInProfession",
+  "workplace",
+  "yeshiva",
+  "seminar",
+  "financialDemand",
+  "financialParticipation",
+  "phone",
+];
+
+const asPlainObject = (value, label) => {
+  if (value == null || value === "") return null;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, `${label} אינו תקין`);
+  }
+  return value;
+};
+
+// Name and gender only are enough. A filled profile needs an age. Phone may
+// be left empty here; the member still has to enter one on their own profile.
+const maybeCreateProfile = async (user, raw) => {
+  const profileBody = asPlainObject(raw, "פרופיל");
+  if (!profileBody) return null;
+  const filled = PROFILE_CONTENT_KEYS.some((key) => hasContent(profileBody[key]));
+  if (!filled) return null;
+  if (!hasContent(profileBody.age)) {
+    throw new HttpError(400, "גיל הוא שדה חובה");
+  }
+  const saved = await createProfileForUser(
+    user._id,
+    { ...profileBody, gender: user.gender },
+    undefined,
+    { requirePhone: false }
+  );
+  return saved;
+};
+
+const maybeCreatePreferences = async (userId, raw) => {
+  const preferences = asPlainObject(raw, "העדפות");
+  if (!preferences) return null;
+  const filled = Object.values(preferences).some((value) => hasContent(value));
+  if (!filled) return null;
+  return createPreferenceForUser(userId, preferences);
+};
+
+const createAdminMember = async (adminId, body = {}) => {
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (!validateName(name)) {
+    throw new HttpError(400, "יש להזין שם מלא");
+  }
+  if (!GENDERS.has(body.gender)) {
+    throw new HttpError(400, "מגדר הוא שדה חובה");
+  }
+
+  const admin = await User.findById(adminId).select("name").lean();
+  if (!admin) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+
+  const accessCode = generateAccessCode();
+  let user;
+  try {
+    user = await User.create({
+      name,
+      gender: body.gender,
+      password: accessCode,
+      role: "user",
+      credentialSetupRequired: true,
+      accessCodeLookup: accessCodeLookup(accessCode),
+      createdBy: { id: admin._id, name: admin.name || "" },
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      console.error(error.code, error.keyPattern);
+      throw new HttpError(500, "אירעה שגיאה בשרת. נסו שוב מאוחר יותר.");
+    }
+    throw error;
+  }
+
+  try {
+    await maybeCreateProfile(user, body.profile);
+    await maybeCreatePreferences(user._id, body.preferences);
+  } catch (error) {
+    await Preference.deleteOne({ user: user._id });
+    await Profile.deleteOne({ user: user._id });
+    await User.deleteOne({ _id: user._id });
+    throw error;
+  }
+
+  const fresh = await User.findById(user._id).select(USER_FIELDS).lean();
+  const [profile, preference] = await Promise.all([
+    Profile.findOne({ user: user._id }).lean(),
+    Preference.findOne({ user: user._id }).lean(),
+  ]);
+  return {
+    user: toDirectoryUser(fresh, profile, "none", preference),
+    accessCode,
+  };
+};
+
+const regenerateAccessCode = async (userId) => {
+  assertObjectId(userId, "מזהה משתמש לא תקין");
+  const user = await User.findById(userId).select("+password +tokenVersion +accessCodeLookup");
+  if (!user || user.role !== "user") {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+  if (user.credentialSetupRequired !== true) {
+    throw new HttpError(400, "אין קוד פעיל");
+  }
+
+  const accessCode = generateAccessCode();
+  user.password = accessCode;
+  user.accessCodeLookup = accessCodeLookup(accessCode);
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+  return { accessCode };
+};
+
 const createAdminMatchmaker = async (body = {}) => {
   const user = await createManagedUser({ ...body, role: "admin" });
   await AdminStaff.create({ user: user._id, kind: "matchmaker" });
@@ -955,6 +1107,8 @@ module.exports = {
   updateAdminSettings,
   updateAdminAccount,
   createAdminCandidate,
+  createAdminMember,
+  regenerateAccessCode,
   createAdminMatchmaker,
   resetUserPassword,
 };

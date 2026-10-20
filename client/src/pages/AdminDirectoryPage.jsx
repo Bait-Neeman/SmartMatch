@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useSearchParams } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { PersonAddAlt1, Search } from "@mui/icons-material";
+import { pendingCopy } from "../copy/pendingCopy.js";
 import { brand } from "../theme/tokens.js";
 import { ethnicityOptions } from "../constants/profileOptions.js";
 import {
@@ -104,7 +105,7 @@ export default function AdminDirectoryPage({ gender }) {
   }, [requestedId, dispatch]);
 
   const roster = useMemo(
-    () => users.filter((user) => user.profile?.gender === gender),
+    () => users.filter((user) => (user.profile?.gender || user.gender) === gender),
     [users, gender]
   );
 
@@ -154,9 +155,14 @@ export default function AdminDirectoryPage({ gender }) {
         title={title}
         subtitle={`${roster.length} רשומים · ${shown.length === 1 ? "מוצג אחד" : `${shown.length} מוצגים`}`}
         action={
-          <Button variant="contained" startIcon={<PersonAddAlt1 />} onClick={() => { setAddError(""); setAddOpen(true); }}>
-            הוספת מועמד/ת
-          </Button>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Button component={RouterLink} to="/admin/members/new" variant="outlined">
+              {pendingCopy.openAccount}
+            </Button>
+            <Button variant="contained" startIcon={<PersonAddAlt1 />} onClick={() => { setAddError(""); setAddOpen(true); }}>
+              הוספת מועמד/ת
+            </Button>
+          </Box>
         }
       />
 
