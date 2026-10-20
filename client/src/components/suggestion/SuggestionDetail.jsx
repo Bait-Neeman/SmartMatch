@@ -14,6 +14,7 @@ import { brand, statusTones } from "../../theme/tokens.js";
 import StatusPill from "../common/StatusPill.jsx";
 import { LockedPhoto } from "./LockedMedia.jsx";
 import { SUGGESTION_KINDS } from "../../utils/suggestionView.js";
+import SuggestionStepper from "./SuggestionStepper.jsx";
 
 const FIELD_ICONS = {
   height: Height,
@@ -71,6 +72,8 @@ export default function SuggestionDetail({
         <ArrowForward />
         פרטי הצעה
       </Box>
+
+      <SuggestionStepper kind={view.kind} />
 
       <Box
         sx={{

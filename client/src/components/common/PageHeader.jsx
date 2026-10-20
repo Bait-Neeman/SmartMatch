@@ -3,7 +3,7 @@ import { Box, Typography } from "@mui/material";
 // The title block at the top of a page
 export default function PageHeader({ title, subtitle }) {
   return (
-    <Box sx={{ mb: 4, textAlign: "center" }}>
+    <Box sx={{ mb: 3, textAlign: "start" }}>
       <Typography
         variant="h4"
         component="h1"

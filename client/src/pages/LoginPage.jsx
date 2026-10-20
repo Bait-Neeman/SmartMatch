@@ -22,7 +22,7 @@ import { loginUser } from "../services/auth.service.js";
 import { getMyProfile } from "../services/profile.service.js";
 import { getMyPreferences } from "../services/preference.service.js";
 import { authErrorMessage, destinationAfterLogin, emailError, normalizeEmail, passwordError } from "../utils/authForm.js";
-import { setOnboardingPath } from "../utils/session.js";
+import { identityComplete, setOnboardingPath } from "../utils/session.js";
 
 const readOptional = async (request) => {
   try {
@@ -97,6 +97,7 @@ export default function LoginPage() {
 
       const destination = destinationAfterLogin({
         role: res.user.role,
+        hasIdentity: identityComplete(res.user) || !profile.missing,
         hasProfile: !profile.missing,
         hasPreferences: !preferences.missing,
       });

@@ -114,6 +114,7 @@ export const buildProfileFields = (data) => {
   const working = gender === "female" && Boolean(data.working);
   const fields = {
     gender,
+    ...(typeof data.fullName === "string" ? { name: data.fullName.trim() } : {}),
     ethnicity: data.ethnicity || "",
     age: data.age === "" || data.age == null ? "" : Number(data.age),
     maritalStatus: data.maritalStatus || "",

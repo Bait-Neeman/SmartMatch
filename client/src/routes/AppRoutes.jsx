@@ -24,7 +24,9 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import AdminRoute from "../components/AdminRoute.jsx";
 import AppLayout from "../components/layout/AppLayout.jsx";
 import AdminMatchmakerPage from "../pages/AdminMatchmakerPage";
+import IdentityPage from "../pages/IdentityPage.jsx";
 import SettingsPage from "../pages/SettingsPage";
+import MemberGate from "../components/MemberGate.jsx";
 import StatusesPage from "../pages/StatusesPage";
 import { getSession, homePathFor } from "../utils/session.js";
 
@@ -51,7 +53,8 @@ export default function AppRoutes() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* User Routes (with the site header) */}
-      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+      <Route element={<ProtectedRoute><MemberGate><AppLayout /></MemberGate></ProtectedRoute>}>
+        <Route path="/identity" element={<IdentityPage />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/personal-area" element={<PersonalAreaPage />} />
         <Route path="/settings" element={<SettingsPage />} />

@@ -4,7 +4,8 @@ const Interest = require("../models/interest.model");
 const User = require("../models/user.model");
 const { MARITAL_STATUSES } = require("../models/options");
 const HttpError = require("../utils/httpError");
-const { assertObjectId, normalizeIsraeliMobile } = require("../utils/validators");
+const { assertObjectId, normalizeIsraeliMobile, validateName } = require("../utils/validators");
+const { comparePassword } = require("../utils/hash");
 const { uploadProfileFile, deleteProfileFile, fileAccessPath } = require("./storage.service");
 const { toPublicPerson } = require("./privacy.service");
 const { getCandidatesForUser } = require("./match.service");
@@ -130,7 +131,7 @@ const toOwnerProfile = async (profile) => {
   const userId = data.user?._id || data.user;
   const [preference, account] = await Promise.all([
     Preference.findOne({ user: userId }).lean(),
-    User.findById(userId).select("phone").lean(),
+    User.findById(userId).select("phone name").lean(),
   ]);
   data.lookingFor = data.lookingFor ?? null;
   data.maritalStatus = data.maritalStatus ?? null;
@@ -140,7 +141,28 @@ const toOwnerProfile = async (profile) => {
   data.ageMax = preference?.ageMax ?? null;
   data.preferredMaritalStatus = preference?.preferredMaritalStatus ?? null;
   data.phone = account?.phone || null;
+  data.name = account?.name || null;
   return data;
+};
+
+const storedGenderOf = (account) =>
+  account?.gender === "male" || account?.gender === "female" ? account.gender : "";
+
+// A name sent with the profile. Rejected when it is empty or when it is the password.
+const readAccountName = async (userId, body = {}) => {
+  if (!Object.prototype.hasOwnProperty.call(body, "name")) return null;
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  if (!validateName(name)) {
+    throw new HttpError(400, "יש להזין שם מלא");
+  }
+  const user = await User.findById(userId).select("+password");
+  if (!user) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+  if (await comparePassword(name, user.password)) {
+    throw new HttpError(400, "יש להזין שם מלא");
+  }
+  return name;
 };
 
 const PHONE_REQUIRED = "טלפון נייד ליצירת קשר הוא שדה חובה";
@@ -219,13 +241,30 @@ const createProfileForUser = async (userId, body, files) => {
     throw new HttpError(409, "כבר קיים פרופיל למשתמש זה");
   }
 
-  const profile = new Profile({ ...pickProfileFields(body).values, user: userId });
+  const account = await User.findById(userId).select("name gender").lean();
+  const storedGender = storedGenderOf(account);
+  if (!storedGender && !validateName(account?.name || "")) {
+    throw new HttpError(400, "מגדר הוא שדה חובה");
+  }
+
+  const nextName = await readAccountName(userId, body);
+  const values = pickProfileFields(body).values;
+  if (storedGender) values.gender = storedGender;
+
+  const profile = new Profile({ ...values, user: userId });
   clearWorkplaceUnlessWorking(profile);
   // Reject invalid data before uploading any file or writing preferences
   await profile.validate();
   await requireContactPhone(userId, body);
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
+
+  const patch = {};
+  if (nextName) patch.name = nextName;
+  if (!storedGender && profile.gender) patch.gender = profile.gender;
+  if (Object.keys(patch).length > 0) {
+    await User.updateOne({ _id: userId }, { $set: patch });
+  }
 
   return toOwnerProfile(profile);
 };
@@ -244,16 +283,20 @@ const updateProfileByUserId = async (userId, body, files) => {
     throw new HttpError(404, "הפרופיל לא נמצא");
   }
 
+  const nextName = await readAccountName(userId, body);
   const { values, cleared } = pickProfileFields(body);
+  // Gender is chosen before the profile and is not edited here.
+  delete values.gender;
+  const editableCleared = cleared.filter((field) => field !== "gender");
 
   // An optional field sent empty is removed; a required one can't be
-  const clearedRequired = cleared.find((field) => REQUIRED_FIELDS.includes(field));
+  const clearedRequired = editableCleared.find((field) => REQUIRED_FIELDS.includes(field));
   if (clearedRequired) {
     throw new HttpError(400, `${EDITABLE_FIELDS[clearedRequired]} הוא שדה חובה`);
   }
 
   profile.set(values);
-  for (const field of cleared) {
+  for (const field of editableCleared) {
     profile.set(field, undefined);
   }
   clearWorkplaceUnlessWorking(profile);
@@ -263,6 +306,9 @@ const updateProfileByUserId = async (userId, body, files) => {
   await applyContactPhone(userId, body);
   await applyProfilePreference(userId, body);
   await saveWithFiles(profile, files);
+  if (nextName) {
+    await User.updateOne({ _id: userId }, { $set: { name: nextName } });
+  }
 
   return toOwnerProfile(profile);
 };

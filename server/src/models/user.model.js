@@ -16,7 +16,10 @@ const notificationSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true, maxlength: 100 },
+    // Empty until the member sets a name. Registration must not invent one
+    // from the email or the password.
+    name: { type: String, trim: true, maxlength: 100, default: "" },
+    gender: { type: String, enum: ["male", "female"] },
 
     email: {
       type: String,

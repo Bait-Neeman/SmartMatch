@@ -23,8 +23,9 @@ export const passwordError = (password, emptyMessage = "יש להזין סיסמ
   return null;
 };
 
-export const destinationAfterLogin = ({ role, hasProfile, hasPreferences }) => {
+export const destinationAfterLogin = ({ role, hasIdentity, hasProfile, hasPreferences }) => {
   if (role === "admin") return "/admin";
+  if (!hasIdentity) return "/identity";
   if (!hasProfile) return "/profile";
   if (!hasPreferences) return "/preferences";
   return "/home";

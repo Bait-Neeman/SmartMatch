@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Alert, Box, CircularProgress, Typography } from "@mui/material";
+import { Alert, Box, Typography } from "@mui/material";
 import { Close, DoNotDisturb, PersonAdd, SearchOff } from "@mui/icons-material";
 import ActiveSuggestionCard from "../components/suggestion/ActiveSuggestionCard.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
+import { ListSkeleton } from "../components/common/PageSkeleton.jsx";
 import useMatchmakerSuggestions from "../hooks/useMatchmakerSuggestions.js";
 import { matchmakerHref } from "../utils/matchmakerView.js";
 import { brand } from "../theme/tokens.js";
@@ -27,9 +28,7 @@ export default function MatchmakerPage() {
   const renderBody = () => {
     if (loading) {
       return (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <ListSkeleton />
       );
     }
 

@@ -11,6 +11,8 @@ const request = require("supertest");
 
 const app = require("../app");
 const User = require("../src/models/user.model");
+const Profile = require("../src/models/profile.model");
+const Interest = require("../src/models/interest.model");
 const { comparePassword, hashPassword } = require("../src/utils/hash");
 
 const TOO_LONG = "הסיסמה ארוכה מדי. אפשר עד 72 בתים";
@@ -83,7 +85,8 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.equal(created.body.user.email, "new.user@example.test");
-    assert.equal(created.body.user.name, "new user");
+    assert.equal(created.body.user.name, "");
+    assert.equal(created.body.user.gender, "");
     assert.equal(created.body.user.idNumber, undefined);
     assert.equal(JSON.stringify(created.body).includes("123456789"), false);
     assert.equal(typeof created.body.token, "string");
@@ -132,6 +135,146 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     });
     assert.equal(trimmed.status, 401);
     assert.equal(trimmed.body.message, WRONG);
+  });
+
+  it("never stores or returns the password as a name or any other user field", async () => {
+    const password = "PlainPasswordNotAName";
+    const created = await request(app).post("/api/auth/register").send({
+      email: "named@example.test",
+      password,
+      name: password,
+      fullName: password,
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(created.body.user.name, "");
+    assert.equal(JSON.stringify(created.body).includes(password), false);
+
+    const token = created.body.token;
+    const me = await request(app).get("/api/auth/me").set(auth(token));
+    assert.equal(me.status, 200);
+    assert.equal(JSON.stringify(me.body).includes(password), false);
+
+    const logged = await request(app).post("/api/auth/login").send({
+      email: "named@example.test",
+      password,
+    });
+    assert.equal(logged.status, 200, JSON.stringify(logged.body));
+    assert.equal(logged.body.user.name, "");
+    assert.equal(JSON.stringify(logged.body).includes(password), false);
+
+    const settings = await request(app).get("/api/settings").set(auth(token));
+    assert.equal(settings.status, 200);
+    assert.equal(JSON.stringify(settings.body).includes(password), false);
+
+    const stored = await User.findById(created.body.user._id).select("+password +tokenVersion").lean();
+    for (const [key, value] of Object.entries(stored)) {
+      if (key === "password") {
+        assert.equal(await comparePassword(password, value), true);
+        assert.equal(String(value).includes(password), false);
+        continue;
+      }
+      assert.equal(JSON.stringify(value ?? "").includes(password), false, key);
+    }
+
+    const blocked = await request(app).post("/api/profile").set(auth(token)).send({
+      gender: "female",
+      age: 22,
+      phone: "0521234567",
+      name: password,
+    });
+    assert.equal(blocked.status, 400);
+
+    const asPassword = await request(app).post("/api/auth/identity").set(auth(token)).send({
+      name: password,
+      gender: "female",
+    });
+    assert.equal(asPassword.status, 400);
+    assert.equal(asPassword.body.message, "יש להזין שם מלא");
+
+    const saved = await request(app).post("/api/auth/identity").set(auth(token)).send({
+      name: "רבקה לוי",
+      gender: "female",
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.user.name, "רבקה לוי");
+    assert.equal(saved.body.user.gender, "female");
+    assert.equal(JSON.stringify(saved.body).includes(password), false);
+
+    const tooSoon = await User.findById(created.body.user._id).select("+password").lean();
+    assert.equal(tooSoon.name, "רבקה לוי");
+    assert.notEqual(tooSoon.name, password);
+    assert.equal(String(tooSoon.password).includes(password), false);
+
+    const profile = await request(app).post("/api/profile").set(auth(token)).send({
+      gender: "male",
+      age: 24,
+      phone: "0521234567",
+      name: "רבקה כהן",
+    });
+    assert.equal(profile.status, 201, JSON.stringify(profile.body));
+    assert.equal(profile.body.profile.gender, "female");
+    assert.equal(profile.body.profile.name, "רבקה כהן");
+    assert.equal(JSON.stringify(profile.body).includes(password), false);
+
+    const renamed = await User.findById(created.body.user._id).lean();
+    assert.equal(renamed.name, "רבקה כהן");
+    assert.equal(renamed.gender, "female");
+
+    const admin = await User.create({
+      name: "מנהל הבדיקה",
+      email: "admin-names@example.test",
+      password: "AdminPass12",
+      role: "admin",
+    });
+    const adminLogin = await request(app).post("/api/auth/login").send({
+      email: admin.email,
+      password: "AdminPass12",
+    });
+    assert.equal(adminLogin.status, 200, JSON.stringify(adminLogin.body));
+    const adminAuth = auth(adminLogin.body.token);
+
+    const directory = await request(app).get("/api/admin/users").set(adminAuth);
+    assert.equal(directory.status, 200, JSON.stringify(directory.body));
+    const row = directory.body.users.find((user) => String(user._id) === String(created.body.user._id));
+    assert.ok(row);
+    assert.equal(row.name, "רבקה כהן");
+    assert.equal(row.phone, "0521234567");
+    assert.equal(JSON.stringify(directory.body).includes(password), false);
+    assert.equal(JSON.stringify(directory.body).includes("idNumber"), false);
+
+    const boy = await User.create({
+      name: "אבי כהן",
+      email: "avi-names@example.test",
+      password: "OtherSecret77",
+      role: "user",
+      gender: "male",
+    });
+    await Profile.create({ user: boy._id, gender: "male", age: 25 });
+    await Interest.create({
+      sender: boy._id,
+      receiver: created.body.user._id,
+      status: "accepted",
+      senderApprovedToManager: true,
+      receiverApprovedToManager: true,
+    });
+
+    const cases = await request(app).get("/api/admin/cases").set(adminAuth);
+    assert.equal(cases.status, 200, JSON.stringify(cases.body));
+    const card = cases.body.cases.find((item) => {
+      const ids = [String(item.sender?._id), String(item.receiver?._id)];
+      return ids.includes(String(boy._id)) && ids.includes(String(created.body.user._id));
+    });
+    assert.ok(card);
+    const sides = [card.sender, card.receiver];
+    assert.equal(sides.find((person) => String(person._id) === String(created.body.user._id)).name, "רבקה כהן");
+    assert.equal(sides.find((person) => String(person._id) === String(boy._id)).name, "אבי כהן");
+    assert.equal(sides.find((person) => String(person._id) === String(created.body.user._id)).phone, "0521234567");
+    assert.equal(JSON.stringify(cases.body).includes(password), false);
+
+    const memberView = await request(app).get("/api/suggestions").set(auth(token));
+    assert.equal(memberView.status, 200);
+    assert.equal(JSON.stringify(memberView.body).includes("0521234567"), false);
+    assert.equal(JSON.stringify(memberView.body).includes(password), false);
   });
 
   it("keeps wrong-password and duplicate-email responses from revealing which part failed", async () => {
