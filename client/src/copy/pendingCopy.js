@@ -19,4 +19,5 @@ export const pendingCopy = {
   sectionAppearance: "מראה",
   sectionFilters: "סינון",
   bottomNavLabel: "ניווט תחתון",
+  hideFemalePhotos: "הסתרת תמונות של בנות",
 };
