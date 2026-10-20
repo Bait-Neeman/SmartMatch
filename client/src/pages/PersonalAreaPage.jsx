@@ -28,6 +28,7 @@ import {
   getPdfFileError,
   IMAGE_ACCEPT,
   isAppFileUrl,
+  PDF_ACCEPT,
   toSafeFileUrl,
 } from "../utils/files.js";
 import { downloadProtectedFile, openProtectedFile } from "../utils/protectedFile.js";
@@ -421,7 +422,7 @@ function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit, onView, onDo
     <input
       hidden
       type="file"
-      accept="application/pdf"
+      accept={PDF_ACCEPT}
       onChange={onPick}
     />
   );

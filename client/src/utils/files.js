@@ -6,6 +6,10 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 // For the `accept` attribute of image file inputs
 export const IMAGE_ACCEPT = IMAGE_TYPES.join(",");
 
+// Resume files. The server checks the same MIME type and the %PDF- header.
+export const PDF_TYPE = "application/pdf";
+export const PDF_ACCEPT = PDF_TYPE;
+
 const isTooLarge = (file) => file.size > MAX_FILE_SIZE_MB * 1024 * 1024;
 const tooLargeMessage = `הקובץ גדול מדי. הגודל המקסימלי הוא ${MAX_FILE_SIZE_MB}MB`;
 
@@ -17,7 +21,7 @@ export const getImageFileError = (file) => {
 };
 
 export const getPdfFileError = (file) => {
-  if (file.type !== "application/pdf") return "יש לבחור קובץ PDF";
+  if (file.type !== PDF_TYPE) return "יש לבחור קובץ PDF";
   if (isTooLarge(file)) return tooLargeMessage;
   return "";
 };

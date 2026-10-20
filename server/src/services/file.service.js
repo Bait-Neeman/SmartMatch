@@ -17,6 +17,24 @@ const CONTENT_TYPE = {
   resumePdf: "application/pdf",
 };
 
+const mediaType = (value) => String(value || "").split(";")[0].trim().toLowerCase();
+
+const isPdfBuffer = (body) =>
+  Buffer.isBuffer(body) && body.length >= 5 && body.subarray(0, 5).toString("latin1") === "%PDF-";
+
+// A resume PDF must be served as application/pdf so the browser opens it.
+// A specific non-PDF type (an older image resume) is left unchanged.
+const contentTypeForDelivery = (field, upstream, body) => {
+  const type = mediaType(upstream);
+  const declared = type ? String(upstream).split(";")[0].trim() : "";
+  if (field === "resumePdf") {
+    if (type.startsWith("image/")) return declared;
+    if (isPdfBuffer(body) || type === "application/pdf" || !type) return "application/pdf";
+  }
+  if (declared) return declared;
+  return CONTENT_TYPE[field];
+};
+
 const FILENAME = {
   image: "photo.jpg",
   resumePdf: "resume.pdf",
@@ -59,12 +77,13 @@ const openProfileFile = async (viewer, ownerId, routeKind) => {
   const file = await readStoredFile(field, publicId);
   return {
     body: file.body,
-    contentType: file.contentType || CONTENT_TYPE[field],
+    contentType: contentTypeForDelivery(field, file.contentType, file.body),
     filename: FILENAME[field],
   };
 };
 
 module.exports = {
   openProfileFile,
+  contentTypeForDelivery,
   FILE_NOT_FOUND,
 };

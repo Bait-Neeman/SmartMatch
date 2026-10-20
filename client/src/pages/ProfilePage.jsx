@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import { createProfile, getMyProfile, updateProfile } from "../services/profile.service.js";
-import { getImageFileError, getPdfFileError, IMAGE_ACCEPT } from "../utils/files.js";
+import { getImageFileError, getPdfFileError, IMAGE_ACCEPT, PDF_ACCEPT } from "../utils/files.js";
 import { brand } from "../theme/tokens.js";
 import { buildProfileFields } from "../utils/genderForms.js";
 import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
@@ -478,7 +478,7 @@ export default function ProfilePage() {
                       )}
                       <Button component="label" variant="outlined" color="primary" size="small" disabled={isSubmitting} startIcon={<StrokeIcon name="refresh" />}>
                         החלפה
-                        <input hidden type="file" accept="application/pdf" onChange={handleResumeChange} />
+                        <input hidden type="file" accept={PDF_ACCEPT} onChange={handleResumeChange} />
                       </Button>
                     </Stack>
                   </Box>
@@ -488,7 +488,7 @@ export default function ProfilePage() {
                   icon="file"
                   title="העלאת קורות חיים"
                   detail="PDF עד 10MB · אופציונלי"
-                  accept="application/pdf"
+                  accept={PDF_ACCEPT}
                   onChange={handleResumeChange}
                 />
               )}
