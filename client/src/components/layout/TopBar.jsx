@@ -254,6 +254,8 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
   const showSearchPanel = searchOpen && draft.trim().length >= 2;
   const bellLabel = unreadCount > 0 ? `התראות, ${unreadCount} חדשות` : "התראות";
   const mailLabel = mailCount > 0 ? `הודעות, ${mailCount}` : "הודעות";
+  const trimmedName = name.trim();
+  const initial = trimmedName.charAt(0);
 
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
@@ -431,30 +433,55 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
         )}
       </Box>
 
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          height: 42,
-          paddingInlineStart: "4px",
-          paddingInlineEnd: "16px",
-          borderRadius: 999,
-          bgcolor: brand.topBarControl,
-          boxShadow: `inset 0 0 0 1px ${brand.topBarLine}`,
-          color: brand.paper,
-          fontWeight: 600,
-          fontSize: 15,
-          flex: "none",
-        }}
-      >
-        <PersonAvatar size={32} gender={gender} />
-        {name && (
-          <Box component="b" sx={{ fontWeight: 600, "@media (max-width:1060px)": { display: "none" } }}>
-            {name}
+      {trimmedName ? (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            height: 42,
+            paddingInlineStart: "4px",
+            paddingInlineEnd: "16px",
+            borderRadius: 999,
+            bgcolor: brand.topBarControl,
+            boxShadow: `inset 0 0 0 1px ${brand.topBarLine}`,
+            color: brand.paper,
+            fontWeight: 600,
+            fontSize: 15,
+            flex: "none",
+            "@media (max-width:1060px)": {
+              paddingInlineEnd: "4px",
+              bgcolor: "transparent",
+              boxShadow: "none",
+            },
+          }}
+        >
+          <PersonAvatar size={32} gender={gender} sx={{ "@media (max-width:1060px)": { display: "none" } }} />
+          <Box
+            aria-hidden
+            sx={{
+              display: "none",
+              "@media (max-width:1060px)": {
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                bgcolor: brand.paper,
+                color: brand.navy,
+                fontWeight: 700,
+                fontSize: 15,
+                lineHeight: 1,
+              },
+            }}
+          >
+            {initial}
           </Box>
-        )}
-      </Box>
+          <Box component="b" sx={{ fontWeight: 600, "@media (max-width:1060px)": { display: "none" } }}>
+            {trimmedName}
+          </Box>
+        </Box>
+      ) : null}
     </Box>
   );
 }

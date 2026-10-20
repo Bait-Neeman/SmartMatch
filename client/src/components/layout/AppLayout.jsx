@@ -27,7 +27,7 @@ import {
   Person,
   Settings,
 } from "@mui/icons-material";
-import { getSession, logout } from "../../utils/session.js";
+import { getSession, identityComplete, logout } from "../../utils/session.js";
 import useMyGender from "../../hooks/useMyGender.js";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
@@ -157,6 +157,7 @@ export default function AppLayout() {
   }, [pathname]);
 
   const bottomLinks = isAdmin ? [] : links.filter((link) => BOTTOM_TO.has(link.to));
+  const showBottomNav = isCompact && identityComplete(user) && pathname !== "/identity" && bottomLinks.length > 0;
 
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", bgcolor: "background.default" }}>
@@ -264,7 +265,7 @@ export default function AppLayout() {
             minWidth: 0,
             px: "clamp(20px, 2.4vw, 36px)",
             py: 3,
-            pb: bottomLinks.length && isCompact ? "calc(96px + env(safe-area-inset-bottom))" : 7,
+            pb: showBottomNav ? "calc(96px + env(safe-area-inset-bottom))" : 7,
             "@keyframes memberEnter": {
               from: { opacity: 0, transform: "translateY(6px)" },
               to: { opacity: 1, transform: "none" },
@@ -275,7 +276,7 @@ export default function AppLayout() {
         >
           <Outlet />
         </Box>
-        {isCompact && bottomLinks.length > 0 ? <BottomNav links={bottomLinks} /> : null}
+        {showBottomNav ? <BottomNav links={bottomLinks} /> : null}
       </Box>
     </Box>
   );
