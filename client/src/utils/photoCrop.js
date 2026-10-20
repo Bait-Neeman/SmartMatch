@@ -82,6 +82,36 @@ export const layoutCrop = ({ containerWidth, containerHeight, imageWidth, imageH
   return { width, height, left, top };
 };
 
+const px = (value) => `${Number(value)}px`;
+
+// Physical offsets. The site's RTL plugin flips `left` and `translate()` unless
+// the declaration is marked @noflip, which would mirror the stored crop.
+export const photoFrameDeclarations = ({ width, height, left, top }) => `
+  position: absolute;
+  top: 0;
+  width: ${px(width)};
+  height: ${px(height)};
+  max-width: none;
+  display: block;
+  /* @noflip */
+  left: 0;
+  /* @noflip */
+  transform: translate(${px(left)}, ${px(top)});
+`;
+
+// object-position keywords are flipped by the same plugin. Percentages are kept
+// as written, and direction stays ltr so the fallback is not resolved from the right.
+export const photoCoverDeclarations = (position) => `
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* @noflip */
+  direction: ltr;
+  /* @noflip */
+  object-position: ${position};
+`;
+
 export const notifyPortraitChanged = () => {
   window.dispatchEvent(new Event("portrait-changed"));
 };

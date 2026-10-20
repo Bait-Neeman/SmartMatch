@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import styled from "@emotion/styled";
 import { Box } from "@mui/material";
 import { isAppFileUrl } from "../../utils/files.js";
 import { fetchFileBlob } from "../../utils/protectedFile.js";
-import { focalPosition, layoutCrop, readPhotoCrop } from "../../utils/photoCrop.js";
+import { layoutCrop, photoCoverDeclarations, photoFrameDeclarations, readPhotoCrop, focalPosition } from "../../utils/photoCrop.js";
+
+const PhotoImg = styled("img")`
+  ${({ rules }) => rules}
+`;
 
 // Shows the original file, framed by the stored crop. No crop means centered cover.
 export default function CroppedPhoto({ url = "", src = "", alt = "", crop = null, sx }) {
@@ -63,35 +68,16 @@ export default function CroppedPhoto({ url = "", src = "", alt = "", crop = null
   return (
     <Box ref={frameRef} sx={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", ...sx }}>
       {shown ? (
-        <Box
-          component="img"
+        <PhotoImg
           src={shown}
           alt={alt}
           draggable={false}
+          rules={layout ? photoFrameDeclarations(layout) : photoCoverDeclarations(focalPosition(safeCrop))}
           onLoad={(event) => {
             const width = event.currentTarget.naturalWidth;
             const height = event.currentTarget.naturalHeight;
             setNatural((current) => (current.width === width && current.height === height ? current : { width, height }));
           }}
-          sx={
-            layout
-              ? {
-                  position: "absolute",
-                  width: `${layout.width}px`,
-                  height: `${layout.height}px`,
-                  left: `${layout.left}px`,
-                  top: `${layout.top}px`,
-                  maxWidth: "none",
-                  display: "block",
-                }
-              : {
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: focalPosition(safeCrop),
-                  display: "block",
-                }
-          }
         />
       ) : null}
     </Box>

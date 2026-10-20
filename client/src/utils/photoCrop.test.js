@@ -1,6 +1,20 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { describe, it } from "node:test";
-import { focalPosition, layoutCrop, readPhotoCrop, roundCrop } from "./photoCrop.js";
+import { focalPosition, layoutCrop, photoCoverDeclarations, photoFrameDeclarations, readPhotoCrop, roundCrop } from "./photoCrop.js";
+
+const require = createRequire(import.meta.url);
+const createCache = require("@emotion/cache").default;
+const { serializeStyles } = require("@emotion/serialize");
+const { prefixer } = require("stylis");
+const rtlPlugin = require("stylis-plugin-rtl").default;
+
+// Same plugin order as client/src/main.jsx.
+const rtlCache = createCache({ key: "muirtl", stylisPlugins: [prefixer, rtlPlugin] });
+
+const flipped = (declarations) => rtlCache.insert(".photo", serializeStyles([declarations]), rtlCache.sheet, false);
+
+const translateX = (css) => [...css.matchAll(/translate\(([-0-9.]+)px/g)].map((match) => Number(match[1]));
 
 const covers = (frameWidth, frameHeight, layout) => {
   assert.ok(layout.left <= 0.001);
@@ -58,5 +72,41 @@ describe("photo crop", () => {
     });
     covers(40, 80, tall);
     assert.ok(tall.height >= 80);
+  });
+
+  it("keeps a known crop on the physical left after the RTL plugin", () => {
+    const crop = { x: 14.29, y: 14.29, width: 53.57, height: 71.43, zoom: 1.4 };
+    const layout = layoutCrop({
+      containerWidth: 300,
+      containerHeight: 300,
+      imageWidth: 400,
+      imageHeight: 300,
+      crop,
+    });
+    assert.ok(Math.abs(layout.left + 80) < 0.05, layout.left);
+
+    const css = flipped(photoFrameDeclarations(layout));
+    const offset = translateX(css);
+    assert.ok(offset.length > 0, css);
+    assert.ok(offset.every((value) => Math.abs(value - layout.left) < 0.001), css);
+    assert.match(css, /left:0/);
+    assert.doesNotMatch(css, /right:/);
+
+    const mirrored = flipped(photoFrameDeclarations(layout).replaceAll("/* @noflip */", ""));
+    assert.match(mirrored, /right:0/);
+    assert.ok(translateX(mirrored).every((value) => Math.abs(value + layout.left) < 0.001), mirrored);
+  });
+
+  it("does not flip the object-position fallback", () => {
+    const crop = { x: 14.29, y: 14.29, width: 53.57, height: 71.43, zoom: 1.4 };
+    const position = focalPosition(crop);
+    const css = flipped(photoCoverDeclarations(position));
+    assert.equal(css.includes(`object-position:${position}`), true, css);
+    assert.equal(css.includes("direction:ltr"), true, css);
+    assert.equal(css.includes("direction:rtl"), false, css);
+
+    const keyword = flipped(photoCoverDeclarations("left center"));
+    assert.equal(keyword.includes("object-position:left center"), true, keyword);
+    assert.equal(keyword.includes("object-position:right"), false, keyword);
   });
 });
