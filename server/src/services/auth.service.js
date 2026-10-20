@@ -231,13 +231,19 @@ const saveIdentity = async (userId, body = {}) => {
     throw new HttpError(400, "יש להזין שם מלא");
   }
 
+  // Gender is chosen once. An admin-created account already has one, and a
+  // profile gender from the name step is kept the same way.
+  if (GENDERS.has(user.gender) && user.gender !== gender) {
+    throw new HttpError(400, "מגדר הוא שדה חובה");
+  }
+
   const profile = await Profile.findOne({ user: userId }).select("gender").lean();
   if (profile && GENDERS.has(profile.gender) && profile.gender !== gender) {
     throw new HttpError(400, "מגדר הוא שדה חובה");
   }
 
   user.name = name;
-  user.gender = profile?.gender || gender;
+  user.gender = GENDERS.has(user.gender) ? user.gender : profile?.gender || gender;
   await user.save();
   return buildUserResponse(user);
 };

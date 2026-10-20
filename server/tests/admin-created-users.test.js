@@ -342,6 +342,59 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(emailLogin.status, 200);
   });
 
+  it("blocks identity before account setup and keeps the admin-set gender", async () => {
+    const { headers } = await createAdmin();
+    const created = await createMember(headers, { name: "דוד חדש", gender: "male" });
+    const loggedIn = await request(app).post("/api/auth/code-login").send({ code: created.body.accessCode });
+    assert.equal(loggedIn.status, 200, JSON.stringify(loggedIn.body));
+    const session = auth(loggedIn.body.token);
+
+    const blocked = await request(app).post("/api/auth/identity").set(session).send({
+      name: "שם אחר",
+      gender: "female",
+    });
+    assert.equal(blocked.status, 403);
+    assert.equal(blocked.body.message, SETUP_REQUIRED);
+
+    let stored = await User.findById(created.body.user._id).lean();
+    assert.equal(stored.name, "דוד חדש");
+    assert.equal(stored.gender, "male");
+
+    // The setup guard steps aside while the dev flag is on. Gender still cannot move.
+    process.env.ALLOW_CODE_LOGIN = "true";
+    try {
+      const open = await request(app).post("/api/auth/identity").set(session).send({
+        name: "שם אחר",
+        gender: "female",
+      });
+      assert.equal(open.status, 400);
+      assert.equal(open.body.message, "מגדר הוא שדה חובה");
+    } finally {
+      delete process.env.ALLOW_CODE_LOGIN;
+    }
+
+    stored = await User.findById(created.body.user._id).lean();
+    assert.equal(stored.name, "דוד חדש");
+    assert.equal(stored.gender, "male");
+
+    const setup = await request(app).post("/api/auth/account-setup").set(session).send({
+      email: "david-locked@example.test",
+      password: "secret",
+    });
+    assert.equal(setup.status, 200, JSON.stringify(setup.body));
+
+    const after = await request(app).post("/api/auth/identity").set(auth(setup.body.token)).send({
+      name: "שם אחר",
+      gender: "female",
+    });
+    assert.equal(after.status, 400);
+    assert.equal(after.body.message, "מגדר הוא שדה חובה");
+
+    stored = await User.findById(created.body.user._id).lean();
+    assert.equal(stored.name, "דוד חדש");
+    assert.equal(stored.gender, "male");
+  });
+
   it("replaces the code when an admin generates a new one", async () => {
     const { headers } = await createAdmin();
     const created = await createMember(headers, { name: "דוד חדש", gender: "male" });

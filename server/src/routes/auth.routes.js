@@ -3,7 +3,7 @@ const router = express.Router();
 
 const { register, login, getMe, saveMyIdentity, loginWithCode, saveAccountSetup } = require("../controllers/auth.controller");
 const { forgotPassword, resetPassword } = require("../controllers/passwordReset.controller");
-const { protect } = require("../middleware/auth.middleware");
+const { protect, requireAccountReady } = require("../middleware/auth.middleware");
 const {
   loginIpLimiter,
   loginAccountLimiter,
@@ -19,7 +19,7 @@ router.post("/code-login", codeLoginIpLimiter, codeLoginKeyLimiter, loginWithCod
 router.post("/forgot-password", passwordResetLimiter, forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/me", protect, getMe);
-router.post("/identity", protect, saveMyIdentity);
+router.post("/identity", protect, requireAccountReady, saveMyIdentity);
 router.post("/account-setup", protect, saveAccountSetup);
 
 module.exports = router;
