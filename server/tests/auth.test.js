@@ -11,6 +11,8 @@ const request = require("supertest");
 
 const app = require("../app");
 const User = require("../src/models/user.model");
+const Profile = require("../src/models/profile.model");
+const Interest = require("../src/models/interest.model");
 const { comparePassword, hashPassword } = require("../src/utils/hash");
 
 const TOO_LONG = "הסיסמה ארוכה מדי. אפשר עד 72 בתים";
@@ -217,6 +219,62 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     const renamed = await User.findById(created.body.user._id).lean();
     assert.equal(renamed.name, "רבקה כהן");
     assert.equal(renamed.gender, "female");
+
+    const admin = await User.create({
+      name: "מנהל הבדיקה",
+      email: "admin-names@example.test",
+      password: "AdminPass12",
+      role: "admin",
+    });
+    const adminLogin = await request(app).post("/api/auth/login").send({
+      email: admin.email,
+      password: "AdminPass12",
+    });
+    assert.equal(adminLogin.status, 200, JSON.stringify(adminLogin.body));
+    const adminAuth = auth(adminLogin.body.token);
+
+    const directory = await request(app).get("/api/admin/users").set(adminAuth);
+    assert.equal(directory.status, 200, JSON.stringify(directory.body));
+    const row = directory.body.users.find((user) => String(user._id) === String(created.body.user._id));
+    assert.ok(row);
+    assert.equal(row.name, "רבקה כהן");
+    assert.equal(row.phone, "0521234567");
+    assert.equal(JSON.stringify(directory.body).includes(password), false);
+    assert.equal(JSON.stringify(directory.body).includes("idNumber"), false);
+
+    const boy = await User.create({
+      name: "אבי כהן",
+      email: "avi-names@example.test",
+      password: "OtherSecret77",
+      role: "user",
+      gender: "male",
+    });
+    await Profile.create({ user: boy._id, gender: "male", age: 25 });
+    await Interest.create({
+      sender: boy._id,
+      receiver: created.body.user._id,
+      status: "accepted",
+      senderApprovedToManager: true,
+      receiverApprovedToManager: true,
+    });
+
+    const cases = await request(app).get("/api/admin/cases").set(adminAuth);
+    assert.equal(cases.status, 200, JSON.stringify(cases.body));
+    const card = cases.body.cases.find((item) => {
+      const ids = [String(item.sender?._id), String(item.receiver?._id)];
+      return ids.includes(String(boy._id)) && ids.includes(String(created.body.user._id));
+    });
+    assert.ok(card);
+    const sides = [card.sender, card.receiver];
+    assert.equal(sides.find((person) => String(person._id) === String(created.body.user._id)).name, "רבקה כהן");
+    assert.equal(sides.find((person) => String(person._id) === String(boy._id)).name, "אבי כהן");
+    assert.equal(sides.find((person) => String(person._id) === String(created.body.user._id)).phone, "0521234567");
+    assert.equal(JSON.stringify(cases.body).includes(password), false);
+
+    const memberView = await request(app).get("/api/suggestions").set(auth(token));
+    assert.equal(memberView.status, 200);
+    assert.equal(JSON.stringify(memberView.body).includes("0521234567"), false);
+    assert.equal(JSON.stringify(memberView.body).includes(password), false);
   });
 
   it("keeps wrong-password and duplicate-email responses from revealing which part failed", async () => {
@@ -280,7 +338,10 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
 
   it("returns 500 for a duplicate key that is not the email", async () => {
     await User.init();
-    await User.collection.dropIndex("idNumber_1");
+    const before = await User.collection.indexes();
+    for (const index of before) {
+      if (index.key && index.key.idNumber === 1) await User.collection.dropIndex(index.name);
+    }
     await User.collection.createIndex({ idNumber: 1 }, { unique: true, name: "idNumber_1" });
 
     const logged = [];
@@ -319,13 +380,9 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     } finally {
       console.error = originalError;
       const indexes = await User.collection.indexes();
-      if (indexes.some((index) => index.name === "idNumber_1")) {
-        await User.collection.dropIndex("idNumber_1");
+      for (const index of indexes) {
+        if (index.key && index.key.idNumber === 1) await User.collection.dropIndex(index.name);
       }
-      await User.collection.createIndex(
-        { idNumber: 1 },
-        { unique: true, sparse: true, name: "idNumber_1" }
-      );
     }
   });
 

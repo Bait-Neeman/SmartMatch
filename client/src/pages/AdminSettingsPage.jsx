@@ -158,14 +158,14 @@ export default function AdminSettingsPage() {
 
           <Paper sx={{ p: "22px" }}>
             <CardTitle icon={<FolderOutlined />}>סטטוסים של תיק</CardTitle>
-            <SettingRow title="שלבי טיפול" detail="הסטטוסים שמופיעים בהצעות בטיפול">
+            <SettingRow title="שלבי טיפול" detail="הועבר לשדכן, תיאום, פגישה לפי מספר, ירד או התארסו">
               <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {Object.values(CASE_STATUS).map((item) => (
                   <StatusPill key={item.label} tone={item.tone} label={item.label} icon={<StatusIcon Icon={item.Icon} />} />
                 ))}
               </Box>
             </SettingRow>
-            <SettingRow title="סגירת תיק אוטומטית" detail="סגירה לאחר 60 יום ללא עדכון">
+            <SettingRow title="סגירת תיק אוטומטית" detail="סימון 'השידוך ירד' לאחר 60 יום ללא עדכון">
               <Switch
                 checked={Boolean(settings?.autoClose)}
                 onChange={() => toggle("autoClose")}

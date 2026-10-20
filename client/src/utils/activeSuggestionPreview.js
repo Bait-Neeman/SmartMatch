@@ -2,7 +2,8 @@ import { idOf } from "./suggestionView.js";
 
 // Dev-only fixtures for /active?preview=1. Loaded with a dynamic import behind
 // import.meta.env.DEV so this file stays out of the production bundle.
-// Rows that are not an accepted stage carry a name, phone, photo, and resume on purpose.
+// Rows that are not an accepted stage carry a name, phone, photo, and resume on purpose
+// so the view can prove those values stay off the screen. Phone stays off after approval too.
 
 const DESCRIPTION =
   "בחור שמח ורציני, עם לב פתוח ויחס חם לכל אדם. לומד בבוקר בכולל ועובד אחר הצהריים כמפתח תוכנה, ומשתדל לשלב בין עולם התורה לפרנסה בצורה מכובדת. אוהב שיחות עומק, טיולים בטבע ומוזיקה יהודית. בבית ההורים ידוע כמי שתמיד נותן יד – בעזרה לאחים הקטנים, בחסד ובארגון שבתות משפחתיות. חברים מתארים אותי כאדם יציב, אחראי וסבלני, עם חוש הומור עדין.";

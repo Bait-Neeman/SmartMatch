@@ -21,13 +21,6 @@ const userSchema = new mongoose.Schema(
     name: { type: String, trim: true, maxlength: 100, default: "" },
     gender: { type: String, enum: ["male", "female"] },
 
-    idNumber: {
-      type: String,
-      unique: true,
-      sparse: true,
-      trim: true,
-    },
-
     email: {
       type: String,
       unique: true,

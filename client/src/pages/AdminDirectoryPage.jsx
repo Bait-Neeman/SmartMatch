@@ -12,7 +12,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { ChevronLeft, PersonAddAlt1, Search } from "@mui/icons-material";
+import { PersonAddAlt1, Search } from "@mui/icons-material";
 import { brand } from "../theme/tokens.js";
 import { ethnicityOptions } from "../constants/profileOptions.js";
 import {
@@ -26,13 +26,12 @@ import {
   selectAdminUsersError,
   selectAdminUsersLoading,
 } from "../store/slices/adminSlice.js";
-import AdminAvatar from "../components/admin/AdminAvatar.jsx";
 import AdminHeading from "../components/admin/AdminHeading.jsx";
 import AdminProfileDialog from "../components/admin/AdminProfileDialog.jsx";
-import { CANDIDATE_STATUS, institutionLine } from "../components/admin/format.js";
+import PersonPreviewCard from "../components/admin/PersonPreviewCard.jsx";
+import { CANDIDATE_STATUS } from "../components/admin/format.js";
+import { DIRECTORY_TABS } from "../utils/caseStatus.js";
 import StatusPill from "../components/common/StatusPill.jsx";
-import { openProtectedFile } from "../utils/protectedFile.js";
-import { toSafeFileUrl } from "../utils/files.js";
 import { createAdminCandidate } from "../services/admin.service.js";
 import AddCandidateDialog from "../components/admin/AddCandidateDialog.jsx";
 
@@ -44,12 +43,8 @@ const AGE_RANGES = [
   { value: "27-30", label: "27–30" },
   { value: "31-120", label: "31+" },
 ];
-const TABS = [
-  { value: "", label: "הכל" },
-  { value: "active", label: "פעילים" },
-  { value: "in_process", label: "בתהליך" },
-  { value: "engaged", label: "מאורסים" },
-];
+const TABS = DIRECTORY_TABS;
+const STATUS_FILTERS = [{ value: "", label: "סטטוס" }, ...DIRECTORY_TABS.filter((tab) => tab.value)];
 
 const inAge = (age, range) => {
   if (!range) return true;
@@ -154,7 +149,7 @@ export default function AdminDirectoryPage({ gender }) {
   };
 
   return (
-    <Box sx={{ maxWidth: 1280, mx: "auto" }}>
+    <Box>
       <AdminHeading
         title={title}
         subtitle={`${roster.length} רשומים · ${shown.length === 1 ? "מוצג אחד" : `${shown.length} מוצגים`}`}
@@ -208,12 +203,7 @@ export default function AdminDirectoryPage({ gender }) {
           label="סטטוס"
           value={status}
           onChange={(value) => { setStatus(value); setPage(1); }}
-          options={[
-            { value: "", label: "סטטוס" },
-            { value: "active", label: "פעיל/ה" },
-            { value: "in_process", label: "בתהליך" },
-            { value: "engaged", label: "מאורס/ת" },
-          ]}
+          options={STATUS_FILTERS}
         />
       </Box>
 
@@ -242,96 +232,43 @@ export default function AdminDirectoryPage({ gender }) {
           <CircularProgress />
         </Box>
       ) : (
-        <Box sx={{ display: "grid", gap: 1.25 }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr", lg: "1fr 1fr 1fr 1fr" },
+            gap: 2,
+          }}
+        >
           {shown.length === 0 ? (
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={{ p: 2, gridColumn: "1 / -1" }}>
               <Typography sx={{ color: brand.mut, textAlign: "center", py: 4 }}>
                 {roster.length === 0 ? `אין ${title} רשומים` : "אין תוצאות לסינון הזה"}
               </Typography>
             </Paper>
           ) : (
             shown.map((user) => {
-              const tone = CANDIDATE_STATUS[user.status] || CANDIDATE_STATUS.active;
-              const resume = toSafeFileUrl(user.profile?.resumePdf);
-              const contact = [user.phone, user.email].filter(Boolean).join(" · ");
-              const meta = [
-                user.profile?.age != null ? String(user.profile.age) : "",
-                user.profile?.city || "",
-                institutionLine(user.profile) === "—" ? "" : institutionLine(user.profile),
-              ]
-                .filter(Boolean)
-                .join(" · ");
+              const tone = CANDIDATE_STATUS[user.status];
               return (
-                <Paper
+                <PersonPreviewCard
                   key={user._id}
+                  person={{ ...user, gender }}
                   onClick={() => openProfile(user._id)}
-                  sx={{
-                    display: "flex",
-                    flexDirection: { xs: "column", sm: "row" },
-                    alignItems: { xs: "stretch", sm: "center" },
-                    gap: 1.75,
-                    p: { xs: 1.5, sm: 2 },
-                    cursor: "pointer",
-                    borderColor: brand.line,
-                    "&:hover": {
-                      borderColor: brand.rowHoverBorder,
-                      boxShadow: brand.rowHoverShadow,
-                      bgcolor: brand.rowHover,
-                    },
-                  }}
-                >
-                  <AdminAvatar image={user.profile?.image} gender={gender} size={72} rounded="16px" ring />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: 18 }}>{user.name}</Typography>
-                    {meta ? <Typography sx={{ color: brand.mut, fontSize: 14 }}>{meta}</Typography> : null}
-                    {contact ? (
-                      <Typography sx={{ color: brand.ink2, fontSize: 14, wordBreak: "break-word" }}>{contact}</Typography>
-                    ) : null}
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: { xs: "space-between", sm: "flex-end" },
-                      gap: 1.5,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {resume ? (
-                      <Box
-                        component="button"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openProtectedFile(resume);
-                        }}
-                        sx={{
-                          border: `1px solid ${brand.inputLine}`,
-                          background: brand.paper,
-                          color: brand.goldDark,
-                          fontWeight: 600,
-                          fontSize: 13,
-                          borderRadius: "10px",
-                          px: 1.5,
-                          py: 0.75,
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        רזומה
+                  footer={
+                    tone ? (
+                      <Box sx={{ display: "flex", justifyContent: "center", mt: 1 }}>
+                        <StatusPill tone={tone.tone} label={tone.label} icon={<StatusIcon Icon={tone.Icon} />} />
                       </Box>
-                    ) : null}
-                    <StatusPill tone={tone.tone} label={tone.label} icon={<StatusIcon Icon={tone.Icon} />} />
-                    <Box sx={{ color: brand.goldDeep, display: "grid" }}>
-                      <ChevronLeft />
-                    </Box>
-                  </Box>
-                </Paper>
+                    ) : null
+                  }
+                />
               );
             })
           )}
+        </Box>
+      )}
 
-          {filtered.length > 0 ? (
+      {!loading || users.length > 0 ? (
+        filtered.length > 0 ? (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, px: 1, pt: 1.25 }}>
               <Typography sx={{ color: brand.mut, fontSize: 14 }}>
                 עמוד {safePage} מתוך {pageCount}
@@ -352,9 +289,8 @@ export default function AdminDirectoryPage({ gender }) {
                   );
                 })}
             </Box>
-          ) : null}
-        </Box>
-      )}
+          ) : null
+      ) : null}
 
       <AddCandidateDialog
         open={addOpen}

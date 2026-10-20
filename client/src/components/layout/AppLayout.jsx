@@ -53,7 +53,8 @@ const ADMIN_LINKS = [
   { to: "/admin", label: "דשבורד", icon: <HomeOutlined />, end: true },
   { to: "/admin/boys", label: "בחורים", icon: <GroupsOutlined /> },
   { to: "/admin/girls", label: "בחורות", icon: <GroupsOutlined /> },
-  { to: "/admin/cases", label: "הצעות בטיפול", icon: <FolderOutlined /> },
+  { to: "/admin/cases", label: "הצעות", icon: <FolderOutlined /> },
+  { to: "/admin/matchmaker", label: "הצעות בטיפול", icon: <SendOutlined /> },
   { to: "/admin/settings", label: "הגדרות", icon: <Settings /> },
 ];
 

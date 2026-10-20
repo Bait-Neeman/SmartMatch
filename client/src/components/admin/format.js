@@ -1,15 +1,25 @@
-import { AutoAwesome, Check, HourglassTop, WorkspacePremium } from "@mui/icons-material";
+import { AutoAwesome, Close, HourglassTop, WorkspacePremium } from "@mui/icons-material";
+import { adminStatusLabel, normalizeCaseStatus } from "../../utils/caseStatus.js";
 
 export const CASE_STATUS = {
-  new: { tone: "received", label: "חדש", Icon: AutoAwesome },
-  in_progress: { tone: "progress", label: "בתהליך", Icon: HourglassTop },
-  closed: { tone: "pending", label: "נסגר · מזל טוב", Icon: WorkspacePremium },
+  new: { tone: "received", label: "הועבר לשדכן", Icon: AutoAwesome },
+  coordinating: { tone: "progress", label: "בתיאום פגישה", Icon: HourglassTop },
+  meeting: { tone: "matchmaker", label: "פגישה", Icon: HourglassTop },
+  ended: { tone: "neutral", label: "השידוך ירד", Icon: Close },
+  engaged: { tone: "pending", label: "התארסו", Icon: WorkspacePremium },
 };
 
 export const CANDIDATE_STATUS = {
-  active: { tone: "accepted", label: "פעיל/ה", Icon: Check },
-  in_process: { tone: "progress", label: "בתהליך", Icon: HourglassTop },
+  in_process: { tone: "progress", label: "בטיפול שדכן", Icon: HourglassTop },
+  ended: { tone: "neutral", label: "השידוך ירד", Icon: Close },
   engaged: { tone: "pending", label: "מאורס/ת", Icon: WorkspacePremium },
+};
+
+export const casePill = (status, meetingNumber) => {
+  const normalized = normalizeCaseStatus(status) || "new";
+  const meta = CASE_STATUS[normalized] || CASE_STATUS.new;
+  const label = adminStatusLabel(status, meetingNumber) || meta.label;
+  return { ...meta, label };
 };
 
 export const formatDotDate = (value) => {
@@ -45,13 +55,40 @@ export const freshTrend = (count) => (count === 1 ? "חדשה אחת" : `${count
 
 export const closedTrend = (count) => (count > 0 ? "מזל טוב!" : "אין עדיין");
 
+export const endedTrend = (count) => (count > 0 ? "הסתיימו" : "אין עדיין");
+
+export const formatHistoryWhen = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${formatDotDate(date)} · ${hours}:${minutes}`;
+};
+
+export const historyWho = (entry) => {
+  if (entry?.source === "migration") return "מיגרציה";
+  const name = entry?.changedBy?.name;
+  if (entry?.source === "autoClose") return name ? `${name} · סגירה אוטומטית` : "סגירה אוטומטית";
+  return name || "שדכן";
+};
+
 export const SUGGESTION_STAGE = {
   new: { tone: "pending", label: "הצעה חדשה" },
   interest: { tone: "received", label: "התעניינות" },
   active: { tone: "accepted", label: "אושרה הדדית" },
-  forwarded: { tone: "forwarded", label: "הועבר לשדכן" },
+  forwarded: { tone: "forwarded", label: "ממתין לצד השני" },
   matchmaker: { tone: "matchmaker", label: "בטיפול שדכן" },
   declined: { tone: "rejected", label: "נדחה" },
+};
+
+// Matchmaker rows show the case status. Earlier rows show the interest stage.
+export const caseBadge = (item) => {
+  if (!item) return null;
+  if (item.stage === "matchmaker" || item.manageable === true) {
+    return casePill(item.status, item.meetingNumber);
+  }
+  const stage = SUGGESTION_STAGE[item.stage];
+  return stage ? { tone: stage.tone, label: stage.label, Icon: null } : null;
 };
 
 export const partyLine = (party) => {
@@ -61,8 +98,6 @@ export const partyLine = (party) => {
   return [age, party.city].filter(Boolean).join(" · ");
 };
 
-export const contactLine = (party) => [party?.phone, party?.email].filter(Boolean).join(" · ");
-
 export const displayName = (party, reveal) => {
   if (reveal && party?.name) return party.name;
   if (party?.gender === "female") return "מועמדת";
@@ -70,11 +105,12 @@ export const displayName = (party, reveal) => {
   return "מועמד/ת";
 };
 
+// Yeshiva for a man, seminar for a woman. The other institution is not a fallback.
 export const institutionLine = (profile) => {
-  if (!profile) return "—";
-  const school = profile.gender === "female" ? profile.seminar || profile.yeshiva : profile.yeshiva || profile.seminar;
-  const line = [school, profile.occupation].filter(Boolean).join(" · ");
-  return line || "—";
+  if (!profile) return "";
+  if (profile.gender === "female") return profile.seminar || "";
+  if (profile.gender === "male") return profile.yeshiva || "";
+  return "";
 };
 
 export const EMPTY_NOTE = "הועבר לטיפול – שני הצדדים אישרו.";

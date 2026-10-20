@@ -9,16 +9,29 @@ const HttpError = require("../utils/httpError");
 const {
   assertObjectId,
   validateEmail,
-  validateIdNumber,
   validateName,
   passwordErrorMessage,
 } = require("../utils/validators");
 const { comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
+const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES } = require("../models/options");
 const { fileAccessPath } = require("./storage.service");
 const { toOwnerProfile } = require("./profile.service");
 const { getCandidatesForUser, computeMatchPercent } = require("./match.service");
 const AdminStaff = require("../models/adminStaff.model");
+const {
+  isOpenPhase,
+  nextCaseState,
+  sameState,
+  presentCase,
+  actorIdsFrom,
+  namesById,
+  migrateLegacyAdminCases,
+  directoryBuckets,
+  candidateStatus,
+  historyEntry,
+  normalizeCase,
+} = require("./caseState.service");
 
 // Admin-only views. Identity and contact stay here.
 // Case notes live on AdminCase, not on Interest, so they are never copied
@@ -30,7 +43,6 @@ const FORWARDED = {
   receiverApprovedToManager: true,
 };
 
-const CASE_STATUSES = ["new", "in_progress", "closed"];
 const SETTING_FLAGS = [
   "notifyNewCase",
   "notifyOneSide",
@@ -40,7 +52,7 @@ const SETTING_FLAGS = [
   "revealIdentity",
 ];
 const STALE_MS = 60 * 24 * 60 * 60 * 1000;
-const USER_FIELDS = "name email phone idNumber role createdAt";
+const USER_FIELDS = "name email phone role createdAt";
 const GENDERS = new Set(["male", "female"]);
 
 // Every stored profile field the matchmaker is allowed to read. File ids are
@@ -62,9 +74,6 @@ const PROFILE_DETAIL_FIELDS = [
   "workplace",
   "yeshiva",
   "seminar",
-  "financialRequirement",
-  "financialCapabilities",
-  "financialStatus",
   "financialDemand",
   "financialParticipation",
   "resumeSize",
@@ -79,8 +88,6 @@ const PREFERENCE_FIELDS = [
   "heightMax",
   "style",
   "preferredAppearance",
-  "financialMin",
-  "financialMax",
   "preferredMaritalStatus",
   "preferredEthnicity",
   "preferredYeshiva",
@@ -127,7 +134,6 @@ const toAdminPerson = (user, profile, preference) => {
     name: user?.name || "",
     email: user?.email || null,
     phone: user?.phone || null,
-    idNumber: user?.idNumber || null,
     role: user?.role || null,
     age: profile?.age ?? null,
     city: profile?.city || "",
@@ -144,6 +150,7 @@ const toAdminAccount = (user) => {
   const plain = typeof user.toObject === "function" ? user.toObject() : { ...user };
   delete plain.password;
   delete plain.tokenVersion;
+  delete plain.idNumber;
   delete plain.__v;
   return plain;
 };
@@ -197,6 +204,7 @@ const closeStaleCases = async (adminId) => {
   const settings = await readSettings(adminId);
   if (!settings.autoClose) return;
 
+  await migrateLegacyAdminCases();
   const cutoff = new Date(Date.now() - STALE_MS);
   const interests = await Interest.find(FORWARDED).select("_id updatedAt").lean();
   if (!interests.length) return;
@@ -209,7 +217,8 @@ const closeStaleCases = async (adminId) => {
 
   for (const interest of interests) {
     const record = byInterest.get(String(interest._id));
-    if (record?.status === "closed") continue;
+    const state = normalizeCase(record);
+    if (state.status === "ended" || state.status === "engaged") continue;
     const touched = record?.touchedAt || record?.updatedAt || interest.updatedAt;
     if (touched && new Date(touched).getTime() <= cutoff.getTime()) {
       staleIds.push(interest._id);
@@ -223,7 +232,18 @@ const closeStaleCases = async (adminId) => {
     staleIds.map((id) => ({
       updateOne: {
         filter: { interest: id },
-        update: { $set: { status: "closed", touchedAt: now } },
+        update: {
+          $set: { status: "ended", meetingNumber: null, touchedAt: now },
+          $push: {
+            history: historyEntry({
+              status: "ended",
+              meetingNumber: null,
+              changedBy: adminId,
+              changedAt: now,
+              source: "autoClose",
+            }),
+          },
+        },
         upsert: true,
       },
     }))
@@ -239,7 +259,7 @@ const shapeCases = async (interests) => {
     ...new Set(interests.flatMap((item) => [String(item.sender), String(item.receiver)])),
   ];
   const [users, profiles, preferences, records] = await Promise.all([
-    User.find({ _id: { $in: userIds } }).select("name email phone idNumber role").lean(),
+    User.find({ _id: { $in: userIds } }).select("name email phone role").lean(),
     Profile.find({ user: { $in: userIds } }).lean(),
     Preference.find({ user: { $in: userIds } }).lean(),
     AdminCase.find({ interest: { $in: interests.map((item) => item._id) } }).lean(),
@@ -248,6 +268,7 @@ const shapeCases = async (interests) => {
   const profileByUser = new Map(profiles.map((profile) => [String(profile.user), profile]));
   const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
   const caseByInterest = new Map(records.map((record) => [String(record.interest), record]));
+  const nameById = await namesById(actorIdsFrom(records));
 
   return interests.map((item) => {
     const senderId = String(item.sender);
@@ -255,10 +276,14 @@ const shapeCases = async (interests) => {
     const senderProfile = profileByUser.get(senderId);
     const receiverProfile = profileByUser.get(receiverId);
     const record = caseByInterest.get(String(item._id));
+    const presented = presentCase(record, nameById);
     return {
       _id: item._id,
       caseNumber: caseNumberFrom(item._id),
-      status: record?.status || "new",
+      status: presented.status,
+      meetingNumber: presented.meetingNumber,
+      label: presented.label,
+      history: presented.history,
       note: record?.note || "",
       transferredAt: item.createdAt,
       matchPercent: computeMatchPercent(
@@ -275,37 +300,11 @@ const shapeCases = async (interests) => {
   });
 };
 
-const candidateStatus = (userId, openIds, closedIds) => {
-  if (openIds.has(userId)) return "in_process";
-  if (closedIds.has(userId)) return "engaged";
-  return "active";
-};
-
-const caseMembership = async () => {
-  const [interests, records] = await Promise.all([
-    Interest.find(FORWARDED).select("sender receiver").lean(),
-    AdminCase.find().select("interest status").lean(),
-  ]);
-  const statusByInterest = new Map(records.map((record) => [String(record.interest), record.status]));
-  const openIds = new Set();
-  const closedIds = new Set();
-
-  for (const interest of interests) {
-    const status = statusByInterest.get(String(interest._id)) || "new";
-    const bucket = status === "closed" ? closedIds : openIds;
-    bucket.add(String(interest.sender));
-    bucket.add(String(interest.receiver));
-  }
-
-  return { openIds, closedIds };
-};
-
 const toDirectoryUser = (user, profile, status, preference) => ({
   _id: user._id,
   name: user.name,
   email: user.email || null,
   phone: user.phone || null,
-  idNumber: user.idNumber || null,
   role: user.role,
   createdAt: user.createdAt,
   status,
@@ -315,11 +314,11 @@ const toDirectoryUser = (user, profile, status, preference) => ({
 
 // Password is never selected. Profile files are stable paths, not storage ids.
 const getAllUsers = async () => {
-  const [users, profiles, preferences, membership] = await Promise.all([
+  const [users, profiles, preferences, buckets] = await Promise.all([
     User.find({ role: "user" }).select(USER_FIELDS).sort({ createdAt: -1 }).lean(),
     Profile.find().lean(),
     Preference.find().lean(),
-    caseMembership(),
+    directoryBuckets(),
   ]);
   const profileByUser = new Map(profiles.map((profile) => [String(profile.user), profile]));
   const preferenceByUser = new Map(preferences.map((preference) => [String(preference.user), preference]));
@@ -328,7 +327,7 @@ const getAllUsers = async () => {
     toDirectoryUser(
       user,
       profileByUser.get(String(user._id)),
-      candidateStatus(String(user._id), membership.openIds, membership.closedIds),
+      candidateStatus(String(user._id), buckets),
       preferenceByUser.get(String(user._id))
     )
   );
@@ -368,7 +367,7 @@ const adminSuggestionStage = (interest) => {
 const loadPeople = async (ids) => {
   const unique = [...new Set(ids.filter(Boolean).map(String))];
   const [users, profiles, preferences] = await Promise.all([
-    User.find({ _id: { $in: unique } }).select("name email phone idNumber role").lean(),
+    User.find({ _id: { $in: unique } }).select("name email phone role").lean(),
     Profile.find({ user: { $in: unique } }).lean(),
     Preference.find({ user: { $in: unique } }).lean(),
   ]);
@@ -409,6 +408,7 @@ const discoverNewPairs = async () => {
 // Every suggestion the matchmaker can open, at every stage, with both people in full.
 // New rows are candidate pairs that do not yet have an interest.
 const getAdminSuggestions = async () => {
+  await migrateLegacyAdminCases();
   const [interests, newPairs] = await Promise.all([
     Interest.find().sort({ updatedAt: -1 }).lean(),
     discoverNewPairs(),
@@ -421,6 +421,7 @@ const getAdminSuggestions = async () => {
     ? await AdminCase.find({ interest: { $in: interests.map((item) => item._id) } }).lean()
     : [];
   const caseByInterest = new Map(records.map((record) => [String(record.interest), record]));
+  const nameById = await namesById(actorIdsFrom(records));
 
   const interestRows = interests.map((item) => {
     const stage = adminSuggestionStage(item);
@@ -428,10 +429,14 @@ const getAdminSuggestions = async () => {
     const senderId = String(item.sender);
     const receiverId = String(item.receiver);
     const matchmaker = stage === "matchmaker";
+    const presented = matchmaker ? presentCase(record, nameById) : null;
     return {
       _id: item._id,
       stage,
-      status: matchmaker ? record?.status || "new" : null,
+      status: presented ? presented.status : null,
+      meetingNumber: presented ? presented.meetingNumber : null,
+      label: presented ? presented.label : "",
+      history: presented ? presented.history : [],
       note: matchmaker ? record?.note || "" : "",
       caseNumber: matchmaker ? caseNumberFrom(item._id) : null,
       manageable: matchmaker,
@@ -455,6 +460,9 @@ const getAdminSuggestions = async () => {
     _id: `new:${pair.key}`,
     stage: "new",
     status: null,
+    meetingNumber: null,
+    label: "",
+    history: [],
     note: "",
     caseNumber: null,
     manageable: false,
@@ -482,6 +490,7 @@ const getPendingMatches = async () => {
 };
 
 const getAdminCases = async (adminId, { applyAutoClose = true } = {}) => {
+  await migrateLegacyAdminCases();
   if (applyAutoClose) await closeStaleCases(adminId);
   const settings = await readSettings(adminId);
   const [cases, suggestions] = await Promise.all([shapeCases(await loadForwarded()), getAdminSuggestions()]);
@@ -501,17 +510,19 @@ const getAdminSummary = async (adminId) => {
   const boys = ofGender("male");
   const girls = ofGender("female");
   const fresh = cases.filter((item) => item.status === "new");
-  const open = cases.filter((item) => item.status !== "closed");
-  const closed = cases.filter((item) => item.status === "closed");
-  const recent = [...fresh, ...open.filter((item) => item.status !== "new")].slice(0, 4);
+  const inProgress = cases.filter((item) => isOpenPhase(item.status));
+  const ended = cases.filter((item) => item.status === "ended");
+  const engaged = cases.filter((item) => item.status === "engaged");
+  const recent = [...fresh, ...inProgress.filter((item) => item.status !== "new")].slice(0, 4);
 
   return {
     adminName: admin?.name || "",
     revealIdentity,
     boys: { total: boys.length, addedThisMonth: addedThisMonth(boys) },
     girls: { total: girls.length, addedThisMonth: addedThisMonth(girls) },
-    cases: { total: open.length, fresh: fresh.length },
-    closed: { total: closed.length },
+    cases: { total: inProgress.length, fresh: fresh.length },
+    ended: { total: ended.length },
+    engaged: { total: engaged.length },
     recent,
     pipeline: suggestions.slice(0, 8),
   };
@@ -537,7 +548,7 @@ const searchAdmin = async (adminId, rawQuery) => {
         [
           user.name,
           user.email,
-          user.idNumber,
+          user.phone,
           user.profile?.city,
           user.profile?.yeshiva,
           user.profile?.seminar,
@@ -553,6 +564,9 @@ const searchAdmin = async (adminId, rawQuery) => {
       gender: user.profile?.gender || "",
       age: user.profile?.age ?? null,
       city: user.profile?.city || "",
+      image: user.profile?.image || "",
+      yeshiva: user.profile?.gender === "male" ? user.profile?.yeshiva || "" : "",
+      seminar: user.profile?.gender === "female" ? user.profile?.seminar || "" : "",
     }));
 
   const matchedCases = cases
@@ -582,21 +596,30 @@ const findForwarded = async (interestId) => {
   return interest;
 };
 
-const updateAdminCase = async (interestId, body = {}) => {
+const updateAdminCase = async (interestId, body = {}, adminId) => {
   const hasStatus = Object.prototype.hasOwnProperty.call(body, "status");
+  const hasAction = Object.prototype.hasOwnProperty.call(body, "action") && body.action != null && body.action !== "";
   const hasNote = Object.prototype.hasOwnProperty.call(body, "note");
-  if (!hasStatus && !hasNote) {
+  if (!hasStatus && !hasAction && !hasNote) {
     throw new HttpError(400, "אין מה לעדכן");
   }
 
   const interest = await findForwarded(interestId);
-  const update = { touchedAt: new Date() };
+  await migrateLegacyAdminCases();
+  const existing = await AdminCase.findOne({ interest: interest._id }).lean();
+  const current = normalizeCase(existing);
+  const next = hasStatus || hasAction ? nextCaseState(current, body) : null;
+  const changed = Boolean(next) && !sameState(current, next);
+  if (!changed && !hasNote) {
+    const [unchanged] = await shapeCases([interest.toObject()]);
+    return unchanged;
+  }
 
-  if (hasStatus) {
-    if (!CASE_STATUSES.includes(body.status)) {
-      throw new HttpError(400, "סטטוס לא תקין");
-    }
-    update.status = body.status;
+  const touchedAt = new Date();
+  const update = { touchedAt };
+  if (changed) {
+    update.status = next.status;
+    update.meetingNumber = next.meetingNumber;
   }
   if (hasNote) {
     if (typeof body.note !== "string") {
@@ -609,11 +632,24 @@ const updateAdminCase = async (interestId, body = {}) => {
     update.note = note;
   }
 
-  await AdminCase.findOneAndUpdate(
-    { interest: interest._id },
-    { $set: update },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+  const write = { $set: update };
+  if (changed) {
+    write.$push = {
+      history: historyEntry({
+        status: next.status,
+        meetingNumber: next.meetingNumber,
+        changedBy: adminId,
+        changedAt: touchedAt,
+        source: "admin",
+      }),
+    };
+  }
+
+  await AdminCase.findOneAndUpdate({ interest: interest._id }, write, {
+    upsert: true,
+    new: true,
+    setDefaultsOnInsert: true,
+  });
 
   const [shaped] = await shapeCases([interest.toObject()]);
   return shaped;
@@ -653,13 +689,9 @@ const optionalText = (value, max, label) => {
   return value.trim();
 };
 
-const createManagedUser = async ({ name, idNumber, email, password, role }) => {
+const createManagedUser = async ({ name, email, password, role }) => {
   if (!validateName(name)) {
     throw new HttpError(400, "שם לא תקין");
-  }
-  const cleanId = typeof idNumber === "string" ? idNumber.trim() : "";
-  if (!validateIdNumber(cleanId)) {
-    throw new HttpError(400, "תעודת זהות חייבת להכיל 9 ספרות");
   }
   const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
   if (!validateEmail(cleanEmail)) {
@@ -673,24 +705,42 @@ const createManagedUser = async ({ name, idNumber, email, password, role }) => {
   try {
     return await User.create({
       name: name.trim(),
-      idNumber: cleanId,
       email: cleanEmail,
       password,
       role,
     });
   } catch (error) {
-    // The admin form sends an ID number, so a duplicate email or ID number is a 409.
-    // Any other unique index is unexpected.
+    if (error.code === 11000 && (error.keyPattern?.email || error.keyValue?.email)) {
+      throw new HttpError(409, "האימייל כבר רשום");
+    }
     if (error.code === 11000) {
-      const duplicateEmail = error.keyPattern?.email || error.keyValue?.email;
-      const duplicateIdNumber = error.keyPattern?.idNumber || error.keyValue?.idNumber;
-      if (duplicateEmail || duplicateIdNumber) {
-        throw new HttpError(409, "תעודת הזהות או האימייל כבר רשומים");
-      }
       console.error(error.code, error.keyPattern);
     }
     throw error;
   }
+};
+
+const choiceOrSkip = (value, allowed, label) => {
+  if (value == null || value === "") return undefined;
+  if (typeof value !== "string" || !allowed.includes(value)) {
+    throw new HttpError(400, `ערך לא תקין בשדה ${label}`);
+  }
+  return value;
+};
+
+const optionalNumber = (value, min, max, label) => {
+  if (value == null || value === "") return undefined;
+  const number = typeof value === "string" ? Number(value) : value;
+  if (typeof number !== "number" || !Number.isInteger(number) || number < min || number > max) {
+    throw new HttpError(400, `${label} לא תקין`);
+  }
+  return number;
+};
+
+const optionalFlag = (value) => {
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false" || value == null || value === "") return false;
+  throw new HttpError(400, "ערך לא תקין");
 };
 
 const createAdminCandidate = async (body = {}) => {
@@ -702,29 +752,41 @@ const createAdminCandidate = async (body = {}) => {
     throw new HttpError(400, "גיל לא תקין");
   }
 
-  const city = optionalText(body.city, 100, "עיר");
-  const occupation = optionalText(body.occupation, 100, "עיסוק");
-  const yeshiva = optionalText(body.yeshiva, 100, "ישיבה");
-  const seminar = optionalText(body.seminar, 100, "סמינר");
+  const female = body.gender === "female";
+  const working = female && optionalFlag(body.working);
+  const profileFields = {
+    gender: body.gender,
+    age,
+    city: optionalText(body.city, 100, "עיר"),
+    ethnicity: choiceOrSkip(body.ethnicity, ETHNICITIES, "עדה"),
+    maritalStatus: choiceOrSkip(body.maritalStatus, MARITAL_STATUSES, "סטטוס"),
+    height: optionalNumber(body.height, 100, 250, "גובה"),
+    style: choiceOrSkip(body.style, STYLES, "סגנון"),
+    appearance: choiceOrSkip(body.appearance, APPEARANCES, "מראה חיצוני"),
+    financialDemand: optionalNumber(body.financialDemand, 0, 100000000, "דרישה כספית"),
+    financialParticipation: optionalNumber(body.financialParticipation, 0, 100000000, "השתתפות כספית"),
+    description: optionalText(body.description, 1000, "עוד פרטים עליי"),
+    yeshiva: female ? "" : optionalText(body.yeshiva, 100, "ישיבה"),
+    seminar: female ? optionalText(body.seminar, 100, "סמינר") : "",
+    occupation: female ? optionalText(body.occupation, 100, "מקצוע") : "",
+    working: female ? working : undefined,
+    workingInProfession: working ? optionalFlag(body.workingInProfession) : undefined,
+    workplace: working ? optionalText(body.workplace, 100, "מקום עבודה") : "",
+  };
   const user = await createManagedUser({ ...body, role: "user" });
 
   let profile;
   try {
     profile = await Profile.create({
       user: user._id,
-      gender: body.gender,
-      age,
-      city,
-      occupation,
-      yeshiva,
-      seminar,
+      ...profileFields,
     });
   } catch (error) {
     await User.deleteOne({ _id: user._id });
     throw error;
   }
 
-  return toDirectoryUser(user, profile, "active");
+  return toDirectoryUser(user, profile, "none");
 };
 
 const createAdminMatchmaker = async (body = {}) => {

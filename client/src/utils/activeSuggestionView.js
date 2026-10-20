@@ -1,4 +1,5 @@
 import { toSafeFileUrl } from "./files.js";
+import { normalizeCaseStatus, userStageLabel, userStageTone } from "./caseStatus.js";
 import {
   anonymousTitle,
   cleanText,
@@ -115,6 +116,10 @@ export const toActiveView = (person) => {
 
   const viewerForwarded = person.viewerForwarded === true || stage === "forwarded" || stage === "matchmaker";
   const otherForwarded = person.otherForwarded === true || stage === "other-forwarded" || stage === "matchmaker";
+  const caseStatus = kind === "matchmaker" ? normalizeCaseStatus(person.caseStatus) : "";
+  const meetingNumber = Number(person.meetingNumber);
+  const statusLabel = caseStatus ? userStageLabel(caseStatus, meetingNumber) : "";
+  const statusTone = caseStatus ? userStageTone(caseStatus) : "";
 
   return {
     ...base,
@@ -132,6 +137,10 @@ export const toActiveView = (person) => {
     resumeUploadedAt: person.resumeUploadedAt || "",
     viewerForwarded,
     otherForwarded,
+    caseStatus,
+    meetingNumber: caseStatus === "meeting" && Number.isInteger(meetingNumber) && meetingNumber > 0 ? meetingNumber : null,
+    statusLabel,
+    statusTone,
   };
 };
 
