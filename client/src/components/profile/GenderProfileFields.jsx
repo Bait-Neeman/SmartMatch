@@ -12,10 +12,12 @@ import {
   Typography,
 } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
+import { pendingCopy } from "../../copy/pendingCopy.js";
 import {
   appearanceOptions,
   ethnicityOptions,
   genderOptions,
+  labelOf,
   maritalStatusOptions,
   styleOptions,
 } from "../../constants/profileOptions.js";
@@ -244,6 +246,27 @@ function SelectRow({ control, name, icon, label, options, rules }) {
   );
 }
 
+function FormSection({ title, children }) {
+  return (
+    <Box
+      component="section"
+      sx={{
+        mt: 2,
+        "&:first-of-type": { mt: 0 },
+        p: { xs: 1.5, sm: 2 },
+        borderRadius: "14px",
+        border: `1px solid ${brand.line}`,
+        bgcolor: brand.paperSoft,
+      }}
+    >
+      <Typography component="h3" sx={{ m: 0, mb: 1.5, fontWeight: 600, color: brand.navy, fontSize: "1.0625rem" }}>
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
 export default function GenderProfileFields({ control, cities = [] }) {
   const gender = useWatch({ control, name: "gender" });
   const working = useWatch({ control, name: "working" });
@@ -252,15 +275,20 @@ export default function GenderProfileFields({ control, cities = [] }) {
 
   return (
     <>
+      <FormSection title={pendingCopy.sectionDetails}>
       <Box component="ul" sx={listSx}>
-        <SelectRow
+        <TextRow
           control={control}
-          name="gender"
+          name="fullName"
           icon="user"
-          label="מגדר"
-          options={genderOptions}
-          rules={{ required: "מגדר הוא שדה חובה" }}
+          label={pendingCopy.fullNameLabel}
+          rules={{ required: "יש להזין שם מלא" }}
         />
+        <FieldRow icon="user" label="מגדר">
+          <Typography sx={{ fontWeight: 600, color: brand.navy, py: 0.75 }}>
+            {labelOf(genderOptions, gender)}
+          </Typography>
+        </FieldRow>
         {gender ? (
           <>
             <SelectRow control={control} name="ethnicity" icon="star" label="עדה" options={ethnicityOptions} />
@@ -276,6 +304,17 @@ export default function GenderProfileFields({ control, cities = [] }) {
               }}
             />
             <SelectRow control={control} name="maritalStatus" icon="user" label="סטטוס" options={maritalStatusOptions} />
+          </>
+        ) : (
+          <Box component="li" sx={{ color: "text.secondary", fontSize: 14 }}>
+            בחרו מגדר כדי להציג את שדות הפרופיל.
+          </Box>
+        )}
+      </Box>
+      </FormSection>
+      {gender ? (
+        <FormSection title={pendingCopy.sectionStudyWork}>
+          <Box component="ul" sx={listSx}>
             {male ? <TextRow control={control} name="yeshiva" icon="school" label="ישיבה" /> : null}
             {female ? <TextRow control={control} name="seminar" icon="school" label="סמינר" /> : null}
             {female ? <TextRow control={control} name="occupation" icon="work" label="מקצוע" /> : null}
@@ -322,6 +361,12 @@ export default function GenderProfileFields({ control, cities = [] }) {
                 )}
               />
             ) : null}
+          </Box>
+        </FormSection>
+      ) : null}
+      {gender ? (
+        <FormSection title={pendingCopy.sectionContact}>
+          <Box component="ul" sx={listSx}>
             <CityRow control={control} cities={cities} />
             <TextRow
               control={control}
@@ -333,6 +378,12 @@ export default function GenderProfileFields({ control, cities = [] }) {
               rules={phoneRules}
               hint={PHONE_HINT}
             />
+          </Box>
+        </FormSection>
+      ) : null}
+      {gender ? (
+        <FormSection title={pendingCopy.sectionAppearance}>
+          <Box component="ul" sx={listSx}>
             <TextRow
               control={control}
               name="height"
@@ -371,13 +422,9 @@ export default function GenderProfileFields({ control, cities = [] }) {
                 rules={digits}
               />
             ) : null}
-          </>
-        ) : (
-          <Box component="li" sx={{ color: "text.secondary", fontSize: 14 }}>
-            בחרו מגדר כדי להציג את שדות הפרופיל.
           </Box>
-        )}
-      </Box>
+        </FormSection>
+      ) : null}
 
       {gender ? (
         <Box sx={{ mt: 1, pt: 0.5, borderTop: `1px solid ${brand.line}` }}>

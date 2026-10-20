@@ -1,10 +1,11 @@
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { Box, CircularProgress } from "@mui/material";
+import { Box } from "@mui/material";
 import { SearchOff } from "@mui/icons-material";
 import MatchCard from "../components/match/MatchCard.jsx";
 import InterestCard from "../components/interest/InterestCard.jsx";
 import SuggestionDetail from "../components/suggestion/SuggestionDetail.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
+import { FormSkeleton } from "../components/common/PageSkeleton.jsx";
 import useSuggestions from "../hooks/useSuggestions.js";
 import { SUGGESTION_KINDS, suggestionsHome } from "../utils/suggestionView.js";
 
@@ -23,9 +24,7 @@ export default function SuggestionDetailPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
+      <FormSkeleton />
     );
   }
 

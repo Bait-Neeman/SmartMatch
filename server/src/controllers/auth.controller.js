@@ -1,4 +1,4 @@
-const { registerUser, loginUser, getUserById } = require("../services/auth.service");
+const { registerUser, loginUser, getUserById, saveIdentity } = require("../services/auth.service");
 const { generateToken } = require("../config/jwt");
 
 // Errors thrown here are sent by the error middleware (Express 5 forwards async errors).
@@ -28,4 +28,9 @@ const getMe = async (req, res) => {
   res.status(200).json({ user });
 };
 
-module.exports = { register, login, getMe };
+const saveMyIdentity = async (req, res) => {
+  const user = await saveIdentity(req.user.userId, req.body || {});
+  res.status(200).json({ message: "הפרטים נשמרו", user });
+};
+
+module.exports = { register, login, getMe, saveMyIdentity };

@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Box, CircularProgress } from "@mui/material";
+import { FormSkeleton } from "../components/common/PageSkeleton.jsx";
 import { SearchOff } from "@mui/icons-material";
 import ActiveSuggestionCard from "../components/suggestion/ActiveSuggestionCard.jsx";
 import EmptyState from "../components/common/EmptyState.jsx";
@@ -15,9 +15,7 @@ export default function MatchmakerDetailPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
+      <FormSkeleton />
     );
   }
 

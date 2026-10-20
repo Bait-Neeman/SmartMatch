@@ -83,7 +83,8 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.equal(created.body.user.email, "new.user@example.test");
-    assert.equal(created.body.user.name, "new user");
+    assert.equal(created.body.user.name, "");
+    assert.equal(created.body.user.gender, "");
     assert.equal(created.body.user.idNumber, undefined);
     assert.equal(JSON.stringify(created.body).includes("123456789"), false);
     assert.equal(typeof created.body.token, "string");
@@ -132,6 +133,90 @@ describe("auth", { concurrency: 1, timeout: 180000 }, () => {
     });
     assert.equal(trimmed.status, 401);
     assert.equal(trimmed.body.message, WRONG);
+  });
+
+  it("never stores or returns the password as a name or any other user field", async () => {
+    const password = "PlainPasswordNotAName";
+    const created = await request(app).post("/api/auth/register").send({
+      email: "named@example.test",
+      password,
+      name: password,
+      fullName: password,
+    });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(created.body.user.name, "");
+    assert.equal(JSON.stringify(created.body).includes(password), false);
+
+    const token = created.body.token;
+    const me = await request(app).get("/api/auth/me").set(auth(token));
+    assert.equal(me.status, 200);
+    assert.equal(JSON.stringify(me.body).includes(password), false);
+
+    const logged = await request(app).post("/api/auth/login").send({
+      email: "named@example.test",
+      password,
+    });
+    assert.equal(logged.status, 200, JSON.stringify(logged.body));
+    assert.equal(logged.body.user.name, "");
+    assert.equal(JSON.stringify(logged.body).includes(password), false);
+
+    const settings = await request(app).get("/api/settings").set(auth(token));
+    assert.equal(settings.status, 200);
+    assert.equal(JSON.stringify(settings.body).includes(password), false);
+
+    const stored = await User.findById(created.body.user._id).select("+password +tokenVersion").lean();
+    for (const [key, value] of Object.entries(stored)) {
+      if (key === "password") {
+        assert.equal(await comparePassword(password, value), true);
+        assert.equal(String(value).includes(password), false);
+        continue;
+      }
+      assert.equal(JSON.stringify(value ?? "").includes(password), false, key);
+    }
+
+    const blocked = await request(app).post("/api/profile").set(auth(token)).send({
+      gender: "female",
+      age: 22,
+      phone: "0521234567",
+      name: password,
+    });
+    assert.equal(blocked.status, 400);
+
+    const asPassword = await request(app).post("/api/auth/identity").set(auth(token)).send({
+      name: password,
+      gender: "female",
+    });
+    assert.equal(asPassword.status, 400);
+    assert.equal(asPassword.body.message, "יש להזין שם מלא");
+
+    const saved = await request(app).post("/api/auth/identity").set(auth(token)).send({
+      name: "רבקה לוי",
+      gender: "female",
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.user.name, "רבקה לוי");
+    assert.equal(saved.body.user.gender, "female");
+    assert.equal(JSON.stringify(saved.body).includes(password), false);
+
+    const tooSoon = await User.findById(created.body.user._id).select("+password").lean();
+    assert.equal(tooSoon.name, "רבקה לוי");
+    assert.notEqual(tooSoon.name, password);
+    assert.equal(String(tooSoon.password).includes(password), false);
+
+    const profile = await request(app).post("/api/profile").set(auth(token)).send({
+      gender: "male",
+      age: 24,
+      phone: "0521234567",
+      name: "רבקה כהן",
+    });
+    assert.equal(profile.status, 201, JSON.stringify(profile.body));
+    assert.equal(profile.body.profile.gender, "female");
+    assert.equal(profile.body.profile.name, "רבקה כהן");
+    assert.equal(JSON.stringify(profile.body).includes(password), false);
+
+    const renamed = await User.findById(created.body.user._id).lean();
+    assert.equal(renamed.name, "רבקה כהן");
+    assert.equal(renamed.gender, "female");
   });
 
   it("keeps wrong-password and duplicate-email responses from revealing which part failed", async () => {

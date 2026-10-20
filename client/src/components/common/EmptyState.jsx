@@ -13,13 +13,28 @@ export default function EmptyState({ icon, title, description, actions = [] }) {
         maxWidth: 560,
         textAlign: "center",
         borderRadius: "16px",
-        border: `1px dashed ${brand.dashed}`,
+        border: `1px solid ${brand.line}`,
         bgcolor: "background.paper",
-        boxShadow: "none",
+        boxShadow: brand.shadow,
       }}
     >
       {icon && (
-        <Box sx={{ color: "primary.main", mb: 1.5, "& svg": { fontSize: 52 } }}>{icon}</Box>
+        <Box
+          sx={{
+            width: 64,
+            height: 64,
+            mx: "auto",
+            mb: 1.5,
+            borderRadius: "50%",
+            display: "grid",
+            placeItems: "center",
+            color: brand.goldText,
+            bgcolor: brand.pillGoldBg,
+            "& svg": { fontSize: 30 },
+          }}
+        >
+          {icon}
+        </Box>
       )}
 
       <Typography variant="h6" component="h2" sx={{ fontWeight: 800, mb: 1 }}>

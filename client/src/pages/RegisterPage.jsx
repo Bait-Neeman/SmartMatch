@@ -9,8 +9,7 @@ import { authSubmitSx } from "../components/layout/authStyles.js";
 import { brand } from "../theme/tokens.js";
 import { authErrorMessage, emailError, normalizeEmail, passwordError } from "../utils/authForm.js";
 import { setOnboardingPath } from "../utils/session.js";
-
-const STEPS = ["פרטי חשבון", "הפרופיל"];
+import OnboardingSteps from "../components/common/OnboardingSteps.jsx";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -38,8 +37,8 @@ export default function RegisterPage() {
         localStorage.setItem("token", res.token);
         localStorage.setItem("user", JSON.stringify(res.user));
         localStorage.setItem("role", res.user?.role || "user");
-        setOnboardingPath("/profile");
-        navigate("/profile");
+        setOnboardingPath("/identity");
+        navigate("/identity");
         return;
       }
       navigate("/login", {
@@ -56,36 +55,7 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout wide title="הרשמה" subtitle="כמה פרטים כדי שנוכל להתחיל להציע לך הצעות מתאימות">
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2.5 }}>
-        {STEPS.map((label, index) => {
-          const current = index === 0;
-          return (
-            <Box key={label} sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
-              {index > 0 ? <Box sx={{ width: 28, height: 1, bgcolor: brand.inputLine }} /> : null}
-              <Box
-                sx={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  display: "grid",
-                  placeItems: "center",
-                  flex: "none",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: current ? brand.goldText : brand.mut,
-                  bgcolor: current ? brand.tabOn : brand.paper,
-                  boxShadow: `inset 0 0 0 1px ${current ? brand.gold : brand.inputLine}`,
-                }}
-              >
-                {index + 1}
-              </Box>
-              <Typography sx={{ color: current ? brand.navy : brand.mut, fontWeight: current ? 700 : 500, fontSize: 14 }}>
-                {label}
-              </Typography>
-            </Box>
-          );
-        })}
-      </Box>
+      <OnboardingSteps current={1} />
 
       <Typography component="h2" sx={{ m: 0, mb: 1.5, color: brand.navy, fontWeight: 600, fontSize: 17 }}>
         פרטי חשבון

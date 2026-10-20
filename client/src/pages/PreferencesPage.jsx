@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
-import { Alert, Box, Button, CircularProgress, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, TextField, Typography } from "@mui/material";
 import { brand } from "../theme/tokens.js";
 import { setOnboardingPath } from "../utils/session.js";
+import OnboardingSteps from "../components/common/OnboardingSteps.jsx";
+import { FormSkeleton } from "../components/common/PageSkeleton.jsx";
+import { pendingCopy } from "../copy/pendingCopy.js";
 import { createPreferences, getMyPreferences, updatePreferences } from "../services/preference.service.js";
 import { getMyProfile, updateProfile } from "../services/profile.service.js";
 import { appearanceOptions, ethnicityOptions, maritalStatusOptions, styleOptions } from "../constants/profileOptions.js";
@@ -145,9 +148,7 @@ export default function PreferencesPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
+      <FormSkeleton />
     );
   }
 
@@ -156,8 +157,11 @@ export default function PreferencesPage() {
   const title = lookingForTitle(gender);
   const help = lookingForHelp(gender);
 
+  const onboarding = typeof localStorage !== "undefined" ? localStorage.getItem("onboarding") : "";
+
   return (
     <Box sx={{ maxWidth: 760 }}>
+      {onboarding === "/preferences" ? <OnboardingSteps current={4} /> : null}
       <Typography component="h1" sx={pageTitleSx}>
         העדפות התאמה
       </Typography>
@@ -191,6 +195,9 @@ export default function PreferencesPage() {
             control={control}
           />
 
+          <Typography component="h2" sx={{ mt: 2, mb: 1, color: brand.navy, fontWeight: 600, fontSize: 17 }}>
+            {pendingCopy.sectionFilters}
+          </Typography>
           <Box sx={{ display: "grid", rowGap: 1.25 }}>
             {male ? (
               <Controller

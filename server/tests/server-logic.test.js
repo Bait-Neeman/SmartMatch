@@ -387,6 +387,11 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     const idA = registeredA.body.user._id;
     const idB = registeredB.body.user._id;
 
+    const identityA = await request(app).post("/api/auth/identity").set(auth(tokenA)).send({ name: "אבי כהן", gender: "male" });
+    const identityB = await request(app).post("/api/auth/identity").set(auth(tokenB)).send({ name: "רבקה לוי", gender: "female" });
+    assert.equal(identityA.status, 200, JSON.stringify(identityA.body));
+    assert.equal(identityB.status, 200, JSON.stringify(identityB.body));
+
     const profileA = await request(app).post("/api/profile").set(auth(tokenA)).send({
       ...baseProfile({ gender: "male", age: 28, maritalStatus: "single", financialDemand: 50, financialParticipation: 150, lookingFor: "בית חם" }),
       phone: "0521111111",
@@ -781,7 +786,8 @@ describe("server logic", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(created.body.user.email, "new-user@example.test");
     assert.equal(created.body.user.idNumber, undefined);
     assert.equal(JSON.stringify(created.body).includes("123456789"), false);
-    assert.equal(created.body.user.name, "new user");
+    assert.equal(created.body.user.name, "");
+    assert.equal(created.body.user.gender, "");
 
     const stored = await User.findById(created.body.user._id).lean();
     assert.equal(stored.idNumber, undefined);

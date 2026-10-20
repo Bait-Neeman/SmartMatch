@@ -1,15 +1,19 @@
 const crypto = require("crypto");
 const User = require("../models/user.model");
+const Profile = require("../models/profile.model");
 const HttpError = require("../utils/httpError");
 const { hashPassword, comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
 const { validateEmail, validateName, passwordErrorMessage } = require("../utils/validators");
 
+const GENDERS = new Set(["male", "female"]);
+
 const buildUserResponse = (user) => ({
   _id: user._id,
-  name: user.name,
+  name: typeof user.name === "string" ? user.name : "",
   email: user.email,
   role: user.role,
+  gender: GENDERS.has(user.gender) ? user.gender : "",
 });
 
 const asTrimmedString = (value) => (typeof value === "string" ? value.trim() : "");
@@ -34,23 +38,13 @@ const getDummyHash = () => {
   return dummyHash;
 };
 
-// A display name when the form only sends email and password.
-const nameFromEmail = (email) => {
-  const local = email.split("@")[0].replace(/[._+-]+/g, " ").trim().slice(0, 100);
-  return local || "משתמש";
-};
-
-// Account creation is email and password. A name is optional. An ID number is ignored.
-const registerUser = async ({ name, email, password }) => {
+// Account creation is email and password only. A name sent with the request
+// is ignored, including when it is the password. The member sets a name later.
+const registerUser = async ({ email, password } = {}) => {
   const cleanEmail = asTrimmedString(email).toLowerCase();
-  const requestedName = asTrimmedString(name);
-  const cleanName = requestedName || (validateEmail(cleanEmail) ? nameFromEmail(cleanEmail) : "");
 
   if (!validateEmail(cleanEmail)) {
     throw new HttpError(400, "כתובת האימייל אינה תקינה");
-  }
-  if (!validateName(cleanName)) {
-    throw new HttpError(400, "יש להזין שם מלא");
   }
   const passwordMessage = passwordErrorMessage(password);
   if (passwordMessage) {
@@ -72,7 +66,7 @@ const registerUser = async ({ name, email, password }) => {
   let user;
   try {
     user = await User.create({
-      name: cleanName,
+      name: "",
       email: cleanEmail,
       password,
     });
@@ -110,10 +104,22 @@ const loginUser = async ({ email, password }) => {
     throw new HttpError(401, "אימייל או סיסמה שגויים");
   }
 
+  await backfillGender(user);
+
   return {
     token: generateToken(user._id, user.role, user.tokenVersion || 0),
     user: buildUserResponse(user),
   };
+};
+
+// Older accounts stored gender only on the profile. Copy it onto the user
+// so the member is not sent through the name-and-gender step again.
+const backfillGender = async (user) => {
+  if (!user || GENDERS.has(user.gender)) return;
+  const profile = await Profile.findOne({ user: user._id }).select("gender").lean();
+  if (!GENDERS.has(profile?.gender)) return;
+  user.gender = profile.gender;
+  await User.updateOne({ _id: user._id }, { $set: { gender: profile.gender } });
 };
 
 const getUserById = async (userId) => {
@@ -121,6 +127,38 @@ const getUserById = async (userId) => {
   if (!user) {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
+  await backfillGender(user);
+  return buildUserResponse(user);
+};
+
+// The step after registration: a real name and a gender. The password is
+// never accepted as the name.
+const saveIdentity = async (userId, body = {}) => {
+  const name = asTrimmedString(body.name);
+  const gender = body.gender;
+  if (!validateName(name)) {
+    throw new HttpError(400, "יש להזין שם מלא");
+  }
+  if (!GENDERS.has(gender)) {
+    throw new HttpError(400, "מגדר הוא שדה חובה");
+  }
+
+  const user = await User.findById(userId).select("+password");
+  if (!user) {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+  if (await comparePassword(name, user.password)) {
+    throw new HttpError(400, "יש להזין שם מלא");
+  }
+
+  const profile = await Profile.findOne({ user: userId }).select("gender").lean();
+  if (profile && GENDERS.has(profile.gender) && profile.gender !== gender) {
+    throw new HttpError(400, "מגדר הוא שדה חובה");
+  }
+
+  user.name = name;
+  user.gender = profile?.gender || gender;
+  await user.save();
   return buildUserResponse(user);
 };
 
@@ -128,5 +166,6 @@ module.exports = {
   registerUser,
   loginUser,
   getUserById,
+  saveIdentity,
   findUserByEmail,
 };
