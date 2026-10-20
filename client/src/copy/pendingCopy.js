@@ -19,4 +19,10 @@ export const pendingCopy = {
   sectionAppearance: "מראה",
   sectionFilters: "סינון",
   bottomNavLabel: "ניווט תחתון",
+  photoCropTitle: "מיקוד התמונה",
+  photoCropHint: "גרור וזום",
+  photoCropEdit: "עריכת מיקוד",
+  photoCropZoom: "זום",
+  photoCropInvalid: "ערך לא תקין במיקוד התמונה",
+  photoCropRequired: "יש לבחור את אזור התמונה",
 };

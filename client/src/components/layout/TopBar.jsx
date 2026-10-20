@@ -4,6 +4,7 @@ import { Box, InputBase, useMediaQuery } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { brand } from "../../theme/tokens.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
+import CroppedPhoto from "../common/CroppedPhoto.jsx";
 import { searchPeople } from "../../services/search.service.js";
 import {
   getNotifications,
@@ -129,7 +130,7 @@ const rowSx = {
   "&:hover": { bgcolor: brand.navyWash },
 };
 
-export default function TopBar({ isAdmin = false, name = "", gender = "", searchSlot = null, onMobileSearch }) {
+export default function TopBar({ isAdmin = false, name = "", gender = "", image = "", photoCrop = null, searchSlot = null, onMobileSearch }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const theme = useTheme();
@@ -547,27 +548,35 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
             },
           }}
         >
-          <PersonAvatar size={32} gender={gender} sx={{ "@media (max-width:1060px)": { display: "none" } }} />
-          <Box
-            aria-hidden
-            sx={{
-              display: "none",
-              "@media (max-width:1060px)": {
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                display: "grid",
-                placeItems: "center",
-                bgcolor: brand.paper,
-                color: brand.navy,
-                fontWeight: 700,
-                fontSize: 15,
-                lineHeight: 1,
-              },
-            }}
-          >
-            {initial}
-          </Box>
+          {image ? (
+            <Box sx={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", position: "relative", flex: "none" }}>
+              <CroppedPhoto url={image} crop={photoCrop} alt="" />
+            </Box>
+          ) : (
+            <>
+              <PersonAvatar size={32} gender={gender} sx={{ "@media (max-width:1060px)": { display: "none" } }} />
+              <Box
+                aria-hidden
+                sx={{
+                  display: "none",
+                  "@media (max-width:1060px)": {
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    display: "grid",
+                    placeItems: "center",
+                    bgcolor: brand.paper,
+                    color: brand.navy,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    lineHeight: 1,
+                  },
+                }}
+              >
+                {initial}
+              </Box>
+            </>
+          )}
           <Box component="b" sx={{ fontWeight: 600, "@media (max-width:1060px)": { display: "none" } }}>
             {trimmedName}
           </Box>

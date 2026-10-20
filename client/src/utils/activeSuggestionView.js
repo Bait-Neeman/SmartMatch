@@ -1,4 +1,5 @@
 import { toSafeFileUrl } from "./files.js";
+import { readPhotoCrop } from "./photoCrop.js";
 import { normalizeCaseStatus, userStageLabel, userStageTone } from "./caseStatus.js";
 import {
   anonymousTitle,
@@ -132,6 +133,7 @@ export const toActiveView = (person) => {
     subtitle: [city, institution || occupation].filter(Boolean).join(" · "),
     fields,
     image: fileOf(person, ["image", "photo", "photoUrl", "imageUrl"]),
+    photoCrop: readPhotoCrop(person?.photoCrop),
     resumePdf: fileOf(person, ["resumePdf", "resumeUrl", "resume"]),
     resumeSize: Number.isFinite(Number(person.resumeSize)) ? Number(person.resumeSize) : null,
     resumeUploadedAt: person.resumeUploadedAt || "",

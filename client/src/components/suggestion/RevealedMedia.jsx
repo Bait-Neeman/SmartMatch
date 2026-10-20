@@ -1,7 +1,8 @@
 import { Box } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
-import ProtectedImage from "../common/ProtectedFile.jsx";
+import CroppedPhoto from "../common/CroppedPhoto.jsx";
+import { readPhotoCrop } from "../../utils/photoCrop.js";
 
 function Illustration({ rounded = false, gender }) {
   return (
@@ -21,7 +22,7 @@ function Illustration({ rounded = false, gender }) {
 
 // Photo for a match the server already marked as accepted. The file is loaded
 // through the protected-file helper. Until it loads, the approved illustration shows.
-export function RevealedAvatar({ url, name, gender }) {
+export function RevealedAvatar({ url, name, gender, crop }) {
   return (
     <Box
       aria-hidden={!name}
@@ -37,17 +38,13 @@ export function RevealedAvatar({ url, name, gender }) {
     >
       <Illustration rounded gender={gender} />
       {url ? (
-        <ProtectedImage
-          url={url}
-          alt={name || ""}
-          sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        <CroppedPhoto url={url} crop={readPhotoCrop(crop)} alt={name || ""} sx={{ position: "absolute", inset: 0 }} />
       ) : null}
     </Box>
   );
 }
 
-export function RevealedPhoto({ url, name, gender }) {
+export function RevealedPhoto({ url, name, gender, crop }) {
   return (
     <Box
       sx={{
@@ -60,11 +57,7 @@ export function RevealedPhoto({ url, name, gender }) {
     >
       <Illustration gender={gender} />
       {url ? (
-        <ProtectedImage
-          url={url}
-          alt={name || ""}
-          sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        <CroppedPhoto url={url} crop={readPhotoCrop(crop)} alt={name || ""} sx={{ position: "absolute", inset: 0 }} />
       ) : null}
     </Box>
   );

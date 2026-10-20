@@ -14,6 +14,7 @@ export default function PersonPreviewCard({ person, onClick, reveal = true, comp
     seminar: profile.seminar || person?.seminar,
   });
   const image = reveal ? person?.image || profile.image : "";
+  const crop = reveal ? person?.photoCrop || profile.photoCrop : null;
   const name = displayName({ ...person, gender }, reveal);
   const meta = [age != null && age !== "" ? String(age) : "", city].filter(Boolean).join(" · ");
   const photoHeight = compact ? 132 : 188;
@@ -21,7 +22,7 @@ export default function PersonPreviewCard({ person, onClick, reveal = true, comp
   const body = (
     <>
       <Box sx={{ height: photoHeight, bgcolor: brand.background }}>
-        <AdminAvatar image={image} gender={gender} size="100%" rounded="0" reveal={reveal} />
+        <AdminAvatar image={image} crop={crop} gender={gender} size="100%" rounded="0" reveal={reveal} />
       </Box>
       <Box sx={{ px: 1.5, py: 1.25, textAlign: "center" }}>
         <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: compact ? 15 : 17, lineHeight: 1.3 }}>

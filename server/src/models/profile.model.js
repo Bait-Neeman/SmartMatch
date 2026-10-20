@@ -3,6 +3,17 @@ const { GENDERS, STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES, textField, 
 
 const heightMessage = "יש להזין גובה בסנטימטרים (100-250)";
 
+const photoCropSchema = new mongoose.Schema(
+  {
+    x: { type: Number, min: 0, max: 100 },
+    y: { type: Number, min: 0, max: 100 },
+    width: { type: Number, min: 0, max: 100 },
+    height: { type: Number, min: 0, max: 100 },
+    zoom: { type: Number, min: 1, max: 3 },
+  },
+  { _id: false }
+);
+
 const profileSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
@@ -67,6 +78,9 @@ const profileSchema = new mongoose.Schema(
     // Cloudinary public IDs - the API returns them as signed URLs (see storage.service)
     resumePdf: { type: String },
     image: { type: String },
+    // How to frame the original image. Percentages of that file, not a second file.
+    // x/y is the top-left of the crop rect. The focal point is the rect's center.
+    photoCrop: photoCropSchema,
     // Set when a resume is uploaded. Shown on the owner's profile, not before mutual approval.
     resumeSize: { type: Number, min: [0, "גודל הקובץ אינו תקין"] },
     resumeUploadedAt: { type: Date },

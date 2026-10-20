@@ -7,6 +7,7 @@ const HttpError = require("../utils/httpError");
 const { assertObjectId, normalizeIsraeliMobile, validateName } = require("../utils/validators");
 const { comparePassword } = require("../utils/hash");
 const { uploadProfileFile, deleteProfileFile, fileAccessPath } = require("./storage.service");
+const { CROP_REQUIRED, presentPhotoCrop, readPhotoCrop } = require("../utils/photoCrop");
 const { toPublicPerson } = require("./privacy.service");
 const { getCandidatesForUser } = require("./match.service");
 const { applyProfilePreference } = require("./preference.service");
@@ -121,6 +122,7 @@ const toProfileResponse = (profile, { includeFiles = true } = {}) => {
   }
   data.resumeSize = data.resumeSize ?? null;
   data.resumeUploadedAt = data.resumeUploadedAt ?? null;
+  data.photoCrop = includeFiles ? presentPhotoCrop(data.photoCrop) : null;
   return data;
 };
 
@@ -217,7 +219,17 @@ const uploadRequestFiles = async (files = {}) => {
 
 // Saves the profile together with newly uploaded files. If saving fails the new uploads are
 // removed; if it succeeds the files they replaced are removed.
-const saveWithFiles = async (profile, files) => {
+// A new photo keeps the original file and must include a crop. Crop-only edits do not upload.
+const saveWithFiles = async (profile, files, body) => {
+  const imageFile = files?.image?.[0];
+  const cropRequest = readPhotoCrop(body);
+  if (imageFile && !cropRequest.present) {
+    throw new HttpError(400, CROP_REQUIRED);
+  }
+  if (cropRequest.present && !imageFile && !profile.image) {
+    throw new HttpError(400, CROP_REQUIRED);
+  }
+
   const uploaded = await uploadRequestFiles(files);
   const replaced = Object.fromEntries(Object.keys(uploaded).map((field) => [field, profile[field]]));
 
@@ -226,6 +238,7 @@ const saveWithFiles = async (profile, files) => {
     profile.resumeUploadedAt = new Date();
   }
   profile.set(uploaded);
+  if (cropRequest.present) profile.set("photoCrop", cropRequest.value);
   try {
     await profile.save({ validateModifiedOnly: !profile.isNew });
   } catch (error) {
@@ -257,7 +270,7 @@ const createProfileForUser = async (userId, body, files) => {
   await profile.validate();
   await requireContactPhone(userId, body);
   await applyProfilePreference(userId, body);
-  await saveWithFiles(profile, files);
+  await saveWithFiles(profile, files, body);
 
   const patch = {};
   if (nextName) patch.name = nextName;
@@ -305,11 +318,29 @@ const updateProfileByUserId = async (userId, body, files) => {
   await profile.validate(undefined, { validateModifiedOnly: true });
   await applyContactPhone(userId, body);
   await applyProfilePreference(userId, body);
-  await saveWithFiles(profile, files);
+  await saveWithFiles(profile, files, body);
   if (nextName) {
     await User.updateOne({ _id: userId }, { $set: { name: nextName } });
   }
 
+  return toOwnerProfile(profile);
+};
+
+// Admin photo change for one member. Other profile fields are left as they are.
+const updateProfilePhotoForUser = async (userId, body, files) => {
+  assertObjectId(userId);
+  const profile = await Profile.findOne({ user: userId });
+  if (!profile) {
+    throw new HttpError(404, "הפרופיל לא נמצא");
+  }
+
+  const imageFiles = files?.image ? { image: files.image } : {};
+  const hasImage = Boolean(imageFiles.image?.[0]);
+  if (!hasImage && !readPhotoCrop(body).present) {
+    throw new HttpError(400, CROP_REQUIRED);
+  }
+
+  await saveWithFiles(profile, imageFiles, body);
   return toOwnerProfile(profile);
 };
 
@@ -383,6 +414,7 @@ module.exports = {
   createProfileForUser,
   getProfileByUserId,
   updateProfileByUserId,
+  updateProfilePhotoForUser,
   deleteProfileByUserId,
   getProfileForViewer,
   toProfileResponse,

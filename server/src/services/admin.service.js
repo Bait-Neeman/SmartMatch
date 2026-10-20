@@ -16,6 +16,7 @@ const { comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
 const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES } = require("../models/options");
 const { fileAccessPath } = require("./storage.service");
+const { presentPhotoCrop } = require("../utils/photoCrop");
 const { toOwnerProfile } = require("./profile.service");
 const { getCandidatesForUser, computeMatchPercent } = require("./match.service");
 const AdminStaff = require("../models/adminStaff.model");
@@ -122,6 +123,7 @@ const toAdminProfile = (userId, profile) => {
     ),
     image: fileAccessPath(userId, "image", profile.image),
     resumePdf: fileAccessPath(userId, "resumePdf", profile.resumePdf),
+    photoCrop: presentPhotoCrop(profile.photoCrop),
   };
 };
 
@@ -140,6 +142,7 @@ const toAdminPerson = (user, profile, preference) => {
     gender: profile?.gender || "",
     image: fileAccessPath(id, "image", profile?.image),
     resumePdf: fileAccessPath(id, "resumePdf", profile?.resumePdf),
+    photoCrop: presentPhotoCrop(profile?.photoCrop),
     profile: toAdminProfile(id, profile),
     preference: toAdminPreference(preference),
   };
@@ -565,6 +568,7 @@ const searchAdmin = async (adminId, rawQuery) => {
       age: user.profile?.age ?? null,
       city: user.profile?.city || "",
       image: user.profile?.image || "",
+      photoCrop: user.profile?.photoCrop || null,
       yeshiva: user.profile?.gender === "male" ? user.profile?.yeshiva || "" : "",
       seminar: user.profile?.gender === "female" ? user.profile?.seminar || "" : "",
     }));

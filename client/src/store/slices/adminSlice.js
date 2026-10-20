@@ -154,6 +154,33 @@ const adminSlice = createSlice({
       state.selectedProfile = null;
       state.errorProfile = null;
     },
+    memberPhotoSaved(state, action) {
+      const userId = String(action.payload?.userId || "");
+      const profile = action.payload?.profile;
+      if (!userId || !profile) return;
+      const image = profile.image || "";
+      const photoCrop = profile.photoCrop || null;
+      const paint = (person) => {
+        if (!person || String(person._id || "") !== userId) return person;
+        return {
+          ...person,
+          image: image || person.image,
+          photoCrop,
+          profile: person.profile ? { ...person.profile, image: image || person.profile.image, photoCrop } : person.profile,
+        };
+      };
+      state.users = state.users.map(paint);
+      if (state.selectedProfile && String(state.selectedProfile.user?._id || "") === userId) {
+        state.selectedProfile.profile = { ...(state.selectedProfile.profile || {}), ...profile, image, photoCrop };
+      }
+      const paintCase = (item) =>
+        item ? { ...item, sender: paint(item.sender), receiver: paint(item.receiver) } : item;
+      state.cases = state.cases.map(paintCase);
+      if (state.summary) {
+        if (Array.isArray(state.summary.recent)) state.summary.recent = state.summary.recent.map(paintCase);
+        if (Array.isArray(state.summary.pipeline)) state.summary.pipeline = state.summary.pipeline.map(paintCase);
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -294,7 +321,7 @@ const adminSlice = createSlice({
   },
 });
 
-export const { clearAdminProfile } = adminSlice.actions;
+export const { clearAdminProfile, memberPhotoSaved } = adminSlice.actions;
 
 export const selectAdminUsers = (state) => state.admin.users;
 export const selectAdminUserProfile = (state) => state.admin.selectedProfile;

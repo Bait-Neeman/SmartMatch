@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import { createProfile, getMyProfile, updateProfile } from "../services/profile.service.js";
-import { getImageFileError, getPdfFileError, IMAGE_ACCEPT } from "../utils/files.js";
+import { getPdfFileError, IMAGE_ACCEPT, isAppFileUrl, toSafeFileUrl } from "../utils/files.js";
 import { brand } from "../theme/tokens.js";
 import { buildProfileFields } from "../utils/genderForms.js";
 import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
@@ -12,6 +12,11 @@ import { getSession, rememberUser, setOnboardingPath } from "../utils/session.js
 import OnboardingSteps from "../components/common/OnboardingSteps.jsx";
 import { FormSkeleton } from "../components/common/PageSkeleton.jsx";
 import PersonAvatar from "../components/common/PersonAvatar.jsx";
+import CroppedPhoto from "../components/common/CroppedPhoto.jsx";
+import PhotoCropDialog from "../components/profile/PhotoCropDialog.jsx";
+import useProfilePhoto from "../hooks/useProfilePhoto.js";
+import { pendingCopy } from "../copy/pendingCopy.js";
+import { notifyPortraitChanged } from "../utils/photoCrop.js";
 
 const PHOTO_NOTE = "התמונה מוצגת לאחרים רק לאחר אישור התעניינות הדדי";
 
@@ -40,13 +45,6 @@ const photoFrameSx = {
   overflow: "hidden",
   boxShadow: brand.shadow,
   bgcolor: brand.avatar,
-};
-
-const photoImgSx = {
-  width: "100%",
-  height: "100%",
-  objectFit: "cover",
-  display: "block",
 };
 
 const actionsSx = {
@@ -206,11 +204,20 @@ export default function ProfilePage() {
   const [apiError, setApiError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageFile, setImageFile] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
-  const [imageError, setImageError] = useState("");
   const [resumeError, setResumeError] = useState("");
+  const [savedPhoto, setSavedPhoto] = useState({ url: "", crop: null });
   const [profileExists, setProfileExists] = useState(false);
+  const photo = useProfilePhoto({
+    savedUrl: savedPhoto.url,
+    savedCrop: savedPhoto.crop,
+    onSaveExisting: async (crop) => {
+      const updated = await updateProfile({ photoCrop: crop });
+      const next = updated?.profile;
+      if (next) setSavedPhoto({ url: toSafeFileUrl(next.image), crop: next.photoCrop || null });
+      notifyPortraitChanged();
+    },
+  });
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   const { control, handleSubmit, reset } = useForm({
@@ -245,6 +252,7 @@ export default function ProfilePage() {
         const profile = data?.profile;
         if (ignore || !profile) return;
         setProfileExists(true);
+        setSavedPhoto({ url: toSafeFileUrl(profile.image), crop: profile.photoCrop || null });
         reset({
           fullName: data?.profile?.name || getSession().user?.name || "",
           gender: profile.gender || getSession().user?.gender || "",
@@ -279,13 +287,6 @@ export default function ProfilePage() {
     };
   }, [reset]);
 
-  const handleImageChange = (event) => {
-    const file = event.target.files?.[0] || null;
-    const error = file ? getImageFileError(file) : "";
-    setImageError(error);
-    setImageFile(error ? null : file);
-  };
-
   const handleResumeChange = (event) => {
     const file = event.target.files?.[0] || null;
     const error = file ? getPdfFileError(file) : "";
@@ -294,10 +295,8 @@ export default function ProfilePage() {
   };
 
   // Local preview URLs for the chosen files, released when replaced or when the page closes
-  const imagePreview = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile]);
   const pdfPreview = useMemo(() => (pdfFile ? URL.createObjectURL(pdfFile) : null), [pdfFile]);
 
-  useEffect(() => () => imagePreview && URL.revokeObjectURL(imagePreview), [imagePreview]);
   useEffect(() => () => pdfPreview && URL.revokeObjectURL(pdfPreview), [pdfPreview]);
 
   const onSubmit = async (data) => {
@@ -314,12 +313,12 @@ export default function ProfilePage() {
 
     const fields = buildProfileFields(data);
 
-    const hasFiles = Boolean(imageFile || pdfFile);
+    const hasFiles = Boolean(photo.file || pdfFile);
     const requestData = hasFiles ? new FormData() : fields;
 
     if (hasFiles) {
       Object.entries(fields).forEach(([key, value]) => requestData.append(key, value ?? ""));
-      if (imageFile) requestData.append("image", imageFile);
+      photo.appendTo(requestData);
       if (pdfFile) requestData.append("resumePdf", pdfFile);
     }
 
@@ -327,6 +326,7 @@ export default function ProfilePage() {
       if (profileExists) await updateProfile(requestData);
       else await createProfile(requestData);
       rememberUser({ name: data.fullName.trim(), gender: data.gender });
+      notifyPortraitChanged();
       setSuccessMessage(profileExists ? "הפרופיל נשמר" : "הפרופיל נוצר בהצלחה");
       const nextPath = profileExists ? "/personal-area" : "/preferences";
       setOnboardingPath(nextPath);
@@ -388,37 +388,47 @@ export default function ProfilePage() {
             }}
           >
             <Box sx={photoFrameSx}>
-              {imagePreview ? (
-                <Box component="img" src={imagePreview} alt="תצוגה מקדימה של תמונת הפרופיל" sx={photoImgSx} />
+              {photo.shownSrc ? (
+                <CroppedPhoto
+                  src={isAppFileUrl(photo.shownSrc) ? "" : photo.shownSrc}
+                  url={isAppFileUrl(photo.shownSrc) ? photo.shownSrc : ""}
+                  crop={photo.shownCrop}
+                  alt="תצוגה מקדימה של תמונת הפרופיל"
+                />
               ) : (
                 <PersonAvatar gender={gender} size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
               )}
             </Box>
-            <Button component="label" variant="outlined" fullWidth disabled={isSubmitting} startIcon={<StrokeIcon name="camera" size={17} />}>
-              {imageFile ? "החלפת תמונה" : "העלאת תמונה"}
-              <input hidden type="file" accept={IMAGE_ACCEPT} onChange={handleImageChange} />
+            <Button component="label" variant="outlined" fullWidth disabled={isSubmitting || photo.busy} startIcon={<StrokeIcon name="camera" size={17} />}>
+              {photo.shownSrc ? "החלפת תמונה" : "העלאת תמונה"}
+              <input hidden type="file" accept={IMAGE_ACCEPT} onChange={photo.onPickFile} />
             </Button>
+            {photo.shownSrc ? (
+              <Button variant="outlined" fullWidth disabled={isSubmitting || photo.busy} onClick={photo.openEditor}>
+                {pendingCopy.photoCropEdit}
+              </Button>
+            ) : null}
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               JPG, PNG, GIF או WEBP עד 10MB
             </Typography>
-            {imageFile && (
+            {photo.file && (
               <Typography variant="body2" sx={{ color: "text.secondary", wordBreak: "break-word" }}>
-                נבחר: {imageFile.name}
+                נבחר: {photo.file.name}
               </Typography>
             )}
-            {imagePreview && (
+            {photo.file && photo.shownSrc && !isAppFileUrl(photo.shownSrc) && (
               <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-                <Button component="a" href={imagePreview} target="_blank" rel="noopener" size="small" variant="outlined" startIcon={<StrokeIcon name="eye" />}>
+                <Button component="a" href={photo.shownSrc} target="_blank" rel="noopener" size="small" variant="outlined" startIcon={<StrokeIcon name="eye" />}>
                   צפייה
                 </Button>
-                <Button component="a" href={imagePreview} download size="small" variant="outlined" startIcon={<StrokeIcon name="download" />}>
+                <Button component="a" href={photo.shownSrc} download size="small" variant="outlined" startIcon={<StrokeIcon name="download" />}>
                   הורדה
                 </Button>
               </Stack>
             )}
-            {imageError && (
+            {photo.error && (
               <Typography color="error" variant="body2" role="alert">
-                {imageError}
+                {photo.error}
               </Typography>
             )}
             <Typography
@@ -533,6 +543,14 @@ export default function ProfilePage() {
           </Box>
         </Box>
       </Box>
+      <PhotoCropDialog
+        open={Boolean(photo.dialog)}
+        src={photo.dialog?.src || ""}
+        initialCrop={photo.dialog?.initialCrop}
+        saving={photo.busy}
+        onCancel={photo.closeDialog}
+        onSave={photo.saveDialog}
+      />
     </Box>
   );
 }

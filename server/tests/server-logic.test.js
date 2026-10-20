@@ -17,7 +17,7 @@ const Preference = require("../src/models/preference.model");
 const Interest = require("../src/models/interest.model");
 
 const PASSWORD = "Password1";
-const IDENTITY_KEYS = ["name", "email", "phone", "image", "resumePdf", "idNumber", "password", "contact", "resumeSize", "resumeUploadedAt"];
+const IDENTITY_KEYS = ["name", "email", "phone", "image", "resumePdf", "photoCrop", "idNumber", "password", "contact", "resumeSize", "resumeUploadedAt"];
 
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 const tokenFor = (user) => generateToken(user._id, user.role || "user");
