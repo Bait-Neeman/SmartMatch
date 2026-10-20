@@ -1,4 +1,6 @@
+const crypto = require("crypto");
 const { rateLimit } = require("express-rate-limit");
+const { normalizeAccessCode } = require("../utils/accessCode");
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const ONE_HOUR = 60 * 60 * 1000;
@@ -72,10 +74,39 @@ const passwordResetLimiter = createLimiter({
   message: "יותר מדי בקשות לאיפוס סיסמה. נסו שוב מאוחר יותר.",
 });
 
+const CODE_LIMIT = "יותר מדי ניסיונות עם קוד. נסו שוב בעוד 15 דקות.";
+
+// A wrong code (401) uses up a try. An empty form (400) and a success do not.
+const codeLoginIpLimiter = createLimiter({
+  windowMs: FIFTEEN_MINUTES,
+  limit: 5,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: countsAsLoginFailure,
+  skip: () => !authLimitsActive(),
+  message: CODE_LIMIT,
+});
+
+// The same low cap per code, so many addresses cannot guess one code.
+const codeLoginKeyLimiter = createLimiter({
+  windowMs: FIFTEEN_MINUTES,
+  limit: 5,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: countsAsLoginFailure,
+  skip: () => !authLimitsActive(),
+  keyGenerator: (req) => {
+    const code = normalizeAccessCode(req.body?.code);
+    if (!code) return "code:empty";
+    return `code:${crypto.createHash("sha256").update(code).digest("hex")}`;
+  },
+  message: CODE_LIMIT,
+});
+
 module.exports = {
   apiLimiter,
   loginIpLimiter,
   loginAccountLimiter,
   registerLimiter,
   passwordResetLimiter,
+  codeLoginIpLimiter,
+  codeLoginKeyLimiter,
 };

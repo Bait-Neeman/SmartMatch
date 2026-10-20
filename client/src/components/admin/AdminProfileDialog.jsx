@@ -23,7 +23,9 @@ import {
 import { ABOUT_ME_TITLE, EXCLUDE_INCOMPLETE_LABEL, lookingForTitle } from "../../utils/genderForms.js";
 import { toSafeFileUrl } from "../../utils/files.js";
 import { openProtectedFile } from "../../utils/protectedFile.js";
-import { resetAdminUserPassword } from "../../services/admin.service.js";
+import { regenerateAdminAccessCode, resetAdminMemberAccess, resetAdminUserPassword } from "../../services/admin.service.js";
+import { pendingCopy } from "../../copy/pendingCopy.js";
+import AccessCodePanel from "../common/AccessCodePanel.jsx";
 import AdminAvatar from "./AdminAvatar.jsx";
 import { formatDotDate } from "./format.js";
 
@@ -78,7 +80,8 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const user = data?.user;
   const profile = data?.profile;
   const preference = data?.preference;
-  const gender = profile?.gender === "female" || profile?.gender === "male" ? profile.gender : "";
+  const accountGender = user?.gender === "female" || user?.gender === "male" ? user.gender : "";
+  const gender = profile?.gender === "female" || profile?.gender === "male" ? profile.gender : accountGender;
   const female = gender === "female";
   const male = gender === "male";
   const image = toSafeFileUrl(profile?.image);
@@ -91,6 +94,29 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const [resetError, setResetError] = useState("");
   const [resetSuccess, setResetSuccess] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [seenUser, setSeenUser] = useState(userId);
+  if (userId !== seenUser) {
+    setSeenUser(userId);
+    setAccessCode("");
+    setCodeError("");
+  }
+  const shownCode = accessCode || user?.accessCode || "";
+
+  const issueCode = async (request) => {
+    setCodeError("");
+    setCodeBusy(true);
+    try {
+      const result = await request(userId);
+      setAccessCode(result?.accessCode || "");
+    } catch (error) {
+      setCodeError(error?.message || pendingCopy.resetAccess);
+    } finally {
+      setCodeBusy(false);
+    }
+  };
 
   const closeReset = () => {
     setResetOpen(false);
@@ -219,10 +245,42 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
                 צפייה ברזומה
               </Button>
             ) : null}
+
+            {shownCode ? (
+              <AccessCodePanel code={shownCode} />
+            ) : (
+              <Box sx={{ p: 2, borderRadius: "14px", border: `1px solid ${brand.line}` }}>
+                <Typography sx={{ color: brand.mut, fontSize: 14 }}>אימייל</Typography>
+                <Typography dir="ltr" sx={{ color: brand.navy, fontWeight: 700, mt: 0.5, textAlign: "left" }}>
+                  {user?.email || "—"}
+                </Typography>
+              </Box>
+            )}
+            {codeError ? <Alert severity="error">{codeError}</Alert> : null}
+
+            {user?.createdBy?._id ? (
+              <Typography sx={{ color: brand.mut, fontSize: 14, pt: 1, borderTop: `1px solid ${brand.line}` }}>
+                {pendingCopy.addedBy} {user.createdBy.name || "—"}
+              </Typography>
+            ) : null}
           </Stack>
         )}
       </DialogContent>
       <DialogActions>
+        {userId && (user?.credentialSetupRequired || shownCode) ? (
+          <Button
+            disabled={codeBusy}
+            onClick={() => issueCode(regenerateAdminAccessCode)}
+            sx={{ color: brand.goldDark, fontWeight: 600 }}
+          >
+            {pendingCopy.regenerateCode}
+          </Button>
+        ) : null}
+        {userId ? (
+          <Button disabled={codeBusy} onClick={() => issueCode(resetAdminMemberAccess)} sx={{ color: brand.goldDark, fontWeight: 600 }}>
+            {pendingCopy.resetAccess}
+          </Button>
+        ) : null}
         {userId ? (
           <Button
             onClick={() => {

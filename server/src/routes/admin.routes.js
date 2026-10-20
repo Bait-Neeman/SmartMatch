@@ -15,6 +15,9 @@ const {
   patchSettings,
   putAccount,
   postCandidate,
+  postMember,
+  postAccessCode,
+  postAccessReset,
   postMatchmaker,
   putUserPassword,
 } = require("../controllers/admin.controller");
@@ -29,6 +32,7 @@ router.get("/settings", getSettings);
 router.patch("/settings", patchSettings);
 router.put("/account", putAccount);
 router.post("/candidates", postCandidate);
+router.post("/members", postMember);
 router.post("/matchmakers", postMatchmaker);
 
 router.get("/cases", getCases);
@@ -41,5 +45,7 @@ router.delete("/pending-match", removePending);
 router.get("/users", getUsers);
 router.get("/users/:userId/profile", getUserProfile);
 router.put("/users/:userId/password", putUserPassword);
+router.post("/users/:userId/access-code", postAccessCode);
+router.post("/users/:userId/access-reset", postAccessReset);
 
 module.exports = router;

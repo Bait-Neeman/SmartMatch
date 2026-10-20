@@ -21,7 +21,15 @@ import {
   maritalStatusOptions,
   styleOptions,
 } from "../../constants/profileOptions.js";
-import { ABOUT_ME_HELP, ABOUT_ME_TITLE, PHONE_HINT, PHONE_LABEL, phoneRules } from "../../utils/genderForms.js";
+import {
+  ABOUT_ME_HELP,
+  ABOUT_ME_TITLE,
+  PHONE_HINT,
+  PHONE_INVALID,
+  PHONE_LABEL,
+  normalizeIsraeliMobile,
+  phoneRules,
+} from "../../utils/genderForms.js";
 
 const listSx = {
   listStyle: "none",
@@ -267,7 +275,14 @@ function FormSection({ title, children }) {
   );
 }
 
-export default function GenderProfileFields({ control, cities = [] }) {
+const optionalPhoneRules = {
+  validate: (value) => {
+    if (typeof value !== "string" || value.trim() === "") return true;
+    return normalizeIsraeliMobile(value) ? true : PHONE_INVALID;
+  },
+};
+
+export default function GenderProfileFields({ control, cities = [], phoneOptional = false }) {
   const gender = useWatch({ control, name: "gender" });
   const working = useWatch({ control, name: "working" });
   const male = gender === "male";
@@ -375,8 +390,8 @@ export default function GenderProfileFields({ control, cities = [] }) {
               label={PHONE_LABEL}
               type="tel"
               dir="ltr"
-              rules={phoneRules}
-              hint={PHONE_HINT}
+              rules={phoneOptional ? optionalPhoneRules : phoneRules}
+              hint={phoneOptional ? pendingCopy.phoneOptionalHint : PHONE_HINT}
             />
           </Box>
         </FormSection>

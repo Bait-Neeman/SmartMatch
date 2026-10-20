@@ -7,12 +7,12 @@ const {
   respondToInterest,
   sendToManager,
 } = require('../controllers/interest.controller');
-const { protect } = require('../middleware/auth.middleware');
+const { protect, requireAccountReady } = require('../middleware/auth.middleware');
 
-router.post('/', protect, createInterest);
-router.get('/incoming', protect, getIncoming);
-router.get('/outgoing', protect, getOutgoing);
-router.put('/respond', protect, respondToInterest);
-router.post('/send-to-manager', protect, sendToManager);
+router.post('/', protect, requireAccountReady, createInterest);
+router.get('/incoming', protect, requireAccountReady, getIncoming);
+router.get('/outgoing', protect, requireAccountReady, getOutgoing);
+router.put('/respond', protect, requireAccountReady, respondToInterest);
+router.post('/send-to-manager', protect, requireAccountReady, sendToManager);
 
 module.exports = router;
