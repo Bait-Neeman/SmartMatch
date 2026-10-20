@@ -146,6 +146,7 @@ export default function AppLayout() {
   const theme = useTheme();
   const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { user, isAdmin } = getSession();
   const gender = useMyGender();
   const links = isAdmin ? ADMIN_LINKS : USER_LINKS;
@@ -216,11 +217,15 @@ export default function AppLayout() {
             sx={{
               minHeight: brand.topBarHeight,
               gap: "10px",
+              width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
+              boxSizing: "border-box",
               px: "clamp(16px, 2vw, 32px)",
               py: "clamp(8px, 1.2vh, 12px)",
             }}
           >
-            {isCompact && (
+            {isCompact && !mobileSearchOpen && (
               <IconButton aria-label="פתיחת תפריט" onClick={() => setMenuOpen(true)} sx={{ color: brand.paper }}>
                 <MenuIcon />
               </IconButton>
@@ -230,8 +235,9 @@ export default function AppLayout() {
               name={user?.name || ""}
               gender={gender}
               searchSlot={isAdmin ? <AdminSearch /> : null}
+              onMobileSearch={setMobileSearchOpen}
             />
-            {isCompact && (
+            {isCompact && !mobileSearchOpen && (
               <IconButton aria-label="התנתקות" onClick={logout} sx={{ color: brand.paper }}>
                 <Logout />
               </IconButton>

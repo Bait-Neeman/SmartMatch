@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Box, InputBase } from "@mui/material";
+import { Box, InputBase, useMediaQuery } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { brand } from "../../theme/tokens.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import { searchPeople } from "../../services/search.service.js";
@@ -28,11 +29,19 @@ function StrokeIcon({ children, size = 18 }) {
   );
 }
 
-function SearchIcon() {
+function SearchIcon({ size = 18 }) {
   return (
-    <StrokeIcon size={24}>
+    <StrokeIcon size={size}>
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
+    </StrokeIcon>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <StrokeIcon size={24}>
+      <path d="M18 6 6 18M6 6l12 12" />
     </StrokeIcon>
   );
 }
@@ -120,9 +129,11 @@ const rowSx = {
   "&:hover": { bgcolor: brand.navyWash },
 };
 
-export default function TopBar({ isAdmin = false, name = "", gender = "", searchSlot = null }) {
+export default function TopBar({ isAdmin = false, name = "", gender = "", searchSlot = null, onMobileSearch }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const theme = useTheme();
+  const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
   const searchId = useId();
   const listId = `${searchId}-results`;
   const searchRef = useRef(null);
@@ -214,16 +225,20 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
 
   useEffect(() => {
     const onPointer = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) setSearchOpen(false);
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setSearchOpen(false);
+        onMobileSearch?.(false);
+      }
       if (bellRef.current && !bellRef.current.contains(event.target)) setBellOpen(false);
     };
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
-  }, []);
+  }, [onMobileSearch]);
 
   const openResult = (href) => {
     setSearchOpen(false);
     setDraft("");
+    onMobileSearch?.(false);
     navigate(href);
   };
 
@@ -252,13 +267,25 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
   };
 
   const showSearchPanel = searchOpen && draft.trim().length >= 2;
+  const phoneSearch = isPhone && searchOpen && !searchSlot;
+
+  useEffect(() => {
+    onMobileSearch?.(phoneSearch);
+  }, [onMobileSearch, phoneSearch]);
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setDraft("");
+    onMobileSearch?.(false);
+    inputRef.current?.blur();
+  };
   const bellLabel = unreadCount > 0 ? `התראות, ${unreadCount} חדשות` : "התראות";
   const mailLabel = mailCount > 0 ? `הודעות, ${mailCount}` : "הודעות";
   const trimmedName = name.trim();
   const initial = trimmedName.charAt(0);
 
   return (
-    <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "10px" }}>
+    <Box sx={{ flex: 1, minWidth: 0, width: phoneSearch ? "100%" : "auto", display: "flex", alignItems: "center", gap: "10px" }}>
       {searchSlot ? (
         <Box sx={{ position: "relative", flex: { xs: 1, lg: "0 1 auto" }, minWidth: 0, maxWidth: 380, width: "100%" }}>
           {searchSlot}
@@ -268,61 +295,69 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
         ref={searchRef}
         sx={{
           position: "relative",
-          flex: { xs: "none", sm: "1 1 auto", lg: "0 1 auto" },
-          width: { xs: 42, sm: "auto", lg: "clamp(220px, 26vw, 380px)" },
-          minWidth: { xs: 42, sm: 0 },
-          maxWidth: { xs: "none", sm: 380 },
-          "@media (max-width:599.95px)": {
-            "&:focus-within": {
-              width: "min(280px, calc(100vw - 128px))",
-              zIndex: 2,
-              "& .member-search-field": {
-                width: "100%",
-                minWidth: 0,
-                px: 1.5,
-                gap: "8px",
-                justifyContent: "flex-start",
-                borderRadius: 999,
-                color: brand.navIcon,
-              },
-              "& .member-search-input": {
-                position: "relative",
-                opacity: 1,
-                inset: "auto",
-                width: "auto",
-                height: "auto",
-                flex: 1,
-              },
-            },
-          },
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          flex: phoneSearch ? "1 1 auto" : { xs: "none", sm: "1 1 auto", lg: "0 1 auto" },
+          width: phoneSearch ? "100%" : { xs: 42, sm: "auto", lg: "clamp(220px, 26vw, 380px)" },
+          minWidth: phoneSearch ? 0 : { xs: 42, sm: 0 },
+          maxWidth: phoneSearch ? "100%" : { xs: "none", sm: 380 },
         }}
       >
+        {phoneSearch ? (
+          <Box
+            component="button"
+            type="button"
+            aria-label="ביטול"
+            onClick={closeSearch}
+            sx={{
+              width: 42,
+              height: 42,
+              flex: "none",
+              border: 0,
+              p: 0,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer",
+              color: brand.paper,
+              bgcolor: "transparent",
+            }}
+          >
+            <CloseIcon />
+          </Box>
+        ) : null}
         <Box
           className="member-search-field"
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
-            width: "100%",
+            gap: phoneSearch ? "8px" : "10px",
+            width: phoneSearch ? "auto" : "100%",
+            flex: phoneSearch ? 1 : undefined,
+            minWidth: 0,
             maxWidth: "100%",
             height: 42,
-            px: 2,
+            px: phoneSearch ? 1.5 : 2,
             borderRadius: 999,
             bgcolor: brand.topBarControl,
             boxShadow: `inset 0 0 0 1px ${brand.topBarLine}`,
             color: brand.navIcon,
-            "@media (max-width:599.95px)": {
-              width: 42,
-              minWidth: 42,
-              px: 0,
-              gap: 0,
-              justifyContent: "center",
-              borderRadius: "50%",
-              color: brand.paper,
-            },
+            ...(isPhone && !searchOpen
+              ? {
+                  width: 42,
+                  minWidth: 42,
+                  flex: "none",
+                  px: 0,
+                  gap: 0,
+                  justifyContent: "center",
+                  borderRadius: "50%",
+                  color: brand.paper,
+                }
+              : {}),
           }}
         >
-          <SearchIcon />
+          <SearchIcon size={isPhone && !searchOpen ? 24 : 18} />
           <InputBase
             className="member-search-input"
             inputRef={inputRef}
@@ -336,12 +371,12 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
               role: "combobox",
             }}
             onChange={(event) => onDraft(event.target.value)}
-            onFocus={() => setSearchOpen(true)}
+            onFocus={() => {
+              setSearchOpen(true);
+              if (isPhone) onMobileSearch?.(true);
+            }}
             onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setSearchOpen(false);
-                event.currentTarget.blur();
-              }
+              if (event.key === "Escape") closeSearch();
               if (event.key === "Enter" && !searching && results[0]) openResult(results[0].href);
             }}
             sx={{
@@ -351,14 +386,16 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
               fontSize: 15,
               "& input": { p: 0 },
               "& input::placeholder": { color: brand.navIcon, opacity: 1 },
-              "@media (max-width:599.95px)": {
-                position: "absolute",
-                inset: 0,
-                width: 42,
-                height: 42,
-                opacity: 0,
-                flex: "none",
-              },
+              ...(isPhone && !searchOpen
+                ? {
+                    position: "absolute",
+                    inset: 0,
+                    width: 42,
+                    height: 42,
+                    opacity: 0,
+                    flex: "none",
+                  }
+                : {}),
             }}
           />
           <Box
@@ -383,7 +420,7 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
           </Box>
         </Box>
         {showSearchPanel && (
-          <Box id={listId} role="listbox" aria-label="תוצאות חיפוש" sx={{ ...panelSx, insetInlineStart: 0, width: "100%", minWidth: 240 }}>
+          <Box id={listId} role="listbox" aria-label="תוצאות חיפוש" sx={{ ...panelSx, insetInlineStart: 0, width: "100%", minWidth: phoneSearch ? 0 : 240, maxWidth: "100%" }}>
             {searching && <Box sx={{ px: 2, py: 1.5, color: brand.mut, fontSize: 14 }}>מחפש…</Box>}
             {searchError && <Box sx={{ px: 2, py: 1.5, color: brand.mut, fontSize: 14 }}>לא הצלחנו לחפש</Box>}
             {!searching && !searchError && results.length === 0 && (
@@ -415,14 +452,14 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
       </Box>
       )}
 
-      <Box sx={{ flex: 1 }} />
+      <Box sx={{ flex: 1, display: phoneSearch ? "none" : "block" }} />
 
-      <Box component={Link} to={mailTo} aria-label={mailLabel} sx={controlSx}>
+      <Box component={Link} to={mailTo} aria-label={mailLabel} sx={{ ...controlSx, display: phoneSearch ? "none" : "grid" }}>
         <MailIcon />
         {mailCount > 0 && <Dot />}
       </Box>
 
-      <Box ref={bellRef} sx={{ position: "relative" }}>
+      <Box ref={bellRef} sx={{ position: "relative", display: phoneSearch ? "none" : "block" }}>
         <Box
           component="button"
           type="button"
@@ -490,7 +527,7 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
       {trimmedName ? (
         <Box
           sx={{
-            display: "flex",
+            display: phoneSearch ? "none" : "flex",
             alignItems: "center",
             gap: "10px",
             height: 42,
