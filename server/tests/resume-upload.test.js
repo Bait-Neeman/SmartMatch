@@ -113,6 +113,16 @@ describe("resume upload file filter", () => {
     }
   });
 
+  it("rejects text disguised as a pdf and a script extension without a shebang", async () => {
+    const textAsPdf = await attach(app, "resumePdf", text, "cv.pdf", "application/pdf");
+    assert.equal(textAsPdf.status, 400, JSON.stringify(textAsPdf.body));
+    assert.equal(textAsPdf.body.message, RESUME_ERROR);
+
+    const shell = await attach(app, "resumePdf", Buffer.from("echo hello\n"), "backup.sh", "text/plain");
+    assert.equal(shell.status, 400, JSON.stringify(shell.body));
+    assert.equal(shell.body.message, RESUME_ERROR);
+  });
+
   it("rejects a profile image that is not an allowed image type", async () => {
     const response = await attach(app, "image", pdf, "photo.pdf", "application/pdf");
     assert.equal(response.status, 400);

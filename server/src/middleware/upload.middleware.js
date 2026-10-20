@@ -14,6 +14,86 @@ const TYPE_ERRORS = {
 };
 
 // The type declared by the browser can be faked, so the file's first bytes are checked too.
+const BLOCKED_EXTENSIONS = new Set([
+  "sh",
+  "bash",
+  "bat",
+  "cmd",
+  "ps1",
+  "psm1",
+  "js",
+  "mjs",
+  "cjs",
+  "exe",
+  "msi",
+  "dll",
+  "com",
+  "scr",
+  "html",
+  "htm",
+  "svg",
+  "php",
+  "py",
+  "jar",
+  "vbs",
+  "wsf",
+  "hta",
+]);
+
+const EXTENSION_KIND = {
+  pdf: "pdf",
+  doc: "doc",
+  docx: "docx",
+  odt: "odt",
+  rtf: "rtf",
+  txt: "txt",
+  jpg: "jpeg",
+  jpeg: "jpeg",
+  png: "png",
+  webp: "webp",
+  heic: "heic",
+  heif: "heic",
+};
+
+const MIME_KIND = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.oasis.opendocument.text": "odt",
+  "application/rtf": "rtf",
+  "text/rtf": "rtf",
+  "text/plain": "txt",
+  "image/jpeg": "jpeg",
+  "image/jpg": "jpeg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heic",
+};
+
+const fileExtension = (name) => {
+  const base = String(name || "").split(/[/\\]/).pop().trim().toLowerCase();
+  const match = base.match(/\.([a-z0-9]+)$/);
+  return match ? match[1] : "";
+};
+
+const mediaType = (value) => String(value || "").split(";")[0].trim().toLowerCase();
+
+// The name and the declared type have to agree with the bytes.
+// Plain text is only a resume when the file is actually named .txt.
+const resumeBytesMatchDeclaration = (file) => {
+  const extension = fileExtension(file.originalname);
+  if (BLOCKED_EXTENSIONS.has(extension)) return false;
+  const sniffed = detectResumeType(file.buffer);
+  if (!sniffed) return false;
+  if (sniffed === "txt" && extension !== "txt") return false;
+  const named = EXTENSION_KIND[extension];
+  if (named && named !== sniffed) return false;
+  const declared = MIME_KIND[mediaType(file.mimetype)];
+  if (declared && declared !== sniffed) return false;
+  return true;
+};
+
 const FILE_SIGNATURES = {
   "image/jpeg": (bytes) => bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
   "image/png": (bytes) =>
@@ -42,7 +122,7 @@ const verifyFileContents = (req, res, next) => {
   for (const [field, files] of Object.entries(req.files || {})) {
     for (const file of files) {
       if (field === "resumePdf") {
-        if (!detectResumeType(file.buffer)) throw new HttpError(400, TYPE_ERRORS.resumePdf);
+        if (!resumeBytesMatchDeclaration(file)) throw new HttpError(400, TYPE_ERRORS.resumePdf);
         continue;
       }
       const allowed = ALLOWED_TYPES[field] || [];
