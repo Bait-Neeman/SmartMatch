@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const cloudinary = require("cloudinary").v2;
 const HttpError = require("../utils/httpError");
+const { resumeExtension } = require("../utils/resumeFile");
 
 // Credentials come from the CLOUDINARY_URL environment variable, which the SDK reads itself.
 let configured = false;
@@ -28,7 +29,6 @@ const FILE_KINDS = {
   resumePdf: {
     resourceType: "raw",
     folder: `${ROOT_FOLDER}/resumes`,
-    extension: ".pdf",
   },
 };
 
@@ -69,13 +69,17 @@ const uploadProfileFile = async (kind, file) => {
   }
 
   const fileKind = FILE_KINDS[kind];
+  const extension = kind === "resumePdf" ? resumeExtension(file.buffer) : fileKind.extension || "";
+  if (kind === "resumePdf" && !extension) {
+    throw new HttpError(400, "יש להעלות קובץ");
+  }
 
   try {
     const result = await uploadBuffer(file.buffer, {
       resource_type: fileKind.resourceType,
       type: DELIVERY_TYPE,
       folder: fileKind.folder,
-      public_id: `${crypto.randomUUID()}${fileKind.extension || ""}`,
+      public_id: `${crypto.randomUUID()}${extension}`,
       overwrite: false,
       ...(fileKind.transformation && { transformation: fileKind.transformation }),
     });
@@ -131,9 +135,9 @@ const fileAccessPath = (userId, kind, publicId) => {
 };
 
 const formatFor = (kind, publicId) => {
-  if (kind === "resumePdf") return "pdf";
   const extension = String(publicId).match(/\.([a-z0-9]+)$/i);
-  return extension ? extension[1] : "jpg";
+  if (extension) return extension[1].toLowerCase();
+  return kind === "resumePdf" ? "pdf" : "jpg";
 };
 
 // Signed Cloudinary download URL used only while this server fetches the bytes.

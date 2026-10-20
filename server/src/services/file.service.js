@@ -4,6 +4,7 @@ const AdminSettings = require("../models/adminSettings.model");
 const HttpError = require("../utils/httpError");
 const { assertObjectId } = require("../utils/validators");
 const { readStoredFile } = require("./storage.service");
+const { describeResume } = require("../utils/resumeFile");
 
 // Same wording when the file is missing and when this viewer may not open it.
 const FILE_NOT_FOUND = "הקובץ לא נמצא";
@@ -18,9 +19,34 @@ const CONTENT_TYPE = {
   resumePdf: "application/pdf",
 };
 
+const mediaType = (value) => String(value || "").split(";")[0].trim().toLowerCase();
+
+const contentTypeForDelivery = (field, upstream, body) => {
+  if (field === "resumePdf") {
+    const described = describeResume(body);
+    if (described) return described.contentType;
+  }
+  const type = mediaType(upstream);
+  const declared = type ? String(upstream).split(";")[0].trim() : "";
+  if (declared) return declared;
+  return CONTENT_TYPE[field];
+};
+
 const FILENAME = {
   image: "photo.jpg",
   resumePdf: "resume.pdf",
+};
+
+const deliveryFor = (field, upstream, body) => {
+  if (field === "resumePdf") {
+    const described = describeResume(body);
+    if (described) return described;
+  }
+  return {
+    contentType: contentTypeForDelivery(field, upstream, body),
+    filename: FILENAME[field],
+    disposition: "inline",
+  };
 };
 
 const hasAcceptedInterest = (viewerId, ownerId) =>
@@ -65,14 +91,17 @@ const openProfileFile = async (viewer, ownerId, routeKind) => {
   }
 
   const file = await readStoredFile(field, publicId);
+  const delivered = deliveryFor(field, file.contentType, file.body);
   return {
     body: file.body,
-    contentType: file.contentType || CONTENT_TYPE[field],
-    filename: FILENAME[field],
+    contentType: delivered.contentType,
+    filename: delivered.filename,
+    disposition: delivered.disposition,
   };
 };
 
 module.exports = {
   openProfileFile,
+  contentTypeForDelivery,
   FILE_NOT_FOUND,
 };
