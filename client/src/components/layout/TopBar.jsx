@@ -10,7 +10,7 @@ import {
   markNotificationRead,
 } from "../../services/notification.service.js";
 
-function StrokeIcon({ children }) {
+function StrokeIcon({ children, size = 18 }) {
   return (
     <Box
       component="svg"
@@ -21,7 +21,7 @@ function StrokeIcon({ children }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      sx={{ width: 18, height: 18, display: "block" }}
+      sx={{ width: size, height: size, display: "block", flex: "none" }}
     >
       {children}
     </Box>
@@ -30,7 +30,7 @@ function StrokeIcon({ children }) {
 
 function SearchIcon() {
   return (
-    <StrokeIcon>
+    <StrokeIcon size={24}>
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
     </StrokeIcon>
@@ -264,13 +264,46 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
           {searchSlot}
         </Box>
       ) : (
-      <Box ref={searchRef} sx={{ position: "relative", flex: { xs: 1, lg: "0 1 auto" }, minWidth: 0, maxWidth: 380 }}>
+      <Box
+        ref={searchRef}
+        sx={{
+          position: "relative",
+          flex: { xs: "none", sm: "1 1 auto", lg: "0 1 auto" },
+          width: { xs: 42, sm: "auto", lg: "clamp(220px, 26vw, 380px)" },
+          minWidth: { xs: 42, sm: 0 },
+          maxWidth: { xs: "none", sm: 380 },
+          "@media (max-width:599.95px)": {
+            "&:focus-within": {
+              width: "min(280px, calc(100vw - 128px))",
+              zIndex: 2,
+              "& .member-search-field": {
+                width: "100%",
+                minWidth: 0,
+                px: 1.5,
+                gap: "8px",
+                justifyContent: "flex-start",
+                borderRadius: 999,
+                color: brand.navIcon,
+              },
+              "& .member-search-input": {
+                position: "relative",
+                opacity: 1,
+                inset: "auto",
+                width: "auto",
+                height: "auto",
+                flex: 1,
+              },
+            },
+          },
+        }}
+      >
         <Box
+          className="member-search-field"
           sx={{
             display: "flex",
             alignItems: "center",
             gap: "10px",
-            width: { lg: "clamp(220px, 26vw, 380px)" },
+            width: "100%",
             maxWidth: "100%",
             height: 42,
             px: 2,
@@ -278,10 +311,20 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
             bgcolor: brand.topBarControl,
             boxShadow: `inset 0 0 0 1px ${brand.topBarLine}`,
             color: brand.navIcon,
+            "@media (max-width:599.95px)": {
+              width: 42,
+              minWidth: 42,
+              px: 0,
+              gap: 0,
+              justifyContent: "center",
+              borderRadius: "50%",
+              color: brand.paper,
+            },
           }}
         >
           <SearchIcon />
           <InputBase
+            className="member-search-input"
             inputRef={inputRef}
             value={draft}
             placeholder={placeholder}
@@ -295,7 +338,10 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
             onChange={(event) => onDraft(event.target.value)}
             onFocus={() => setSearchOpen(true)}
             onKeyDown={(event) => {
-              if (event.key === "Escape") setSearchOpen(false);
+              if (event.key === "Escape") {
+                setSearchOpen(false);
+                event.currentTarget.blur();
+              }
               if (event.key === "Enter" && !searching && results[0]) openResult(results[0].href);
             }}
             sx={{
@@ -305,6 +351,14 @@ export default function TopBar({ isAdmin = false, name = "", gender = "", search
               fontSize: 15,
               "& input": { p: 0 },
               "& input::placeholder": { color: brand.navIcon, opacity: 1 },
+              "@media (max-width:599.95px)": {
+                position: "absolute",
+                inset: 0,
+                width: 42,
+                height: 42,
+                opacity: 0,
+                flex: "none",
+              },
             }}
           />
           <Box
