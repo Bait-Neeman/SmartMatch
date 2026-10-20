@@ -77,6 +77,11 @@ export const regenerateAdminAccessCode = async (userId) => {
   return response.data;
 };
 
+export const resetAdminMemberAccess = async (userId) => {
+  const response = await api.post(`/admin/users/${userId}/access-reset`);
+  return response.data;
+};
+
 export const createAdminMatchmaker = async (payload) => {
   const response = await api.post("/admin/matchmakers", payload);
   return response.data;

@@ -59,6 +59,13 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
+    // The same code, encrypted (AES-256-GCM) so an admin can read it again.
+    // Not the plaintext, and not selected unless an admin view asks for it.
+    accessCodeCipher: {
+      type: String,
+      select: false,
+    },
+
     // True until an admin-created member sets their own email and password.
     credentialSetupRequired: { type: Boolean, default: false },
 

@@ -27,10 +27,10 @@ export const pendingCopy = {
   accountSetupSubtitle: "להתחברות הבאה",
   accountSetupSkip: "אחר כך",
   openAccount: "פתיחת חשבון",
-  accessCodeOnce: "העתיקו את הקוד. הוא מוצג פעם אחת.",
   copyCode: "העתקה",
   codeCopied: "הועתק",
   regenerateCode: "קוד חדש",
+  resetAccess: "איפוס כניסה",
   addedBy: "נוסף על ידי",
   phoneOptionalHint: "לא חובה עכשיו",
 };

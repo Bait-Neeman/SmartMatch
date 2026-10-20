@@ -24,7 +24,7 @@ export default function AccessCodePanel({ code }) {
         bgcolor: brand.pillGoldBg,
       }}
     >
-      <Typography sx={{ color: brand.goldText, fontWeight: 600, mb: 1 }}>{pendingCopy.accessCodeOnce}</Typography>
+      <Typography sx={{ color: brand.goldText, fontWeight: 600, mb: 1 }}>{pendingCopy.codeLabel}</Typography>
       <Box
         dir="ltr"
         sx={{

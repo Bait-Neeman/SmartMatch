@@ -18,7 +18,7 @@ const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES } = require("../model
 const { fileAccessPath } = require("./storage.service");
 const { toOwnerProfile, createProfileForUser } = require("./profile.service");
 const { createPreferenceForUser } = require("./preference.service");
-const { generateAccessCode, accessCodeLookup } = require("../utils/accessCode");
+const { generateAccessCode, accessCodeLookup, encryptAccessCode, readStoredAccessCode } = require("../utils/accessCode");
 const { getCandidatesForUser, computeMatchPercent } = require("./match.service");
 const AdminStaff = require("../models/adminStaff.model");
 const {
@@ -158,12 +158,15 @@ const presentCreatedBy = (createdBy) => {
 
 const toAdminAccount = (user) => {
   if (!user) return null;
+  const accessCode = readStoredAccessCode(user);
   const plain = typeof user.toObject === "function" ? user.toObject() : { ...user };
   delete plain.password;
   delete plain.tokenVersion;
   delete plain.accessCodeLookup;
+  delete plain.accessCodeCipher;
   delete plain.idNumber;
   delete plain.__v;
+  if (accessCode) plain.accessCode = accessCode;
   if (plain.createdBy) plain.createdBy = presentCreatedBy(plain.createdBy);
   return plain;
 };
@@ -313,25 +316,29 @@ const shapeCases = async (interests) => {
   });
 };
 
-const toDirectoryUser = (user, profile, status, preference) => ({
-  _id: user._id,
-  name: user.name,
-  email: user.email || null,
-  phone: user.phone || null,
-  role: user.role,
-  gender: profile?.gender || user.gender || "",
-  createdAt: user.createdAt,
-  status,
-  credentialSetupRequired: user.credentialSetupRequired === true,
-  createdBy: presentCreatedBy(user.createdBy),
-  profile: toAdminProfile(user._id, profile),
-  preference: toAdminPreference(preference),
-});
+const toDirectoryUser = (user, profile, status, preference) => {
+  const accessCode = readStoredAccessCode(user);
+  return {
+    _id: user._id,
+    name: user.name,
+    email: user.email || null,
+    phone: user.phone || null,
+    role: user.role,
+    gender: profile?.gender || user.gender || "",
+    createdAt: user.createdAt,
+    status,
+    credentialSetupRequired: user.credentialSetupRequired === true,
+    createdBy: presentCreatedBy(user.createdBy),
+    ...(accessCode ? { accessCode } : {}),
+    profile: toAdminProfile(user._id, profile),
+    preference: toAdminPreference(preference),
+  };
+};
 
 // Password is never selected. Profile files are stable paths, not storage ids.
 const getAllUsers = async () => {
   const [users, profiles, preferences, buckets] = await Promise.all([
-    User.find({ role: "user" }).select(USER_FIELDS).sort({ createdAt: -1 }).lean(),
+    User.find({ role: "user" }).select(`${USER_FIELDS} +accessCodeCipher`).sort({ createdAt: -1 }).lean(),
     Profile.find().lean(),
     Preference.find().lean(),
     directoryBuckets(),
@@ -352,7 +359,7 @@ const getAllUsers = async () => {
 const getUserProfileForAdmin = async (userId) => {
   assertObjectId(userId);
 
-  const user = await User.findById(userId).lean();
+  const user = await User.findById(userId).select("+accessCodeCipher").lean();
   if (!user) {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
@@ -892,6 +899,7 @@ const createAdminMember = async (adminId, body = {}) => {
       role: "user",
       credentialSetupRequired: true,
       accessCodeLookup: accessCodeLookup(accessCode),
+      accessCodeCipher: encryptAccessCode(accessCode),
       createdBy: { id: admin._id, name: admin.name || "" },
     });
   } catch (error) {
@@ -912,7 +920,7 @@ const createAdminMember = async (adminId, body = {}) => {
     throw error;
   }
 
-  const fresh = await User.findById(user._id).select(USER_FIELDS).lean();
+  const fresh = await User.findById(user._id).select(`${USER_FIELDS} +accessCodeCipher`).lean();
   const [profile, preference] = await Promise.all([
     Profile.findOne({ user: user._id }).lean(),
     Preference.findOne({ user: user._id }).lean(),
@@ -923,9 +931,17 @@ const createAdminMember = async (adminId, body = {}) => {
   };
 };
 
+const writeAccessCode = (user, accessCode) => {
+  user.password = accessCode;
+  user.accessCodeLookup = accessCodeLookup(accessCode);
+  user.accessCodeCipher = encryptAccessCode(accessCode);
+  user.credentialSetupRequired = true;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+};
+
 const regenerateAccessCode = async (userId) => {
   assertObjectId(userId, "מזהה משתמש לא תקין");
-  const user = await User.findById(userId).select("+password +tokenVersion +accessCodeLookup");
+  const user = await User.findById(userId).select("+password +tokenVersion +accessCodeLookup +accessCodeCipher");
   if (!user || user.role !== "user") {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
@@ -934,9 +950,21 @@ const regenerateAccessCode = async (userId) => {
   }
 
   const accessCode = generateAccessCode();
-  user.password = accessCode;
-  user.accessCodeLookup = accessCodeLookup(accessCode);
-  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  writeAccessCode(user, accessCode);
+  await user.save();
+  return { accessCode };
+};
+
+// A new code for any member. Their email stays. Their password and sessions do not.
+const resetMemberAccess = async (userId) => {
+  assertObjectId(userId, "מזהה משתמש לא תקין");
+  const user = await User.findById(userId).select("+password +tokenVersion +accessCodeLookup +accessCodeCipher");
+  if (!user || user.role !== "user") {
+    throw new HttpError(404, "המשתמש לא נמצא");
+  }
+
+  const accessCode = generateAccessCode();
+  writeAccessCode(user, accessCode);
   await user.save();
   return { accessCode };
 };
@@ -1109,6 +1137,7 @@ module.exports = {
   createAdminCandidate,
   createAdminMember,
   regenerateAccessCode,
+  resetMemberAccess,
   createAdminMatchmaker,
   resetUserPassword,
 };

@@ -47,6 +47,7 @@ const ALWAYS_SECRET_KEYS = new Set([
   "telephone",
   "createdBy",
   "accessCodeLookup",
+  "accessCodeCipher",
   "credentialSetupRequired",
   "accessCode",
 ]);

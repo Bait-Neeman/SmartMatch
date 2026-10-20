@@ -26,7 +26,9 @@ export default function AccountSetupPage() {
   const canSkip = user?.allowCodeLogin === true;
   const [apiError, setApiError] = useState("");
   const [busy, setBusy] = useState(false);
-  const { control, handleSubmit } = useForm({ defaultValues: { email: "", password: "" } });
+  const { control, handleSubmit } = useForm({
+    defaultValues: { email: user?.email || "", password: "" },
+  });
 
   const continueIn = async (nextUser) => {
     const profile = await readOptional(getMyProfile);

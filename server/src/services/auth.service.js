@@ -166,7 +166,7 @@ const completeCredentialSetup = async (userId, { email, password } = {}) => {
     throw new HttpError(400, passwordMessage);
   }
 
-  const user = await User.findById(userId).select("+password +tokenVersion +accessCodeLookup");
+  const user = await User.findById(userId).select("+password +tokenVersion +accessCodeLookup +accessCodeCipher");
   if (!user) {
     throw new HttpError(404, "המשתמש לא נמצא");
   }
@@ -183,6 +183,7 @@ const completeCredentialSetup = async (userId, { email, password } = {}) => {
   user.password = password;
   user.credentialSetupRequired = false;
   user.accessCodeLookup = undefined;
+  user.accessCodeCipher = undefined;
   user.tokenVersion = (user.tokenVersion || 0) + 1;
 
   try {
@@ -194,7 +195,7 @@ const completeCredentialSetup = async (userId, { email, password } = {}) => {
     throw error;
   }
 
-  await User.updateOne({ _id: user._id }, { $unset: { accessCodeLookup: 1 } });
+  await User.updateOne({ _id: user._id }, { $unset: { accessCodeLookup: 1, accessCodeCipher: 1 } });
 
   return {
     token: generateToken(user._id, user.role, user.tokenVersion || 0),

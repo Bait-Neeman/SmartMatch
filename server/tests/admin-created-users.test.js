@@ -11,7 +11,13 @@ const request = require("supertest");
 const app = require("../app");
 const { generateToken } = require("../src/config/jwt");
 const { comparePassword } = require("../src/utils/hash");
-const { accessCodeLookup, ALPHABET, CODE_LENGTH } = require("../src/utils/accessCode");
+const {
+  accessCodeLookup,
+  ALPHABET,
+  CODE_LENGTH,
+  decryptAccessCode,
+  encryptAccessCode,
+} = require("../src/utils/accessCode");
 const User = require("../src/models/user.model");
 const Profile = require("../src/models/profile.model");
 const Preference = require("../src/models/preference.model");
@@ -45,6 +51,7 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
 
   beforeEach(async () => {
     delete process.env.ALLOW_CODE_LOGIN;
+    delete process.env.ACCESS_CODE_KEY;
     for (const collection of Object.values(mongoose.connection.collections)) {
       await collection.deleteMany({});
     }
@@ -62,7 +69,7 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
 
   const createMember = (headers, body) => request(app).post("/api/admin/members").set(headers).send(body);
 
-  it("stores an indexed hmac of the access code and returns the code once", async () => {
+  it("stores the access code encrypted and shows it to an admin, not to a member", async () => {
     const { admin, headers } = await createAdmin();
     const created = await createMember(headers, {
       name: "דוד חדש",
@@ -81,23 +88,29 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(created.body.user.credentialSetupRequired, true);
     assert.equal(String(created.body.user.createdBy._id), String(admin._id));
     assert.equal(created.body.user.createdBy.name, ADMIN_NAME);
-    assert.equal(JSON.stringify(created.body.user).includes(created.body.accessCode), false);
+    assert.equal(created.body.user.accessCode, created.body.accessCode);
+    assert.equal(created.body.user.password, undefined);
     assert.equal(JSON.stringify(created.body.user).includes("זיוף"), false);
     assert.equal(JSON.stringify(created.body.user).includes("ShouldNotStick"), false);
     assert.equal(JSON.stringify(created.body).includes("should-be-ignored"), false);
 
-    const stored = await User.findById(created.body.user._id).select("+password +accessCodeLookup").lean();
+    const stored = await User.findById(created.body.user._id).select("+password +accessCodeLookup +accessCodeCipher").lean();
     assert.equal(stored.email, undefined);
     assert.equal(stored.phone, undefined);
     assert.notEqual(stored.password, created.body.accessCode);
     assert.equal(await comparePassword(created.body.accessCode, stored.password), true);
     assert.equal(stored.accessCodeLookup, accessCodeLookup(created.body.accessCode));
     assert.notEqual(stored.accessCodeLookup, created.body.accessCode);
+    assert.equal(typeof stored.accessCodeCipher, "string");
+    assert.equal(stored.accessCodeCipher.includes(created.body.accessCode), false);
+    assert.equal(decryptAccessCode(stored.accessCodeCipher), created.body.accessCode);
     assert.equal(stored.credentialSetupRequired, true);
 
     const hidden = await User.findById(created.body.user._id).lean();
     assert.equal(Object.hasOwn(hidden, "password"), false);
     assert.equal(Object.hasOwn(hidden, "accessCodeLookup"), false);
+    assert.equal(Object.hasOwn(hidden, "accessCodeCipher"), false);
+    assert.equal(JSON.stringify(hidden).includes(created.body.accessCode), false);
 
     const indexes = await User.collection.indexes();
     const lookupIndex = indexes.find((index) => index.key && index.key.accessCodeLookup === 1);
@@ -110,7 +123,7 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
     assert.ok(row);
     assert.equal(row.gender, "male");
     assert.equal(row.profile, null);
-    assert.equal(JSON.stringify(listed.body).includes(created.body.accessCode), false);
+    assert.equal(row.accessCode, created.body.accessCode);
 
     const summary = await request(app).get("/api/admin/summary").set(headers);
     assert.equal(summary.body.boys.total, 1);
@@ -118,7 +131,29 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
     const opened = await request(app).get(`/api/admin/users/${created.body.user._id}/profile`).set(headers);
     assert.equal(opened.status, 200);
     assert.equal(opened.body.user.createdBy.name, ADMIN_NAME);
-    assert.equal(JSON.stringify(opened.body).includes(created.body.accessCode), false);
+    assert.equal(opened.body.user.accessCode, created.body.accessCode);
+    assert.equal(opened.body.user.password, undefined);
+    assert.equal(JSON.stringify(opened.body).includes("accessCodeCipher"), false);
+
+    const member = await request(app).post("/api/auth/code-login").send({ code: created.body.accessCode });
+    assert.equal(member.status, 200, JSON.stringify(member.body));
+    assert.equal(member.body.user.accessCode, undefined);
+    assert.equal(JSON.stringify(member.body).includes(created.body.accessCode), false);
+    const me = await request(app).get("/api/auth/me").set(auth(member.body.token));
+    assert.equal(me.status, 200);
+    assert.equal(JSON.stringify(me.body).includes(created.body.accessCode), false);
+
+    const stranger = await User.create({
+      name: "צופה קוד",
+      email: "code-viewer@example.test",
+      password: PASSWORD,
+      gender: "female",
+      role: "user",
+    });
+    const seen = await request(app).get(`/api/profile/${created.body.user._id}`).set(auth(tokenFor(stranger)));
+    assert.equal(JSON.stringify(seen.body).includes(created.body.accessCode), false);
+    const denied = await request(app).get("/api/admin/users").set(auth(tokenFor(stranger)));
+    assert.equal(denied.status, 403);
   });
 
   it("saves a full profile and preferences without a phone, and the member is matchable", async () => {
@@ -295,6 +330,17 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
     const profile = await request(app).get("/api/profile/me").set(auth(setup.body.token));
     assert.equal(profile.status, 404);
 
+    const opened = await request(app).get(`/api/admin/users/${created.body.user._id}/profile`).set(headers);
+    assert.equal(opened.status, 200, JSON.stringify(opened.body));
+    assert.equal(opened.body.user.email, "david@example.test");
+    assert.equal(opened.body.user.accessCode, undefined);
+    assert.equal(JSON.stringify(opened.body).includes(code), false);
+    const cleared = await User.findById(created.body.user._id).select("+accessCodeCipher +accessCodeLookup +password").lean();
+    assert.equal(cleared.accessCodeCipher, undefined);
+    assert.equal(cleared.accessCodeLookup, undefined);
+    assert.equal(await comparePassword("secret", cleared.password), true);
+    assert.equal(await comparePassword(code, cleared.password), false);
+
     const again = await request(app).post("/api/admin/users/" + created.body.user._id + "/access-code").set(headers);
     assert.equal(again.status, 400);
     assert.equal(again.body.message, "אין קוד פעיל");
@@ -395,6 +441,106 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
     assert.equal(stored.gender, "male");
   });
 
+  it("resets access with a new code, keeps the email, and drops the old password", async () => {
+    const { headers } = await createAdmin();
+    const created = await createMember(headers, { name: "דוד חדש", gender: "male" });
+    const firstCode = created.body.accessCode;
+    const loggedIn = await request(app).post("/api/auth/code-login").send({ code: firstCode });
+    const setup = await request(app).post("/api/auth/account-setup").set(auth(loggedIn.body.token)).send({
+      email: "david-reset@example.test",
+      password: "secret",
+    });
+    assert.equal(setup.status, 200, JSON.stringify(setup.body));
+
+    const reset = await request(app).post(`/api/admin/users/${created.body.user._id}/access-reset`).set(headers);
+    assert.equal(reset.status, 200, JSON.stringify(reset.body));
+    assert.match(reset.body.accessCode, codePattern);
+    assert.notEqual(reset.body.accessCode, firstCode);
+    assert.equal(reset.body.password, undefined);
+    assert.equal(JSON.stringify(reset.body).includes("secret"), false);
+
+    const stored = await User.findById(created.body.user._id).select("+password +accessCodeCipher +accessCodeLookup +tokenVersion").lean();
+    assert.equal(stored.email, "david-reset@example.test");
+    assert.equal(stored.credentialSetupRequired, true);
+    assert.equal(stored.accessCodeCipher.includes(reset.body.accessCode), false);
+    assert.equal(decryptAccessCode(stored.accessCodeCipher), reset.body.accessCode);
+    assert.equal(await comparePassword(reset.body.accessCode, stored.password), true);
+    assert.equal(await comparePassword("secret", stored.password), false);
+    assert.notEqual(stored.password, "secret");
+
+    const oldSession = await request(app).get("/api/auth/me").set(auth(setup.body.token));
+    assert.equal(oldSession.status, 401);
+    const oldPassword = await request(app).post("/api/auth/login").send({
+      email: "david-reset@example.test",
+      password: "secret",
+    });
+    assert.equal(oldPassword.status, 401);
+    const oldCode = await request(app).post("/api/auth/code-login").send({ code: firstCode });
+    assert.equal(oldCode.status, 401);
+
+    const codeLogin = await request(app).post("/api/auth/code-login").send({ code: reset.body.accessCode });
+    assert.equal(codeLogin.status, 200, JSON.stringify(codeLogin.body));
+    assert.equal(codeLogin.body.user.email, "david-reset@example.test");
+    assert.equal(codeLogin.body.user.credentialSetupRequired, true);
+    assert.equal(codeLogin.body.user.accessCode, undefined);
+    assert.equal(JSON.stringify(codeLogin.body).includes(reset.body.accessCode), false);
+
+    const listed = await request(app).get("/api/admin/users").set(headers);
+    const row = listed.body.users.find((user) => String(user._id) === String(created.body.user._id));
+    assert.equal(row.accessCode, reset.body.accessCode);
+    assert.equal(row.email, "david-reset@example.test");
+    const opened = await request(app).get(`/api/admin/users/${created.body.user._id}/profile`).set(headers);
+    assert.equal(opened.body.user.accessCode, reset.body.accessCode);
+    assert.equal(opened.body.user.email, "david-reset@example.test");
+
+    const me = await request(app).get("/api/auth/me").set(auth(codeLogin.body.token));
+    assert.equal(JSON.stringify(me.body).includes(reset.body.accessCode), false);
+
+    const again = await request(app).post("/api/auth/account-setup").set(auth(codeLogin.body.token)).send({
+      email: "david-reset@example.test",
+      password: "next-secret",
+    });
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    assert.equal(again.body.user.email, "david-reset@example.test");
+    assert.equal(again.body.user.credentialSetupRequired, false);
+    const after = await request(app).get(`/api/admin/users/${created.body.user._id}/profile`).set(headers);
+    assert.equal(after.body.user.accessCode, undefined);
+    assert.equal(after.body.user.email, "david-reset@example.test");
+    assert.equal(JSON.stringify(after.body).includes(reset.body.accessCode), false);
+    const gone = await User.findById(created.body.user._id).select("+accessCodeCipher +password").lean();
+    assert.equal(gone.accessCodeCipher, undefined);
+    assert.equal(await comparePassword("next-secret", gone.password), true);
+
+    const emailLogin = await request(app).post("/api/auth/login").send({
+      email: "david-reset@example.test",
+      password: "next-secret",
+    });
+    assert.equal(emailLogin.status, 200);
+    const retired = await request(app).post("/api/auth/code-login").send({ code: reset.body.accessCode });
+    assert.equal(retired.status, 401);
+  });
+
+  it("derives the encryption key from ACCESS_CODE_KEY, or from JWT_SECRET when that is unset", () => {
+    const sample = "ABCDEFGHJKLMNPQR";
+    delete process.env.ACCESS_CODE_KEY;
+    const fromJwt = encryptAccessCode(sample);
+    assert.equal(fromJwt.includes(sample), false);
+    assert.equal(decryptAccessCode(fromJwt), sample);
+    assert.notEqual(encryptAccessCode(sample), fromJwt);
+
+    process.env.ACCESS_CODE_KEY = "dedicated-test-key";
+    try {
+      const fromDedicated = encryptAccessCode(sample);
+      assert.notEqual(fromDedicated, fromJwt);
+      assert.equal(decryptAccessCode(fromDedicated), sample);
+      delete process.env.ACCESS_CODE_KEY;
+      assert.throws(() => decryptAccessCode(fromDedicated));
+      assert.equal(decryptAccessCode(fromJwt), sample);
+    } finally {
+      delete process.env.ACCESS_CODE_KEY;
+    }
+  });
+
   it("replaces the code when an admin generates a new one", async () => {
     const { headers } = await createAdmin();
     const created = await createMember(headers, { name: "דוד חדש", gender: "male" });
@@ -405,6 +551,11 @@ describe("admin-created users", { concurrency: 1, timeout: 180000 }, () => {
     assert.match(renewed.body.accessCode, codePattern);
     assert.notEqual(renewed.body.accessCode, firstCode);
     assert.equal(JSON.stringify(renewed.body).includes(firstCode), false);
+    const opened = await request(app).get(`/api/admin/users/${created.body.user._id}/profile`).set(headers);
+    assert.equal(opened.body.user.accessCode, renewed.body.accessCode);
+    const stored = await User.findById(created.body.user._id).select("+accessCodeCipher").lean();
+    assert.equal(stored.accessCodeCipher.includes(renewed.body.accessCode), false);
+    assert.equal(decryptAccessCode(stored.accessCodeCipher), renewed.body.accessCode);
 
     const oldLogin = await request(app).post("/api/auth/code-login").send({ code: firstCode });
     assert.equal(oldLogin.status, 401);

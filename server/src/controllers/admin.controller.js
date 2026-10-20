@@ -14,6 +14,7 @@ const {
   createAdminCandidate,
   createAdminMember,
   regenerateAccessCode,
+  resetMemberAccess,
   createAdminMatchmaker,
   resetUserPassword,
 } = require("../services/admin.service");
@@ -96,6 +97,11 @@ const postAccessCode = async (req, res) => {
   res.status(200).json(result);
 };
 
+const postAccessReset = async (req, res) => {
+  const result = await resetMemberAccess(req.params.userId);
+  res.status(200).json(result);
+};
+
 const postMatchmaker = async (req, res) => {
   const member = await createAdminMatchmaker(req.body || {});
   res.status(201).json({ member });
@@ -122,6 +128,7 @@ module.exports = {
   postCandidate,
   postMember,
   postAccessCode,
+  postAccessReset,
   postMatchmaker,
   putUserPassword,
 };

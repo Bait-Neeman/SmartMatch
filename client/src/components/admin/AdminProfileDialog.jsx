@@ -23,7 +23,7 @@ import {
 import { ABOUT_ME_TITLE, EXCLUDE_INCOMPLETE_LABEL, lookingForTitle } from "../../utils/genderForms.js";
 import { toSafeFileUrl } from "../../utils/files.js";
 import { openProtectedFile } from "../../utils/protectedFile.js";
-import { regenerateAdminAccessCode, resetAdminUserPassword } from "../../services/admin.service.js";
+import { regenerateAdminAccessCode, resetAdminMemberAccess, resetAdminUserPassword } from "../../services/admin.service.js";
 import { pendingCopy } from "../../copy/pendingCopy.js";
 import AccessCodePanel from "../common/AccessCodePanel.jsx";
 import AdminAvatar from "./AdminAvatar.jsx";
@@ -103,6 +103,20 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
     setAccessCode("");
     setCodeError("");
   }
+  const shownCode = accessCode || user?.accessCode || "";
+
+  const issueCode = async (request) => {
+    setCodeError("");
+    setCodeBusy(true);
+    try {
+      const result = await request(userId);
+      setAccessCode(result?.accessCode || "");
+    } catch (error) {
+      setCodeError(error?.message || pendingCopy.resetAccess);
+    } finally {
+      setCodeBusy(false);
+    }
+  };
 
   const closeReset = () => {
     setResetOpen(false);
@@ -232,7 +246,16 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
               </Button>
             ) : null}
 
-            {accessCode ? <AccessCodePanel code={accessCode} /> : null}
+            {shownCode ? (
+              <AccessCodePanel code={shownCode} />
+            ) : (
+              <Box sx={{ p: 2, borderRadius: "14px", border: `1px solid ${brand.line}` }}>
+                <Typography sx={{ color: brand.mut, fontSize: 14 }}>אימייל</Typography>
+                <Typography dir="ltr" sx={{ color: brand.navy, fontWeight: 700, mt: 0.5, textAlign: "left" }}>
+                  {user?.email || "—"}
+                </Typography>
+              </Box>
+            )}
             {codeError ? <Alert severity="error">{codeError}</Alert> : null}
 
             {user?.createdBy?._id ? (
@@ -244,24 +267,18 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
         )}
       </DialogContent>
       <DialogActions>
-        {userId && user?.credentialSetupRequired ? (
+        {userId && (user?.credentialSetupRequired || shownCode) ? (
           <Button
             disabled={codeBusy}
-            onClick={async () => {
-              setCodeError("");
-              setCodeBusy(true);
-              try {
-                const result = await regenerateAdminAccessCode(userId);
-                setAccessCode(result?.accessCode || "");
-              } catch (error) {
-                setCodeError(error?.message || pendingCopy.regenerateCode);
-              } finally {
-                setCodeBusy(false);
-              }
-            }}
+            onClick={() => issueCode(regenerateAdminAccessCode)}
             sx={{ color: brand.goldDark, fontWeight: 600 }}
           >
             {pendingCopy.regenerateCode}
+          </Button>
+        ) : null}
+        {userId ? (
+          <Button disabled={codeBusy} onClick={() => issueCode(resetAdminMemberAccess)} sx={{ color: brand.goldDark, fontWeight: 600 }}>
+            {pendingCopy.resetAccess}
           </Button>
         ) : null}
         {userId ? (

@@ -17,6 +17,7 @@ const {
   postCandidate,
   postMember,
   postAccessCode,
+  postAccessReset,
   postMatchmaker,
   putUserPassword,
 } = require("../controllers/admin.controller");
@@ -45,5 +46,6 @@ router.get("/users", getUsers);
 router.get("/users/:userId/profile", getUserProfile);
 router.put("/users/:userId/password", putUserPassword);
 router.post("/users/:userId/access-code", postAccessCode);
+router.post("/users/:userId/access-reset", postAccessReset);
 
 module.exports = router;
