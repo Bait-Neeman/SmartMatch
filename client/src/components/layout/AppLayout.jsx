@@ -29,7 +29,7 @@ import {
   Settings,
 } from "@mui/icons-material";
 import { getSession, identityComplete, logout } from "../../utils/session.js";
-import useMyGender from "../../hooks/useMyGender.js";
+import { useMyPortrait } from "../../hooks/useMyGender.js";
 import { brand } from "../../theme/tokens.js";
 import BrandLogo from "./BrandLogo.jsx";
 import TopBar from "./TopBar.jsx";
@@ -151,7 +151,7 @@ export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { user, isAdmin } = getSession();
-  const gender = useMyGender();
+  const { gender, image, photoCrop } = useMyPortrait();
   const links = isAdmin ? ADMIN_LINKS : USER_LINKS;
   const identity = isAdmin ? { name: user?.name || "מנהל", subtitle: "שדכן · מנהל מערכת" } : null;
   const logoutLabel = isAdmin ? "יציאה" : "התנתקות";
@@ -241,6 +241,8 @@ export default function AppLayout() {
               isAdmin={isAdmin}
               name={user?.name || ""}
               gender={gender}
+              image={image}
+              photoCrop={photoCrop}
               searchSlot={isAdmin ? <AdminSearch /> : null}
               onMobileSearch={setMobileSearchOpen}
             />

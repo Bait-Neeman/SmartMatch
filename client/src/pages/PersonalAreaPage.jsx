@@ -23,7 +23,6 @@ import {
   updatePreferences,
 } from "../services/preference.service.js";
 import {
-  getImageFileError,
   getResumeFileError,
   IMAGE_ACCEPT,
   isAppFileUrl,
@@ -67,7 +66,11 @@ import {
   NO_YESHIVA_PREFERENCE,
   ABOUT_ME_TITLE,
 } from "../utils/genderForms.js";
-import ProtectedImage from "../components/common/ProtectedFile.jsx";
+import CroppedPhoto from "../components/common/CroppedPhoto.jsx";
+import PhotoCropDialog from "../components/profile/PhotoCropDialog.jsx";
+import useProfilePhoto from "../hooks/useProfilePhoto.js";
+import { pendingCopy } from "../copy/pendingCopy.js";
+import { notifyPortraitChanged } from "../utils/photoCrop.js";
 import StatusPill from "../components/common/StatusPill.jsx";
 import { FormSkeleton } from "../components/common/PageSkeleton.jsx";
 
@@ -160,13 +163,6 @@ const photoFrameSx = {
   overflow: "hidden",
   boxShadow: brand.shadow,
   bgcolor: brand.avatar,
-};
-
-const photoImgSx = {
-  width: "100%",
-  height: "100%",
-  objectFit: "cover",
-  display: "block",
 };
 
 const outlineGoldSx = {
@@ -339,13 +335,17 @@ function FormActions({ submitting, saveLabel, onCancel }) {
   );
 }
 
-function PhotoFrame({ src, alt, onOpen, gender }) {
-  let picture = <PersonAvatar gender={gender} size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />;
-  if (src && isAppFileUrl(src)) {
-    picture = <ProtectedImage url={src} alt={alt} sx={photoImgSx} />;
-  } else if (src) {
-    picture = <Box component="img" src={src} alt={alt} sx={photoImgSx} />;
-  }
+function PhotoFrame({ src, crop, alt, onOpen, gender }) {
+  const picture = src ? (
+    <CroppedPhoto
+      src={isAppFileUrl(src) ? "" : src}
+      url={isAppFileUrl(src) ? src : ""}
+      crop={crop}
+      alt={alt}
+    />
+  ) : (
+    <PersonAvatar gender={gender} size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
+  );
 
   const frame = <Box sx={photoFrameSx}>{picture}</Box>;
   if (!onOpen) return frame;
@@ -916,9 +916,17 @@ export default function PersonalAreaPage() {
     return FORM_SECTIONS.includes(requested) ? requested : null;
   });
 
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState("");
   const [pdfFile, setPdfFile] = useState(null);
+  const photo = useProfilePhoto({
+    savedUrl: toSafeFileUrl(profileData?.image),
+    savedCrop: profileData?.photoCrop,
+    onSaveExisting: async (crop) => {
+      const updated = await updateProfile({ photoCrop: crop });
+      const next = updated?.profile;
+      if (next) setProfileData(next);
+      notifyPortraitChanged();
+    },
+  });
 
   const [loadingData, setLoadingData] = useState(canLoadData);
   const [submitting, setSubmitting] = useState(false);
@@ -1120,18 +1128,12 @@ export default function PersonalAreaPage() {
     setOpenForm((current) => (current === name ? null : name));
   };
 
-  const clearImagePreview = () => {
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview("");
-  };
-
   // Close the form and go back to the top of the page
   const closeForm = () => {
     setOpenForm(null);
     setFormError("");
     setFileError("");
-    clearImagePreview();
-    setImageFile(null);
+    photo.reset();
     setPdfFile(null);
     if (searchParams.has("edit")) {
       setSearchParams({}, { replace: true });
@@ -1152,9 +1154,7 @@ export default function PersonalAreaPage() {
       append(formData, key, value);
     }
 
-    if (imageFile) {
-      formData.append("image", imageFile);
-    }
+    photo.appendTo(formData);
 
     if (pdfFile) {
       formData.append("resumePdf", pdfFile);
@@ -1175,6 +1175,7 @@ export default function PersonalAreaPage() {
       rememberUser({ name: data.fullName.trim(), gender: data.gender || profileData?.gender });
       fillProfileForm(response?.profile || response);
       closeForm();
+      notifyPortraitChanged();
       setSuccessMessage("הפרופיל נשמר בהצלחה");
     } catch (error) {
       setFormError(error.message || "לא הצלחנו לשמור את הפרופיל");
@@ -1208,16 +1209,6 @@ export default function PersonalAreaPage() {
     }
   };
 
-  const onPickImage = (event) => {
-    const file = event.target.files?.[0] || null;
-    const error = file ? getImageFileError(file) : "";
-    setFileError(error);
-    const nextFile = error ? null : file;
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImagePreview(nextFile ? URL.createObjectURL(nextFile) : "");
-    setImageFile(nextFile);
-  };
-
   const onPickPdf = (event) => {
     const file = event.target.files?.[0] || null;
     const error = file ? getResumeFileError(file) : "";
@@ -1249,7 +1240,7 @@ export default function PersonalAreaPage() {
 
   const imageUrl = toSafeFileUrl(profileData?.image);
   const resumeUrl = toSafeFileUrl(profileData?.resumePdf);
-  const shownImage = imagePreview || imageUrl;
+  const shownImage = photo.shownSrc;
   const subtitle = profileSubtitle(profileData);
   const editingProfile = openForm === "profile";
 
@@ -1326,20 +1317,21 @@ export default function PersonalAreaPage() {
           >
             <PhotoFrame
               src={shownImage}
+              crop={photo.shownCrop}
               alt={user?.name ? `תמונה של ${user.name}` : "תמונת פרופיל"}
               gender={profileData?.gender}
-              onOpen={imageUrl && !imagePreview ? onViewFile : undefined}
+              onOpen={imageUrl && !photo.file ? onViewFile : undefined}
             />
             {editingProfile ? (
               <Button
                 component="label"
                 variant="outlined"
                 fullWidth
-                disabled={submitting}
+                disabled={submitting || photo.busy}
                 startIcon={<StrokeIcon name="camera" size={17} />}
               >
                 {shownImage ? "החלפת תמונה" : "העלאת תמונה"}
-                <input hidden type="file" accept={IMAGE_ACCEPT} onChange={onPickImage} />
+                <input hidden type="file" accept={IMAGE_ACCEPT} onChange={photo.onPickFile} />
               </Button>
             ) : (
               <Button
@@ -1351,9 +1343,14 @@ export default function PersonalAreaPage() {
                 {shownImage ? "החלפת תמונה" : "העלאת תמונה"}
               </Button>
             )}
-            {imageFile && (
+            {shownImage ? (
+              <Button variant="outlined" fullWidth disabled={submitting || photo.busy} onClick={photo.openEditor}>
+                {pendingCopy.photoCropEdit}
+              </Button>
+            ) : null}
+            {photo.file && (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                נבחר: {imageFile.name}
+                נבחר: {photo.file.name}
               </Typography>
             )}
             {!shownImage && (
@@ -1361,8 +1358,8 @@ export default function PersonalAreaPage() {
                 לא הועלתה תמונה
               </Typography>
             )}
-            {fileError && !editingProfile && (
-              <Alert severity="error">{fileError}</Alert>
+            {(photo.error || (fileError && !editingProfile)) && (
+              <Alert severity="error">{photo.error || fileError}</Alert>
             )}
             <Typography
               component="div"
@@ -1502,6 +1499,14 @@ export default function PersonalAreaPage() {
           {successMessage}
         </Alert>
       </Snackbar>
+      <PhotoCropDialog
+        open={Boolean(photo.dialog)}
+        src={photo.dialog?.src || ""}
+        initialCrop={photo.dialog?.initialCrop}
+        saving={photo.busy}
+        onCancel={photo.closeDialog}
+        onSave={photo.saveDialog}
+      />
     </Box>
   );
 }

@@ -94,6 +94,7 @@ const IDENTITY_KEYS = [
   "photoUrl",
   "resumeUrl",
   "imageUrl",
+  "photoCrop",
   "workplace",
 ];
 

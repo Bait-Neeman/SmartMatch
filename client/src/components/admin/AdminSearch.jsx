@@ -152,7 +152,7 @@ export default function AdminSearch() {
               onClick={() => openCandidate(person)}
               sx={resultSx}
             >
-              <AdminAvatar image={person.image} gender={person.gender} size={40} rounded="10px" />
+              <AdminAvatar image={person.image} crop={person.photoCrop} gender={person.gender} size={40} rounded="10px" />
               <Box sx={{ minWidth: 0, textAlign: "start" }}>
                 <b>{person.name}</b>
                 <small>

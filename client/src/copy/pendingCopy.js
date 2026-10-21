@@ -20,4 +20,10 @@ export const pendingCopy = {
   sectionFilters: "סינון",
   bottomNavLabel: "ניווט תחתון",
   hideFemalePhotos: "הסתרת תמונות של בנות",
+  photoCropTitle: "מיקוד התמונה",
+  photoCropHint: "גרור וזום",
+  photoCropEdit: "עריכת מיקוד",
+  photoCropZoom: "זום",
+  photoCropInvalid: "ערך לא תקין במיקוד התמונה",
+  photoCropRequired: "יש לבחור את אזור התמונה",
 };

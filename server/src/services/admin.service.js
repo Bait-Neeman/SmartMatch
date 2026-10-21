@@ -16,6 +16,7 @@ const { comparePassword } = require("../utils/hash");
 const { generateToken } = require("../config/jwt");
 const { STYLES, APPEARANCES, ETHNICITIES, MARITAL_STATUSES } = require("../models/options");
 const { fileAccessPath } = require("./storage.service");
+const { presentPhotoCrop } = require("../utils/photoCrop");
 const { toOwnerProfile } = require("./profile.service");
 const { getCandidatesForUser, computeMatchPercent } = require("./match.service");
 const AdminStaff = require("../models/adminStaff.model");
@@ -113,9 +114,17 @@ const toAdminPreference = (preference) => {
 
 // A female member's photo is left out when this admin has asked to hide those photos.
 // The resume path stays. Missing the flag, or any other gender, keeps the photo path.
+// The crop is left out with the photo so a hidden picture cannot be framed.
+const femalePhotoHidden = (profile, hideFemalePhotos) => Boolean(hideFemalePhotos && profile?.gender === "female");
+
 const adminImagePath = (userId, profile, hideFemalePhotos) => {
-  if (hideFemalePhotos && profile?.gender === "female") return null;
+  if (femalePhotoHidden(profile, hideFemalePhotos)) return null;
   return fileAccessPath(userId, "image", profile?.image);
+};
+
+const adminPhotoCrop = (profile, hideFemalePhotos) => {
+  if (femalePhotoHidden(profile, hideFemalePhotos)) return null;
+  return presentPhotoCrop(profile?.photoCrop);
 };
 
 const toAdminProfile = (userId, profile, hideFemalePhotos = false) => {
@@ -130,6 +139,7 @@ const toAdminProfile = (userId, profile, hideFemalePhotos = false) => {
     ),
     image: adminImagePath(userId, profile, hideFemalePhotos),
     resumePdf: fileAccessPath(userId, "resumePdf", profile.resumePdf),
+    photoCrop: adminPhotoCrop(profile, hideFemalePhotos),
   };
 };
 
@@ -148,6 +158,7 @@ const toAdminPerson = (user, profile, preference, hideFemalePhotos = false) => {
     gender: profile?.gender || "",
     image: adminImagePath(id, profile, hideFemalePhotos),
     resumePdf: fileAccessPath(id, "resumePdf", profile?.resumePdf),
+    photoCrop: adminPhotoCrop(profile, hideFemalePhotos),
     profile: toAdminProfile(id, profile, hideFemalePhotos),
     preference: toAdminPreference(preference),
   };
@@ -198,6 +209,12 @@ const readSettings = async (adminId) => {
     hideFemalePhotos: stored.hideFemalePhotos === true,
     activityArea: stored.activityArea || "",
   };
+};
+
+// The saved profile still has the file. This admin's response does not.
+const withoutHiddenFemalePhoto = async (adminId, profile) => {
+  if (!profile || profile.gender !== "female" || !(await femalePhotosHidden(adminId))) return profile;
+  return { ...profile, image: null, photoCrop: null };
 };
 
 const femalePhotosHidden = async (adminId) => {
@@ -367,8 +384,9 @@ const getUserProfileForAdmin = async (userId, adminId) => {
   ]);
 
   const ownerProfile = profile ? await toOwnerProfile(profile) : null;
-  if (ownerProfile && hideFemalePhotos && ownerProfile.gender === "female") {
+  if (ownerProfile && femalePhotoHidden(ownerProfile, hideFemalePhotos)) {
     ownerProfile.image = null;
+    ownerProfile.photoCrop = null;
   }
 
   return {
@@ -600,6 +618,7 @@ const searchAdmin = async (adminId, rawQuery) => {
       age: user.profile?.age ?? null,
       city: user.profile?.city || "",
       image: user.profile?.image || "",
+      photoCrop: user.profile?.image ? user.profile.photoCrop || null : null,
       yeshiva: user.profile?.gender === "male" ? user.profile?.yeshiva || "" : "",
       seminar: user.profile?.gender === "female" ? user.profile?.seminar || "" : "",
     }));
@@ -993,4 +1012,5 @@ module.exports = {
   createAdminCandidate,
   createAdminMatchmaker,
   resetUserPassword,
+  withoutHiddenFemalePhoto,
 };

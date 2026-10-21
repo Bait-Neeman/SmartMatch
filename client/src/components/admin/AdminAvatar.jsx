@@ -2,13 +2,16 @@ import { useSelector } from "react-redux";
 import { Box } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
-import ProtectedImage from "../common/ProtectedFile.jsx";
+import CroppedPhoto from "../common/CroppedPhoto.jsx";
 import { toSafeFileUrl } from "../../utils/files.js";
+import { readPhotoCrop } from "../../utils/photoCrop.js";
 import { selectHideFemalePhotos } from "../../store/slices/adminSlice.js";
 
-export default function AdminAvatar({ image, gender, size = 48, rounded = "50%", ring = false, reveal = true }) {
+export default function AdminAvatar({ image, crop, gender, size = 48, rounded = "50%", ring = false, reveal = true }) {
   const hideFemalePhotos = useSelector(selectHideFemalePhotos);
-  const url = reveal && !(hideFemalePhotos && gender === "female") ? toSafeFileUrl(image) : "";
+  const hidden = hideFemalePhotos && gender === "female";
+  const url = reveal && !hidden ? toSafeFileUrl(image) : "";
+  const photoCrop = reveal && !hidden ? readPhotoCrop(crop) : null;
 
   return (
     <Box
@@ -24,11 +27,7 @@ export default function AdminAvatar({ image, gender, size = 48, rounded = "50%",
     >
       <PersonAvatar gender={gender} size="100%" sx={{ width: "100%", height: "100%", borderRadius: 0 }} />
       {url ? (
-        <ProtectedImage
-          url={url}
-          alt=""
-          sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        <CroppedPhoto url={url} crop={photoCrop} alt="" sx={{ position: "absolute", inset: 0 }} />
       ) : null}
     </Box>
   );

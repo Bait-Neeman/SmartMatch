@@ -25,7 +25,7 @@ const OTHER_CITY = "עיר-אחרת";
 const PUBLIC_CITY = "עיר-גלויה";
 
 const SECRETS = [RIVKA_NAME, RIVKA_EMAIL, RIVKA_PHONE, RIVKA_ID, RIVKA_IMAGE, RIVKA_RESUME, OTHER_NAME, PASSWORD];
-const IDENTITY_KEYS = ["name", "email", "phone", "idNumber", "password", "image", "resumePdf", "photo", "resume", "contact"];
+const IDENTITY_KEYS = ["name", "email", "phone", "idNumber", "password", "image", "resumePdf", "photoCrop", "photo", "resume", "contact"];
 
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 const tokenFor = (user) => generateToken(user._id, user.role || "user", user.tokenVersion || 0);

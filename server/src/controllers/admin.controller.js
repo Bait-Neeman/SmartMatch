@@ -14,7 +14,9 @@ const {
   createAdminCandidate,
   createAdminMatchmaker,
   resetUserPassword,
+  withoutHiddenFemalePhoto,
 } = require("../services/admin.service");
+const { updateProfilePhotoForUser } = require("../services/profile.service");
 
 // Admin access is checked by the requireAdmin middleware on every admin route.
 
@@ -94,6 +96,12 @@ const putUserPassword = async (req, res) => {
   res.status(200).json(result);
 };
 
+const putUserPhoto = async (req, res) => {
+  const saved = await updateProfilePhotoForUser(req.params.userId, req.body || {}, req.files);
+  const profile = await withoutHiddenFemalePhoto(req.user.userId, saved);
+  res.status(200).json({ message: "הפרופיל עודכן בהצלחה", profile });
+};
+
 module.exports = {
   getPending,
   getSuggestions,
@@ -110,4 +118,5 @@ module.exports = {
   postCandidate,
   postMatchmaker,
   putUserPassword,
+  putUserPhoto,
 };

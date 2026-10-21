@@ -20,6 +20,8 @@ const BOY_PHOTO = "secret-hide-photo-boy";
 const GIRL_PHOTO = "secret-hide-photo-girl";
 const BOY_RESUME = "secret-hide-resume-boy";
 const GIRL_RESUME = "secret-hide-resume-girl";
+const GIRL_CROP = { x: 12, y: 8, width: 40, height: 55, zoom: 1.6 };
+const BOY_CROP = { x: 5, y: 5, width: 50, height: 50, zoom: 1.2 };
 
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 const tokenFor = (user) => generateToken(user._id, user.role);
@@ -96,6 +98,7 @@ describe("hide female photos", () => {
         yeshiva: "ישיבה גבוהה",
         image: BOY_PHOTO,
         resumePdf: BOY_RESUME,
+        photoCrop: BOY_CROP,
       },
       {
         user: girl._id,
@@ -105,6 +108,7 @@ describe("hide female photos", () => {
         seminar: "סמינר",
         image: GIRL_PHOTO,
         resumePdf: GIRL_RESUME,
+        photoCrop: GIRL_CROP,
       },
     ]);
 
@@ -136,6 +140,8 @@ describe("hide female photos", () => {
     const boy = users.body.users.find((user) => String(user._id) === String(fixture.boy._id));
     assert.equal(girl.profile.image, imagePath(fixture.girl));
     assert.equal(boy.profile.image, imagePath(fixture.boy));
+    assert.deepEqual(girl.profile.photoCrop, GIRL_CROP);
+    assert.deepEqual(boy.profile.photoCrop, BOY_CROP);
 
     const photo = await openFile(fixture.girl, "image", headers);
     assert.equal(photo.status, 200);
@@ -181,18 +187,22 @@ describe("hide female photos", () => {
     const girlRow = users.body.users.find((user) => String(user._id) === String(fixture.girl._id));
     const boyRow = users.body.users.find((user) => String(user._id) === String(fixture.boy._id));
     assert.equal(girlRow.profile.image, null);
+    assert.equal(girlRow.profile.photoCrop, null);
     assert.equal(girlRow.profile.resumePdf, resumePath(fixture.girl));
     assert.equal(boyRow.profile.image, boyImage);
+    assert.deepEqual(boyRow.profile.photoCrop, BOY_CROP);
     assert.equal(containsGirlPhoto(users.body), false);
     assert.equal(containsBoyPhoto(users.body), true);
 
     const otherUsers = await request(app).get("/api/admin/users").set(otherHeaders);
     const otherGirl = otherUsers.body.users.find((user) => String(user._id) === String(fixture.girl._id));
     assert.equal(otherGirl.profile.image, girlImage);
+    assert.deepEqual(otherGirl.profile.photoCrop, GIRL_CROP);
 
     const girlProfile = await request(app).get(`/api/admin/users/${fixture.girl._id}/profile`).set(headers);
     assert.equal(girlProfile.status, 200);
     assert.equal(girlProfile.body.profile.image, null);
+    assert.equal(girlProfile.body.profile.photoCrop, null);
     assert.equal(girlProfile.body.profile.resumePdf, resumePath(fixture.girl));
     assert.equal(girlProfile.body.profile.gender, "female");
     assert.equal(containsGirlPhoto(girlProfile.body), false);
@@ -211,7 +221,9 @@ describe("hide female photos", () => {
     assert.equal(containsBoyPhoto(cases.body), true);
     const stageCase = cases.body.cases[0];
     assert.equal(stageCase.sender.gender === "female" ? stageCase.sender.image : stageCase.receiver.image, null);
+    assert.equal(stageCase.sender.gender === "female" ? stageCase.sender.photoCrop : stageCase.receiver.photoCrop, null);
     assert.equal(stageCase.sender.gender === "male" ? stageCase.sender.image : stageCase.receiver.image, boyImage);
+    assert.equal(JSON.stringify(cases.body).includes(`"zoom":${GIRL_CROP.zoom}`), false);
 
     const summary = await request(app).get("/api/admin/summary").set(headers);
     assert.equal(summary.status, 200);
@@ -228,7 +240,9 @@ describe("hide female photos", () => {
     assert.equal(search.body.candidates.length, 1);
     assert.equal(search.body.candidates[0].gender, "female");
     assert.equal(search.body.candidates[0].image, "");
+    assert.equal(search.body.candidates[0].photoCrop, null);
     assert.equal(containsGirlPhoto(search.body), false);
+    assert.equal(JSON.stringify(search.body).includes(String(GIRL_CROP.zoom)), false);
 
     const updated = await request(app)
       .patch(`/api/admin/cases/${fixture.interest._id}`)
@@ -237,6 +251,18 @@ describe("hide female photos", () => {
     assert.equal(updated.status, 200);
     assert.equal(containsGirlPhoto(updated.body), false);
     assert.equal(containsBoyPhoto(updated.body), true);
+
+    const edited = await request(app)
+      .put(`/api/admin/users/${fixture.girl._id}/photo`)
+      .set(headers)
+      .send({ photoCrop: { ...GIRL_CROP, zoom: 1.7 } });
+    assert.equal(edited.status, 200, JSON.stringify(edited.body));
+    assert.equal(edited.body.profile.image, null);
+    assert.equal(edited.body.profile.photoCrop, null);
+    assert.equal(JSON.stringify(edited.body).includes("1.7"), false);
+    const stillStored = await Profile.findOne({ user: fixture.girl._id }).lean();
+    assert.equal(stillStored.image, GIRL_PHOTO);
+    assert.equal(stillStored.photoCrop.zoom, 1.7);
 
     const hiddenPhoto = await openFile(fixture.girl, "image", headers);
     assert.equal(hiddenPhoto.status, 404);

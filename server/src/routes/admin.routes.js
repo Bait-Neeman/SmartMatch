@@ -17,7 +17,9 @@ const {
   postCandidate,
   postMatchmaker,
   putUserPassword,
+  putUserPhoto,
 } = require("../controllers/admin.controller");
+const { profileUpload } = require("../middleware/upload.middleware");
 
 const { protect, requireAdmin } = require("../middleware/auth.middleware");
 
@@ -41,5 +43,6 @@ router.delete("/pending-match", removePending);
 router.get("/users", getUsers);
 router.get("/users/:userId/profile", getUserProfile);
 router.put("/users/:userId/password", putUserPassword);
+router.put("/users/:userId/photo", profileUpload, putUserPhoto);
 
 module.exports = router;

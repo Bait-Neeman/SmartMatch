@@ -1,4 +1,5 @@
 const { fileAccessPath } = require("./storage.service");
+const { presentPhotoCrop } = require("../utils/photoCrop");
 
 // Shown before both sides have accepted. Name, photo, resume, and contact details are not.
 //
@@ -54,6 +55,7 @@ const IDENTITY_KEYS = new Set([
   "photoUrl",
   "resumeUrl",
   "imageUrl",
+  "photoCrop",
   "resumeSize",
   "resumeUploadedAt",
   "workplace",
@@ -116,6 +118,8 @@ const toPublicPerson = (user, profile, { revealIdentity }) => {
     // Stable file paths. Opening them checks that the match is still accepted.
     person.image = fileAccessPath(id, "image", plainProfile?.image);
     person.resumePdf = fileAccessPath(id, "resumePdf", plainProfile?.resumePdf);
+    const photoCrop = presentPhotoCrop(plainProfile?.photoCrop);
+    if (photoCrop) person.photoCrop = photoCrop;
     if (plainProfile?.resumeSize != null) person.resumeSize = plainProfile.resumeSize;
     if (plainProfile?.resumeUploadedAt) person.resumeUploadedAt = plainProfile.resumeUploadedAt;
     if (plainProfile?.workplace) person.workplace = plainProfile.workplace;

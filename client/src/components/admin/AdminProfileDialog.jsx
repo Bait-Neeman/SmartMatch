@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDispatch } from "react-redux";
 import {
   Alert,
   Box,
@@ -21,9 +22,13 @@ import {
   styleOptions,
 } from "../../constants/profileOptions.js";
 import { ABOUT_ME_TITLE, EXCLUDE_INCOMPLETE_LABEL, lookingForTitle } from "../../utils/genderForms.js";
-import { toSafeFileUrl } from "../../utils/files.js";
+import { IMAGE_ACCEPT, toSafeFileUrl } from "../../utils/files.js";
 import { openProtectedFile } from "../../utils/protectedFile.js";
-import { resetAdminUserPassword } from "../../services/admin.service.js";
+import { resetAdminUserPassword, updateAdminMemberPhoto } from "../../services/admin.service.js";
+import { memberPhotoSaved } from "../../store/slices/adminSlice.js";
+import { pendingCopy } from "../../copy/pendingCopy.js";
+import useProfilePhoto from "../../hooks/useProfilePhoto.js";
+import PhotoCropDialog from "../profile/PhotoCropDialog.jsx";
 import AdminAvatar from "./AdminAvatar.jsx";
 import { formatDotDate } from "./format.js";
 
@@ -74,6 +79,60 @@ const Section = ({ title, children }) => (
   </Box>
 );
 
+function AdminMemberPhoto({ userId, profile, gender }) {
+  const dispatch = useDispatch();
+  const [saved, setSaved] = useState(null);
+  const live = saved || profile;
+  const image = toSafeFileUrl(live?.image);
+  const photo = useProfilePhoto({
+    savedUrl: image,
+    savedCrop: live?.photoCrop,
+    onSaveExisting: async (crop) => {
+      const data = await updateAdminMemberPhoto(userId, { photoCrop: crop });
+      setSaved(data.profile);
+      dispatch(memberPhotoSaved({ userId, profile: data.profile }));
+    },
+    onSaveNew: async (file, crop) => {
+      const form = new FormData();
+      form.append("image", file);
+      form.append("photoCrop", JSON.stringify(crop));
+      const data = await updateAdminMemberPhoto(userId, form);
+      setSaved(data.profile);
+      dispatch(memberPhotoSaved({ userId, profile: data.profile }));
+    },
+  });
+
+  return (
+    <>
+      <Box sx={{ width: { xs: "100%", sm: 220 }, height: 260, flex: "none" }}>
+        <AdminAvatar image={image} crop={live?.photoCrop} gender={gender} size="100%" rounded="18px" ring />
+        {gender ? (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1.25 }}>
+            <Button component="label" variant="outlined" disabled={photo.busy}>
+              {image ? "החלפת תמונה" : "העלאת תמונה"}
+              <input hidden type="file" accept={IMAGE_ACCEPT} onChange={photo.onPickFile} />
+            </Button>
+            {image ? (
+              <Button variant="outlined" disabled={photo.busy} onClick={photo.openEditor}>
+                {pendingCopy.photoCropEdit}
+              </Button>
+            ) : null}
+            {photo.error ? <Alert severity="error">{photo.error}</Alert> : null}
+          </Box>
+        ) : null}
+      </Box>
+      <PhotoCropDialog
+        open={Boolean(photo.dialog)}
+        src={photo.dialog?.src || ""}
+        initialCrop={photo.dialog?.initialCrop}
+        saving={photo.busy}
+        onCancel={photo.closeDialog}
+        onSave={photo.saveDialog}
+      />
+    </>
+  );
+}
+
 export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const user = data?.user;
   const profile = data?.profile;
@@ -81,10 +140,9 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
   const gender = profile?.gender === "female" || profile?.gender === "male" ? profile.gender : "";
   const female = gender === "female";
   const male = gender === "male";
-  const image = toSafeFileUrl(profile?.image);
-  const resume = toSafeFileUrl(profile?.resumePdf);
   const title = user?.name || "פרופיל";
   const userId = user?._id ? String(user._id) : "";
+  const resume = toSafeFileUrl(profile?.resumePdf);
   const [resetOpen, setResetOpen] = useState(false);
   const [nextPassword, setNextPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -137,9 +195,7 @@ export default function AdminProfileDialog({ open, onClose, data, loading }) {
         ) : (
           <Stack spacing={2.5}>
             <Box sx={{ display: "flex", gap: 2.5, alignItems: "flex-start", flexWrap: "wrap" }}>
-              <Box sx={{ width: { xs: "100%", sm: 220 }, height: 260, flex: "none" }}>
-                <AdminAvatar image={image} gender={gender} size="100%" rounded="18px" ring />
-              </Box>
+              <AdminMemberPhoto key={userId || "none"} userId={userId} profile={profile} gender={gender} />
               <Box sx={{ flex: "1 1 240px", minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: 24, lineHeight: 1.2 }}>
                   {user?.name || "—"}
