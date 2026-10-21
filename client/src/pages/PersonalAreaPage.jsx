@@ -23,9 +23,10 @@ import {
   updatePreferences,
 } from "../services/preference.service.js";
 import {
-  getPdfFileError,
+  getResumeFileError,
   IMAGE_ACCEPT,
   isAppFileUrl,
+  RESUME_ACCEPT,
   toSafeFileUrl,
 } from "../utils/files.js";
 import { downloadProtectedFile, openProtectedFile } from "../utils/protectedFile.js";
@@ -395,45 +396,30 @@ function ResumeThumb() {
       <Box sx={{ ...line, width: "80%" }} />
       <Box sx={{ ...line, width: "40%", bgcolor: brand.goldMid, mt: "3px" }} />
       <Box sx={line} />
-      <Box
-        sx={{
-          mt: "auto",
-          alignSelf: "flex-end",
-          fontSize: 8,
-          fontWeight: 700,
-          lineHeight: 1.4,
-          color: "background.paper",
-          bgcolor: "error.main",
-          borderRadius: "3px",
-          px: "4px",
-        }}
-      >
-        PDF
-      </Box>
     </Box>
   );
 }
 
 function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit, onView, onDownload }) {
-  const name = pdfFile?.name || (resumeUrl ? "קורות חיים.pdf" : "");
+  const name = pdfFile?.name || (resumeUrl ? "קורות חיים" : "");
 
   const pickInput = (
     <input
       hidden
       type="file"
-      accept="application/pdf"
+      accept={RESUME_ACCEPT}
       onChange={onPick}
     />
   );
 
   const replaceButton = editing ? (
     <Button component="label" variant="outlined" size="small" sx={outlineGoldSx} startIcon={<StrokeIcon name="refresh" />}>
-      {resumeUrl || pdfFile ? "החלפה" : "העלאת קורות חיים (PDF)"}
+      {resumeUrl || pdfFile ? "החלפה" : "העלאת קורות חיים"}
       {pickInput}
     </Button>
   ) : (
     <Button type="button" variant="outlined" size="small" sx={outlineGoldSx} startIcon={<StrokeIcon name="refresh" />} onClick={onEdit}>
-      {resumeUrl ? "החלפה" : "העלאת קורות חיים (PDF)"}
+      {resumeUrl ? "החלפה" : "העלאת קורות חיים"}
     </Button>
   );
 
@@ -482,7 +468,7 @@ function ResumeBlock({ resumeUrl, pdfFile, editing, onPick, onEdit, onView, onDo
       ) : (
         <Stack direction="row" spacing={1.5} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
           <Typography component="div" color="text.disabled" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <StrokeIcon name="file" /> לא הועלה קובץ PDF
+            <StrokeIcon name="file" /> לא הועלה קובץ
           </Typography>
           {replaceButton}
         </Stack>
@@ -1225,7 +1211,7 @@ export default function PersonalAreaPage() {
 
   const onPickPdf = (event) => {
     const file = event.target.files?.[0] || null;
-    const error = file ? getPdfFileError(file) : "";
+    const error = file ? getResumeFileError(file) : "";
     setFileError(error);
     setPdfFile(error ? null : file);
   };

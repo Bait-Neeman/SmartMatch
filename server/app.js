@@ -36,6 +36,7 @@ app.use(
   cors({
     origin: (origin, callback) =>
       callback(null, !origin || allowedOrigins.includes(origin) || vercelPreviewOrigin.test(origin)),
+    exposedHeaders: ["Content-Disposition"],
   })
 );
 app.use(express.json({ limit: "100kb" }));

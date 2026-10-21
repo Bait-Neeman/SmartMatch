@@ -1,13 +1,17 @@
+import { useSelector } from "react-redux";
 import { Box } from "@mui/material";
 import { brand } from "../../theme/tokens.js";
 import PersonAvatar from "../common/PersonAvatar.jsx";
 import CroppedPhoto from "../common/CroppedPhoto.jsx";
 import { toSafeFileUrl } from "../../utils/files.js";
 import { readPhotoCrop } from "../../utils/photoCrop.js";
+import { selectHideFemalePhotos } from "../../store/slices/adminSlice.js";
 
 export default function AdminAvatar({ image, crop, gender, size = 48, rounded = "50%", ring = false, reveal = true }) {
-  const url = reveal ? toSafeFileUrl(image) : "";
-  const photoCrop = reveal ? readPhotoCrop(crop) : null;
+  const hideFemalePhotos = useSelector(selectHideFemalePhotos);
+  const hidden = hideFemalePhotos && gender === "female";
+  const url = reveal && !hidden ? toSafeFileUrl(image) : "";
+  const photoCrop = reveal && !hidden ? readPhotoCrop(crop) : null;
 
   return (
     <Box

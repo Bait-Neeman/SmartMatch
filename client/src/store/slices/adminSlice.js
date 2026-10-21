@@ -341,6 +341,7 @@ export const selectAdminCasesLoading = (state) => state.admin.loadingCases;
 export const selectAdminCasesError = (state) => state.admin.errorCases;
 export const selectAdminRevealIdentity = (state) => state.admin.revealIdentity;
 export const selectAdminSettings = (state) => state.admin.settings;
+export const selectHideFemalePhotos = (state) => state.admin.settings?.hideFemalePhotos === true;
 export const selectAdminAccount = (state) => state.admin.account;
 export const selectAdminTeam = (state) => state.admin.team;
 export const selectAdminSettingsLoading = (state) => state.admin.loadingSettings;

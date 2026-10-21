@@ -19,9 +19,9 @@ const LINES = [
 
 export default function ResumeCard({ name, url, size, uploadedAt }) {
   const [error, setError] = useState("");
-  const filename = name ? `קורות חיים – ${name}.pdf` : "קורות חיים.pdf";
+  const filename = name ? `קורות חיים – ${name}` : "קורות חיים";
   const uploaded = formatResumeDate(uploadedAt);
-  const meta = ["PDF", formatResumeSize(size), uploaded ? `הועלה ${uploaded}` : ""].filter(Boolean).join(" · ");
+  const meta = [formatResumeSize(size), uploaded ? `הועלה ${uploaded}` : ""].filter(Boolean).join(" · ");
 
   const run = async (action) => {
     try {
@@ -89,24 +89,6 @@ export default function ResumeCard({ name, url, size, uploadedAt }) {
               }}
             />
           ))}
-          <Box
-            component="span"
-            sx={{
-              position: "absolute",
-              bottom: 6,
-              left: 6,
-              fontWeight: 700,
-              fontSize: 8,
-              color: brand.paper,
-              bgcolor: brand.pillRedText,
-              borderRadius: "3px",
-              px: "4px",
-              py: "1px",
-              lineHeight: 1.4,
-            }}
-          >
-            PDF
-          </Box>
         </Box>
         <Box sx={{ display: "flex", flexDirection: "column", gap: "3px", minWidth: 0 }}>
           <Box component="b" sx={{ color: brand.navy, fontSize: 15, wordBreak: "break-word" }}>

@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import { createProfile, getMyProfile, updateProfile } from "../services/profile.service.js";
-import { getPdfFileError, IMAGE_ACCEPT, isAppFileUrl, toSafeFileUrl } from "../utils/files.js";
+import { getResumeFileError, IMAGE_ACCEPT, isAppFileUrl, RESUME_ACCEPT, resumeOpensInline, toSafeFileUrl } from "../utils/files.js";
+import { downloadProtectedFile, openProtectedFile } from "../utils/protectedFile.js";
 import { brand } from "../theme/tokens.js";
 import { buildProfileFields } from "../utils/genderForms.js";
 import GenderProfileFields from "../components/profile/GenderProfileFields.jsx";
@@ -148,21 +149,6 @@ function ResumeThumb() {
       <Box sx={{ ...line, width: "80%" }} />
       <Box sx={{ ...line, width: "40%", bgcolor: brand.goldMid, mt: "3px" }} />
       <Box sx={line} />
-      <Box
-        sx={{
-          mt: "auto",
-          alignSelf: "flex-end",
-          fontSize: 8,
-          fontWeight: 700,
-          lineHeight: 1.4,
-          color: "background.paper",
-          bgcolor: "error.main",
-          borderRadius: "3px",
-          px: "4px",
-        }}
-      >
-        PDF
-      </Box>
     </Box>
   );
 }
@@ -205,6 +191,7 @@ export default function ProfilePage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfFile, setPdfFile] = useState(null);
+  const [storedResumeUrl, setStoredResumeUrl] = useState("");
   const [resumeError, setResumeError] = useState("");
   const [savedPhoto, setSavedPhoto] = useState({ url: "", crop: null });
   const [profileExists, setProfileExists] = useState(false);
@@ -253,6 +240,7 @@ export default function ProfilePage() {
         if (ignore || !profile) return;
         setProfileExists(true);
         setSavedPhoto({ url: toSafeFileUrl(profile.image), crop: profile.photoCrop || null });
+        setStoredResumeUrl(toSafeFileUrl(profile.resumePdf));
         reset({
           fullName: data?.profile?.name || getSession().user?.name || "",
           gender: profile.gender || getSession().user?.gender || "",
@@ -289,7 +277,7 @@ export default function ProfilePage() {
 
   const handleResumeChange = (event) => {
     const file = event.target.files?.[0] || null;
-    const error = file ? getPdfFileError(file) : "";
+    const error = file ? getResumeFileError(file) : "";
     setResumeError(error);
     setPdfFile(error ? null : file);
   };
@@ -469,7 +457,7 @@ export default function ProfilePage() {
               <Typography component="h3" sx={blockTitleSx}>
                 רזומה
               </Typography>
-              {pdfFile ? (
+              {pdfFile || storedResumeUrl ? (
                 <Box
                   sx={{
                     display: "flex",
@@ -485,22 +473,52 @@ export default function ProfilePage() {
                   <ResumeThumb />
                   <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 600, color: brand.navy, fontSize: "15px", wordBreak: "break-word" }}>
-                      {pdfFile.name}
+                      {pdfFile?.name || "קורות חיים"}
                     </Typography>
                     <Stack direction="row" spacing={1} useFlexGap sx={{ mt: 1, flexWrap: "wrap" }}>
-                      {pdfPreview && (
+                      {pdfFile && pdfPreview && resumeOpensInline(pdfFile) ? (
                         <Button component="a" href={pdfPreview} target="_blank" rel="noopener" size="small" variant="outlined" startIcon={<StrokeIcon name="eye" />}>
                           צפייה
                         </Button>
-                      )}
-                      {pdfPreview && (
-                        <Button component="a" href={pdfPreview} download size="small" variant="outlined" startIcon={<StrokeIcon name="download" />}>
+                      ) : null}
+                      {!pdfFile && storedResumeUrl ? (
+                        <Button
+                          type="button"
+                          size="small"
+                          variant="outlined"
+                          startIcon={<StrokeIcon name="eye" />}
+                          onClick={() => {
+                            openProtectedFile(storedResumeUrl).catch((error) => {
+                              setResumeError(error.message || "לא הצלחנו לפתוח את הקובץ");
+                            });
+                          }}
+                        >
+                          צפייה
+                        </Button>
+                      ) : null}
+                      {pdfFile && pdfPreview ? (
+                        <Button component="a" href={pdfPreview} download={pdfFile.name} size="small" variant="outlined" startIcon={<StrokeIcon name="download" />}>
                           הורדה
                         </Button>
-                      )}
+                      ) : null}
+                      {!pdfFile && storedResumeUrl ? (
+                        <Button
+                          type="button"
+                          size="small"
+                          variant="outlined"
+                          startIcon={<StrokeIcon name="download" />}
+                          onClick={() => {
+                            downloadProtectedFile(storedResumeUrl).catch((error) => {
+                              setResumeError(error.message || "לא הצלחנו לפתוח את הקובץ");
+                            });
+                          }}
+                        >
+                          הורדה
+                        </Button>
+                      ) : null}
                       <Button component="label" variant="outlined" color="primary" size="small" disabled={isSubmitting} startIcon={<StrokeIcon name="refresh" />}>
                         החלפה
-                        <input hidden type="file" accept="application/pdf" onChange={handleResumeChange} />
+                        <input hidden type="file" accept={RESUME_ACCEPT} onChange={handleResumeChange} />
                       </Button>
                     </Stack>
                   </Box>
@@ -509,8 +527,8 @@ export default function ProfilePage() {
                 <DropZone
                   icon="file"
                   title="העלאת קורות חיים"
-                  detail="PDF עד 10MB · אופציונלי"
-                  accept="application/pdf"
+                  detail="עד 10MB · אופציונלי"
+                  accept={RESUME_ACCEPT}
                   onChange={handleResumeChange}
                 />
               )}
